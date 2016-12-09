@@ -1,5 +1,4 @@
-#!/usr/local/Anaconda/envs/py3.5/bin/python3
-
+#!/usr/bin/python3
 
 import argparse
 from argparse import RawTextHelpFormatter
@@ -39,7 +38,7 @@ parser.add_argument('-l','--lenient', default='No', help="Use '-l Yes' to  to us
 					for situations where phenotype of parents uncertain or unknown")
 #########CODE#############
 def autosomal_recessive(db, family):
-	filter = " --filter \"aaf_esp_all < 0.01 AND aaf_1kg_all < 0.01 AND aaf_exac_all < 0.01 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
+	filter = " --filter \"aaf_esp_all < 0.01 AND aaf_1kg_all_float < 0.01 AND af_exac_all < 0.01 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
 				AND filter IS NULL\" --min-gq 20 "
 	if family=='-':
 		ar_query = "gemini autosomal_recessive" + columns + db + " " + filter
@@ -52,7 +51,7 @@ def autosomal_recessive(db, family):
 	return(ar,ar_query)
 
 def de_novo(db, family):
-	filter = " --filter \"aaf_esp_all < 0.005 AND aaf_1kg_all < 0.005 AND aaf_exac_all < 0.005 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
+	filter = " --filter \"aaf_esp_all < 0.005 AND aaf_1kg_all_float < 0.005 AND af_exac_all < 0.005 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
 				AND filter IS NULL\" --min-gq 20 "
 	if family=="-":
 		dn_query = "gemini de_novo" + columns + db + " " + filter
@@ -65,7 +64,7 @@ def de_novo(db, family):
 	return(dn, dn_query)
 
 def autosomal_dominant(db, family, lenient):
-	filter = " --filter \"aaf_esp_all < 0.0001 AND aaf_1kg_all < 0.0001 AND aaf_exac_all < 0.0001 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
+	filter = " --filter \"aaf_esp_all < 0.0001 AND aaf_1kg_all_float < 0.0001 AND af_exac_all < 0.0001 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
 				AND filter IS NULL\" --min-gq 20 "
 	if family == "-":
 		ad_query = "gemini autosomal_dominant" + columns + db + " " + filter
@@ -82,7 +81,7 @@ def autosomal_dominant(db, family, lenient):
 	return(ad, ad_query)
 
 def x_linked_recessive(db, family):
-	filter = " --filter \"aaf_esp_all < 0.005 AND aaf_1kg_all < 0.005 AND aaf_exac_all < 0.005 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
+	filter = " --filter \"aaf_esp_all < 0.005 AND aaf_1kg_all_float < 0.005 AND af_exac_all < 0.005 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
 				AND filter IS NULL\" --min-gq 20 "
 	if family == "-":
 		xlr_query = "gemini x_linked_recessive" + columns + db + " " + filter
@@ -95,7 +94,7 @@ def x_linked_recessive(db, family):
 	return(xlr, xlr_query)
 	
 def x_linked_dom(db, family):
-	filter = " --filter \"aaf_esp_all < 0.005 AND aaf_1kg_all < 0.005 AND aaf_exac_all < 0.005 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
+	filter = " --filter \"aaf_esp_all < 0.005 AND aaf_1kg_all_float < 0.005 AND af_exac_all < 0.005 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
 				AND filter IS NULL\" --min-gq 20 "
 	if family == "-":
 		xld_query = "gemini x_linked_dominant" + columns + db + " " + filter
@@ -108,7 +107,7 @@ def x_linked_dom(db, family):
 	return(xld, xld_query)
 
 def x_linked_de_novo(db, family):
-	filter = " --filter \"aaf_esp_all < 0.005 AND aaf_1kg_all < 0.005 AND aaf_exac_all < 0.005 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
+	filter = " --filter \"aaf_esp_all < 0.005 AND aaf_1kg_all_float < 0.005 AND af_exac_all < 0.005 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
 				AND filter IS NULL\" --min-gq 20 "
 	if family == "-":
 		xldn_query = "gemini x_linked_de_novo" + columns + db + " " + filter
@@ -121,7 +120,7 @@ def x_linked_de_novo(db, family):
 	return(xldn, xldn_query)
 
 def mendel_errors(db, family):
-	filter = " --filter \"aaf_esp_all < 0.005 AND aaf_1kg_all < 0.005 AND aaf_exac_all < 0.005 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
+	filter = " --filter \"aaf_esp_all < 0.005 AND aaf_1kg_all_float < 0.005 AND af_exac_all < 0.005 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
 				AND filter IS NULL\" --min-gq 20 "
 	if family == '-':
 		me_query = "gemini mendel_errors" + columns + db + " " + filter
@@ -134,7 +133,7 @@ def mendel_errors(db, family):
 	return(me, me_query)
 
 def comp_hets(db, family):
-	filter = " --filter \"aaf_esp_all < 0.01 AND aaf_1kg_all < 0.01 AND aaf_exac_all < 0.01 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
+	filter = " --filter \"aaf_esp_all < 0.01 AND aaf_1kg_all_float < 0.01 AND af_exac_all < 0.01 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
 				AND filter IS NULL\" --min-gq 20 --max-priority 2 "
 	if family == "-":
 		ch_query = "gemini comp_hets" + columns + db + " " + filter
@@ -166,25 +165,27 @@ def comp_hets(db, family):
 
 def acmg_incidentals(db, family):
 	#ACMG http://www.ncbi.nlm.nih.gov/clinvar/docs/acmg/ (list pulled 2016-07-11) incidental gene list
-	filter = "aaf_esp_all < 0.01 AND aaf_1kg_all < 0.01 AND aaf_exac_all < 0.01 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
+	filter = "aaf_esp_all < 0.01 AND aaf_1kg_all_float < 0.01 AND af_exac_all < 0.01 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
 				AND filter IS NULL"
 	acmg_genes = 'ACTA2','ACTC1','APC','APOB','BRCA1','BRCA2','CACNA1S','COL3A1','DSC2','DSG2','DSP','FBN1','GLA','KCNH2','KCNQ1',\
 				 'LDLR','LMNA','MEN1','MLH1','MSH2','MSH6','MUTYH','MYBPC3','MYH11','MYH7','MYL2','MYL3','MYLK','NF2','PCSK9','PKP2',\
 				 'PMS2','PRKAG2','PTEN','RB1','RET','RYR1','RYR2','SCN5A','SDHAF2','SDHB','SDHC','SDHD','SMAD3','STK11','TGFBR1',\
 				 'TGFBR2','TMEM43','TNNI3','TNNT2','TP53','TPM1','TSC1','TSC2','VHL','WT1'
-	columns = "chrom, start, end, codon_change, aa_change, type, impact, \
-           	   impact_severity, gene, clinvar_gene_phenotype, clinvar_sig,vep_pubmed, vep_phenotypes, pfam_domain, vep_hgvsp, \
-         	   max_aaf_all, aaf_1kg_all, aaf_exac_all, exac_num_hom_alt, exac_num_het, \
-           	   geno2mp_hpo_ct, gerp_bp_score, polyphen_score, cadd_scaled, sift_pred, \
-           	   sift_score, vep_maxEntScan, vep_grantham, (gts).(*), (gt_ref_depths).(*), (gt_alt_depths).(*)"
+	acmg_columns = columns.replace('--columns', '')
+	acmg_columns = acmg_columns.replace('"','') 
+#	columns = "chrom, start, end, codon_change, aa_change, type, impact, \
+#           	   impact_severity, gene, clinvar_gene_phenotype, clinvar_sig,vep_pubmed, vep_phenotypes, pfam_domain, vep_hgvsp, \
+#         	   max_aaf_all, aaf_1kg_all_float, af_exac_all, exac_num_hom_alt, exac_num_het, \
+#           	   geno2mp_hpo_ct, gerp_bp_score, polyphen_score, cadd_scaled, sift_pred, \
+#           	   sift_score, vep_maxEntScan, vep_grantham, (gts).(*), (gt_ref_depths).(*), (gt_alt_depths).(*)"
 
 	if family == "-":
-		acmg_query = "gemini query --header -q \"SELECT " + columns + "FROM variants WHERE \
+		acmg_query = "gemini query --header -q \"SELECT " + acmg_columns + "FROM variants WHERE \
 					  (gene IN (" + ",".join("'%s'" % g for g in acmg_genes) + ")) AND \
 					  (clinvar_sig LIKE '%pathogenic%' OR impact_severity='HIGH') AND (" + filter + ")\"" + \
 				 	  "--gt-filter \"(gt_types).(*).(!=HOM_REF).(count>=1)\" " + db
 	else:
-		new_columns = columns.replace('*','family_id=' + '\'' + family +'\'')
+		new_columns = acmg_columns.replace('*','family_id=' + '\'' + family +'\'')
 		acmg_query = "gemini query --header -q \"SELECT " + new_columns + "FROM variants WHERE \
 					  (gene IN (" + ",".join("'%s'" % g for g in acmg_genes) + ")) AND \
 					  (clinvar_sig LIKE '%pathogenic%' OR impact_severity='HIGH') AND (" + filter + ")\"" + \
@@ -215,17 +216,17 @@ def overview(db, queries):
 	vcf_header_bits.extend([x for x in vcf_header if x.startswith("##VEP")])
 	vcf_header_bits.extend([x for x in vcf_header if x.startswith("#CHROM")])
 	# summary stats, queries used, ped file
-	stats_query = "gemini stats --gts-by-sample " + db
-	stats = subprocess.check_output(stats_query,shell=True).decode('utf-8')
-	stats = stats.split('\n')
+#	stats_query = "gemini stats --gts-by-sample " + db
+#	stats = subprocess.check_output(stats_query,shell=True).decode('utf-8')
+#	stats = stats.split('\n')
 	ped_query = "gemini query --header -q \"SELECT * FROM samples\" " + db
 	ped = subprocess.check_output(ped_query,shell=True).decode('utf-8')
 	ped = ped.split('\n')
 	output = []
 	output.append("Date and Time this file was generated")
 	output.append(str(datetime.datetime.now().date()) + '\t' + str(datetime.datetime.now().time()))
-	output.append('Overall genotypes by sample')
-	output.extend(stats)
+#	output.append('Overall genotypes by sample')
+#	output.extend(stats)
 	output.append('PED information used for calls')
 	output.append('Gender: 1=male, 2=female, 0=unknown')
 	output.append('Phenotype: 1=unaffected, 2=affected, 0=unknown')
@@ -240,7 +241,8 @@ def overview(db, queries):
 
 def output_to_xlsx(data,sheet_name,skip):
 	worksheet = workbook.add_worksheet(sheet_name)
-#	format_bold = workbook.add_format({'bold': True})
+	format_bold = workbook.add_format({'bold': True})
+	format_unbold = workbook.add_format({'bold': False})
 	row = 0
 	col = 0
 	# Handling for nothing found. Don't want anyone thinking a messup happened
@@ -251,11 +253,23 @@ def output_to_xlsx(data,sheet_name,skip):
 	else:
 		if skip != 'yes':
 			data = reorder(data)
+		# find gene_eyediseaeclass column index
+		try:
+			eye_index = data[0].split('\t').index('gene_eyediseaseclass')
+		except:
+			pass
 		for line in data:
 			line = line.split('\t')
+			try:
+				if line[eye_index] == 'None':
+					xlsx_format = format_unbold
+				else:
+					xlsx_format = format_bold
+			except:
+				xlsx_format = format_unbold
 			for unit in line: 
 				#worksheet.write(row, col, unit, format_bold)
-				worksheet.write(row, col, unit)
+				worksheet.write(row, col, unit, xlsx_format)
 				col += 1
 			col = 0
 			row += 1
@@ -272,9 +286,9 @@ def reorder(data):
 		ar['max_aaf_all'] = ar['max_aaf_all'].astype(float)
 	#	ar['cadd_scaled'] = ar['cadd_scaled'].replace(to_replace='None')
 	#	ar['cadd_scaled'] = ar['cadd_scaled'].astype(float)
-		ar = ar.sort_values(by=['impact_severity', 'impact', 'clinvar_sig', 'pfam_domain','vep_phenotypes','vep_pubmed','max_aaf_all'])	
+		ar = ar.sort_values(by=['impact_severity', 'impact', 'clinvar_sig', 'domains','pubmed','max_aaf_all'])	
 		# create exac friendly chr:start-end
-		ar['chrom:start-end'] = ar['chrom'].str.split('chr').str.get(1) + ':' + ar['start'].map(str) + '-' + ar['end'].map(str)
+		ar['chrom:start-end'] = ar['chrom'].map(str) + ':' + ar['start'].map(str) + '-' + ar['end'].map(str)
 		cols = ar.columns.tolist()
 		newcols = cols[-1:] + cols[3:-1]
 		ar = ar[newcols]
@@ -346,11 +360,13 @@ def main():
 # global stuff
 args = parser.parse_args()
 workbook = xlsxwriter.Workbook(args.output_name)
-columns = 	" --columns \"chrom, start, end, codon_change, aa_change, type, vep_hgvsc, vep_hgvsp, gene, \
-			clinvar_gene_phenotype, impact, clinvar_sig, impact_severity, vep_pubmed, vep_phenotypes, \
-			pfam_domain, max_aaf_all, gerp_bp_score, cadd_scaled, aaf_1kg_all, aaf_exac_all, \
-			exac_num_hom_alt, exac_num_het, geno2mp_hpo_ct, polyphen_score, sift_pred, sift_score, \
-			vep_maxEntScan, vep_grantham, variant_id, (gts).(*), (gt_ref_depths).(*), (gt_alt_depths).(*) \" "
+columns = " --columns \"chrom, start, end, codon_change, aa_change, type, hgvsc, hgvsp, gene, \
+		   clinvar_diseases, impact, clinvar_sig, impact_severity, pubmed, \
+		   domains, max_aaf_all, gerp_elements, cadd_phred, aaf_1kg_all_float, af_exac_all, \
+		   exac_num_hom_alt, exac_num_het, polyphen_score, sift_pred, sift_score, \
+		   maxentscan, grantham, variant_id, n_syn, adj_exp_syn, n_mis,adj_exp_mis, \
+		   n_lof, adj_exp_lof, precessive, pnull, pli, gene_eyediseaseclass, \
+		   (gts).(*), (gt_ref_depths).(*), (gt_alt_depths).(*) \" "
 
 # run it!
 main()
