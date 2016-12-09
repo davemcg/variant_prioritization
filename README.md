@@ -1,2 +1,2 @@
-# NGS_flow
-Workflows taking Exome/WGS fastq files to prioritized variants
+# Genomic Variant Prioritization
+Worklow post-genotype calling to prioritize disease-causing variants.
