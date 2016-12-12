@@ -1,4 +1,4 @@
-#!/usr/local/Anaconda/envs/py3.5/bin/python3
+#!/usr/bin/env python3
 
 import argparse
 from argparse import RawTextHelpFormatter
