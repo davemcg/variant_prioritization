@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/local/Anaconda/envs/py3.5/bin/python3
 
 import argparse
 from argparse import RawTextHelpFormatter
@@ -286,7 +286,7 @@ def reorder(data):
 		ar['max_aaf_all'] = ar['max_aaf_all'].astype(float)
 	#	ar['cadd_scaled'] = ar['cadd_scaled'].replace(to_replace='None')
 	#	ar['cadd_scaled'] = ar['cadd_scaled'].astype(float)
-		ar = ar.sort_values(by=['impact_severity', 'impact', 'clinvar_sig', 'domains','pubmed','max_aaf_all'])	
+		ar = ar.sort_values(by=['impact_severity', 'impact', 'clinvar_sig', 'pfam_domain','pubmed','max_aaf_all'])	
 		# create exac friendly chr:start-end
 		ar['chrom:start-end'] = ar['chrom'].map(str) + ':' + ar['start'].map(str) + '-' + ar['end'].map(str)
 		cols = ar.columns.tolist()
@@ -361,8 +361,8 @@ def main():
 args = parser.parse_args()
 workbook = xlsxwriter.Workbook(args.output_name)
 columns = " --columns \"chrom, start, end, codon_change, aa_change, type, hgvsc, hgvsp, gene, \
-		   clinvar_diseases, impact, clinvar_sig, impact_severity, pubmed, \
-		   domains, max_aaf_all, gerp_elements, cadd_phred, aaf_1kg_all_float, af_exac_all, \
+		   clinvar_diseases, impact, clinvar_sig, impact_severity, pubmed, hgmd_overlap, \
+		   pfam_domain, max_aaf_all, gerp_elements, cadd_phred, aaf_1kg_all_float, af_exac_all, \
 		   exac_num_hom_alt, exac_num_het, polyphen_score, sift_pred, sift_score, \
 		   maxentscan, grantham, variant_id, n_syn, adj_exp_syn, n_mis,adj_exp_mis, \
 		   n_lof, adj_exp_lof, precessive, pnull, pli, gene_eyediseaseclass, \
