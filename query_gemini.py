@@ -38,7 +38,7 @@ parser.add_argument('-l','--lenient', default='No', help="Use '-l Yes' to  to us
 					for situations where phenotype of parents uncertain or unknown")
 #########CODE#############
 def autosomal_recessive(db, family):
-	filter = " --filter \"aaf_esp_all < 0.01 AND aaf_1kg_all_float < 0.01 AND af_exac_all < 0.01 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
+	filter = " --filter \"aaf < 0.1 AND aaf_esp_all < 0.01 AND aaf_1kg_all_float < 0.01 AND af_exac_all < 0.01 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
 				AND filter IS NULL\" --min-gq 20 "
 	if family=='-':
 		ar_query = "gemini autosomal_recessive" + columns + db + " " + filter
@@ -51,7 +51,7 @@ def autosomal_recessive(db, family):
 	return(ar,ar_query)
 
 def de_novo(db, family):
-	filter = " --filter \"aaf_esp_all < 0.005 AND aaf_1kg_all_float < 0.005 AND af_exac_all < 0.005 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
+	filter = " --filter \"aaf < 0.1 AND aaf_esp_all < 0.005 AND aaf_1kg_all_float < 0.005 AND af_exac_all < 0.005 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
 				AND filter IS NULL\" --min-gq 20 "
 	if family=="-":
 		dn_query = "gemini de_novo" + columns + db + " " + filter
@@ -64,7 +64,7 @@ def de_novo(db, family):
 	return(dn, dn_query)
 
 def autosomal_dominant(db, family, lenient):
-	filter = " --filter \"aaf_esp_all < 0.0001 AND aaf_1kg_all_float < 0.0001 AND af_exac_all < 0.0001 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
+	filter = " --filter \"aaf < 0.1 AND aaf_esp_all < 0.0001 AND aaf_1kg_all_float < 0.0001 AND af_exac_all < 0.0001 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
 				AND filter IS NULL\" --min-gq 20 "
 	if family == "-":
 		ad_query = "gemini autosomal_dominant" + columns + db + " " + filter
@@ -81,7 +81,7 @@ def autosomal_dominant(db, family, lenient):
 	return(ad, ad_query)
 
 def x_linked_recessive(db, family):
-	filter = " --filter \"aaf_esp_all < 0.005 AND aaf_1kg_all_float < 0.005 AND af_exac_all < 0.005 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
+	filter = " --filter \"aaf < 0.1 AND aaf_esp_all < 0.005 AND aaf_1kg_all_float < 0.005 AND af_exac_all < 0.005 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
 				AND filter IS NULL\" --min-gq 20 "
 	if family == "-":
 		xlr_query = "gemini x_linked_recessive" + columns + db + " " + filter
@@ -94,7 +94,7 @@ def x_linked_recessive(db, family):
 	return(xlr, xlr_query)
 	
 def x_linked_dom(db, family):
-	filter = " --filter \"aaf_esp_all < 0.005 AND aaf_1kg_all_float < 0.005 AND af_exac_all < 0.005 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
+	filter = " --filter \"aaf < 0.1 AND aaf_esp_all < 0.005 AND aaf_1kg_all_float < 0.005 AND af_exac_all < 0.005 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
 				AND filter IS NULL\" --min-gq 20 "
 	if family == "-":
 		xld_query = "gemini x_linked_dominant" + columns + db + " " + filter
@@ -107,7 +107,7 @@ def x_linked_dom(db, family):
 	return(xld, xld_query)
 
 def x_linked_de_novo(db, family):
-	filter = " --filter \"aaf_esp_all < 0.005 AND aaf_1kg_all_float < 0.005 AND af_exac_all < 0.005 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
+	filter = " --filter \"aaf < 0.1 AND aaf_esp_all < 0.005 AND aaf_1kg_all_float < 0.005 AND af_exac_all < 0.005 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
 				AND filter IS NULL\" --min-gq 20 "
 	if family == "-":
 		xldn_query = "gemini x_linked_de_novo" + columns + db + " " + filter
@@ -120,7 +120,7 @@ def x_linked_de_novo(db, family):
 	return(xldn, xldn_query)
 
 def mendel_errors(db, family):
-	filter = " --filter \"aaf_esp_all < 0.005 AND aaf_1kg_all_float < 0.005 AND af_exac_all < 0.005 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
+	filter = " --filter \"aaf < 0.1 AND aaf_esp_all < 0.005 AND aaf_1kg_all_float < 0.005 AND af_exac_all < 0.005 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
 				AND filter IS NULL\" --min-gq 20 "
 	if family == '-':
 		me_query = "gemini mendel_errors" + columns + db + " " + filter
@@ -133,7 +133,7 @@ def mendel_errors(db, family):
 	return(me, me_query)
 
 def comp_hets(db, family):
-	filter = " --filter \"aaf_esp_all < 0.01 AND aaf_1kg_all_float < 0.01 AND af_exac_all < 0.01 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
+	filter = " --filter \"aaf < 0.1 AND aaf_esp_all < 0.01 AND aaf_1kg_all_float < 0.01 AND af_exac_all < 0.01 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
 				AND filter IS NULL\" --min-gq 20 --max-priority 2 "
 	if family == "-":
 		ch_query = "gemini comp_hets" + columns + db + " " + filter
@@ -363,10 +363,10 @@ workbook = xlsxwriter.Workbook(args.output_name)
 columns = " --columns \"chrom, start, end, codon_change, aa_change, type, hgvsc, hgvsp, gene, \
 		   clinvar_diseases, impact, clinvar_sig, impact_severity, pubmed, hgmd_overlap, \
 		   pfam_domain, max_aaf_all, gerp_elements, cadd_phred, aaf_1kg_all_float, af_exac_all, \
-		   exac_num_hom_alt, exac_num_het, polyphen_score, sift_pred, sift_score, \
-		   maxentscan, grantham, variant_id, n_syn, adj_exp_syn, n_mis,adj_exp_mis, \
-		   n_lof, adj_exp_lof, precessive, pnull, pli, gene_eyediseaseclass, \
-		   (gts).(*), (gt_ref_depths).(*), (gt_alt_depths).(*) \" "
+		   exac_num_hom_alt, exac_num_het, call_rate, num_hom_ref, num_het, num_hom_alt, aaf, \
+	       polyphen_score, sift_pred, sift_score, maxentscan, grantham, variant_id, n_syn, \
+		   adj_exp_syn, n_mis,adj_exp_mis, n_lof, adj_exp_lof, precessive, pnull, pli, \
+		   gene_eyediseaseclass, variant_id,  (gts).(*), (gt_ref_depths).(*), (gt_alt_depths).(*) \" "
 
 # run it!
 main()
