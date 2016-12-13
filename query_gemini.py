@@ -361,7 +361,7 @@ def main():
 args = parser.parse_args()
 workbook = xlsxwriter.Workbook(args.output_name)
 columns = " --columns \"chrom, start, end, codon_change, aa_change, type, hgvsc, hgvsp, gene, \
-		   clinvar_diseases, impact, clinvar_sig, impact_severity, pubmed, hgmd_overlap, \
+		   clinvar_diseases, impact, clinvar_sig, clinvar_pathogenic, impact_severity, pubmed, hgmd_overlap, \
 		   pfam_domain, max_aaf_all, gerp_elements, cadd_phred, aaf_1kg_all_float, af_exac_all, \
 		   exac_num_hom_alt, exac_num_het, call_rate, num_hom_ref, num_het, num_hom_alt, aaf, \
 	       polyphen_score, sift_pred, sift_score, maxentscan, grantham, variant_id, n_syn, \
