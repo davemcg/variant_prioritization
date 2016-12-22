@@ -25,7 +25,7 @@ cat $VCF \
 bgzip tmp/${VCF%.vcf.gz}.VEP.GRCh37.vcf
 tabix -p vcf tmp/${VCF%.vcf.gz}.VEP.GRCh37.vcf.gz
 
-# annotate with Rob's eye gene list overlap and exac gene scores
+# annotate with custom annotations
 ~/bin/vcfanno -p $SLURM_CPUS_PER_TASK -lua /home/mcgaugheyd/git/variant_prioritization/vcfanno_custom.lua \
 	/home/mcgaugheyd/git/variant_prioritization/vcfanno_exomes.conf \
 	tmp/${VCF%.vcf.gz}.VEP.GRCh37.vcf.gz | bgzip > tmp/${VCF%.vcf.gz}.VEP.GRCh37.anno.vcf.gz
