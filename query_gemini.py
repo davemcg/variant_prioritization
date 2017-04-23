@@ -148,7 +148,11 @@ def comp_hets(db, family):
 	####
 	# find position of the gene column
 	print(ch[0])
-	gene_index = ch[0].split('\t').index('gene')
+	try:
+		gene_index = ch[0].split('\t').index('gene')
+	except:
+		new_ch='No variants found'
+		continue
 	# get counts for genes (last item in ch is blank)
 	gene_counts = Counter([x.split('\t')[gene_index] for x in ch[:-1]])
 	# id genes that appear more than 4 times
