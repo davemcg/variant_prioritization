@@ -174,7 +174,7 @@ def acmg_incidentals(db, family):
 	acmg_columns = columns.replace('--columns', '')
 	acmg_columns = acmg_columns.replace('"','') 
 #	columns = "chrom, start, end, codon_change, aa_change, type, impact, \
-#           	   impact_severity, gene, clinvar_gene_phenotype, clinvar_sig,vep_pubmed, vep_phenotypes, pfam_domain, vep_hgvsp, \
+#           	   impact_severity, gene, clinvar_gene_phenotype, clinvar_sig,vep_pubmed, vep_phenotypes, domains, vep_hgvsp, \
 #         	   max_aaf_all, aaf_1kg_all_float, af_exac_all, exac_num_hom_alt, exac_num_het, \
 #           	   geno2mp_hpo_ct, gerp_bp_score, polyphen_score, cadd_scaled, sift_pred, \
 #           	   sift_score, vep_maxEntScan, vep_grantham, (gts).(*), (gt_ref_depths).(*), (gt_alt_depths).(*)"
@@ -286,7 +286,7 @@ def reorder(data):
 		ar['max_aaf_all'] = ar['max_aaf_all'].astype(float)
 	#	ar['cadd_scaled'] = ar['cadd_scaled'].replace(to_replace='None')
 	#	ar['cadd_scaled'] = ar['cadd_scaled'].astype(float)
-		ar = ar.sort_values(by=['impact_severity', 'impact', 'clinvar_sig', 'pfam_domain','pubmed','max_aaf_all'])	
+		ar = ar.sort_values(by=['impact_severity', 'impact', 'clinvar_sig', 'domains','pubmed','max_aaf_all'])	
 		# create exac friendly chr:start-end
 		ar['chrom:start-end'] = ar['chrom'].map(str) + ':' + ar['start'].map(str) + '-' + ar['end'].map(str)
 		cols = ar.columns.tolist()
@@ -362,7 +362,7 @@ args = parser.parse_args()
 workbook = xlsxwriter.Workbook(args.output_name)
 columns = " --columns \"chrom, start, end, codon_change, aa_change, type, hgvsc, hgvsp, gene, \
 		   clinvar_diseases, impact, clinvar_sig, clinvar_pathogenic, impact_severity, pubmed, hgmd_overlap, \
-		   pfam_domain, max_aaf_all, gerp_elements, cadd_phred, aaf_1kg_all_float, af_exac_all, \
+		   domains, max_aaf_all, gerp_elements, cadd_phred, aaf_1kg_all_float, af_exac_all, \
 		   exac_num_hom_alt, exac_num_het, call_rate, num_hom_ref, num_het, num_hom_alt, aaf, \
 	       polyphen_score, sift_pred, sift_score, maxentscan, grantham, variant_id, n_syn, \
 		   adj_exp_syn, n_mis,adj_exp_mis, n_lof, adj_exp_lof, precessive, pnull, pli, \
