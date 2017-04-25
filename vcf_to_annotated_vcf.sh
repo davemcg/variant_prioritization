@@ -3,7 +3,7 @@
 # Assumes a GATK processed VCF after GATK-recommended filtering
 # Hard coded against grch37
 module load vcftools
-
+module load vcfanno/0.1.1
 VCF=$1
 
 mkdir tmp
@@ -26,8 +26,8 @@ bgzip tmp/${VCF%.vcf.gz}.VEP.GRCh37.vcf
 tabix -p vcf tmp/${VCF%.vcf.gz}.VEP.GRCh37.vcf.gz
 
 # annotate with custom annotations
-~/bin/vcfanno -p $SLURM_CPUS_PER_TASK -lua /home/mcgaugheyd/git/variant_prioritization/vcfanno_custom.lua \
-	/home/mcgaugheyd/git/variant_prioritization/vcfanno_exomes.conf \
+vcfanno -p $SLURM_CPUS_PER_TASK -lua /home/mcgaugheyd/git/variant_prioritization/src/vcfanno_custom.lua \
+	/home/mcgaugheyd/git/variant_prioritization/src/vcfanno_exomes.conf \
 	tmp/${VCF%.vcf.gz}.VEP.GRCh37.vcf.gz | bgzip > tmp/${VCF%.vcf.gz}.VEP.GRCh37.anno.vcf.gz
 tabix -p vcf tmp/${VCF%.vcf.gz}.VEP.GRCh37.anno.vcf.gz
 
@@ -35,4 +35,4 @@ tabix -p vcf tmp/${VCF%.vcf.gz}.VEP.GRCh37.anno.vcf.gz
 mv tmp/${VCF%.vcf.gz}.VEP.GRCh37.anno.vcf.* . 
 
 # delete temp files
-#rm -rf tmp
+rm -rf tmp
