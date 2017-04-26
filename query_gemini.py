@@ -152,7 +152,7 @@ def comp_hets(db, family):
 		gene_index = ch[0].split('\t').index('gene')
 	except:
 		new_ch='No variants found'
-		continue
+		#continue
 	# get counts for genes (last item in ch is blank)
 	gene_counts = Counter([x.split('\t')[gene_index] for x in ch[:-1]])
 	# id genes that appear more than 4 times
@@ -178,7 +178,7 @@ def acmg_incidentals(db, family):
 	acmg_columns = columns.replace('--columns', '')
 	acmg_columns = acmg_columns.replace('"','') 
 #	columns = "chrom, start, end, codon_change, aa_change, type, impact, \
-#           	   impact_severity, gene, clinvar_gene_phenotype, clinvar_sig,vep_pubmed, vep_phenotypes, domains, vep_hgvsp, \
+#           	   impact_severity, gene, clinvar_gene_phenotype, clinvar_sig,vep_pubmed, vep_phenotypes, domains, hgvsp, \
 #         	   max_aaf_all, aaf_1kg_all_float, af_exac_all, exac_num_hom_alt, exac_num_het, \
 #           	   geno2mp_hpo_ct, gerp_bp_score, polyphen_score, cadd_scaled, sift_pred, \
 #           	   sift_score, vep_maxEntScan, vep_grantham, (gts).(*), (gt_ref_depths).(*), (gt_alt_depths).(*)"
