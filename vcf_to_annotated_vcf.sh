@@ -19,7 +19,7 @@ cat $VCF \
 	> tmp/${VCF%.gz}
 
 # annotate with VEP
-/home/mcgaugheyd/git/variant_prioritization/run_VEP.sh tmp/${VCF%.gz} GRCh37 $SLURM_CPUS_PER_TASK
+/home/mcgaugheyd/git/variant_prioritization/src/run_VEP.sh tmp/${VCF%.gz} GRCh37 $SLURM_CPUS_PER_TASK
 
 # compress and index
 bgzip tmp/${VCF%.vcf.gz}.VEP.GRCh37.vcf
