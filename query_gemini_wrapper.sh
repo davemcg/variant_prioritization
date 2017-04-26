@@ -9,6 +9,8 @@ new_aaf=$4
 
 if [ -z "$4" ]
 	then
+		echo 'Running with default cohort AF (<0.1)'
 		~/git/variant_prioritization/src/query_gemini.py -d $gemini_db -f $family_name -o $output_name
 fi
-	~/git/variant_prioritization/src/query_gemini.py -d $gemini_db -f $family_name -o $output_name --af_change $new_af
+	echo 'Running with user given cohort AF filter value'
+	~/git/variant_prioritization/src/query_gemini.py -d $gemini_db -f $family_name -o $output_name --af_change $new_aaf
