@@ -4,7 +4,10 @@
 # Hard coded against grch37
 module load vcftools
 module load vcfanno/0.1.1
+module load vcf2db/7dfc48a
 VCF=$1
+ped=$2
+gemini_db_name=$3
 
 mkdir tmp
 
@@ -36,3 +39,6 @@ mv tmp/${VCF%.vcf.gz}.VEP.GRCh37.anno.vcf.* .
 
 # delete temp files
 rm -rf tmp
+
+# create gemini db
+vcf2db.py ${VCF%.vcf.gz}.VEP.GRCh37.anno.vcf.gz $ped $gemini_db_name
