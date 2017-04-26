@@ -36,9 +36,13 @@ parser.add_argument('-f','--family')
 parser.add_argument('-o','--output_name', required=True)
 parser.add_argument('-l','--lenient', default='No', help="Use '-l Yes' to  to use lenient settings on Autosome Dominant. Useful \
 					for situations where phenotype of parents uncertain or unknown")
+parser.add_argument('-a','--af_change', default = '0.1', help='Give cohort 0<AF<1 to filter out common variants. Use this flag \
+					if your cohort is very small, then change to, for example, 0.7 to not accidentally remove autosomal \
+					recessive variants')
+
 #########CODE#############
-def autosomal_recessive(db, family):
-	filter = " --filter \"aaf < 0.1 AND aaf_esp_all < 0.01 AND aaf_1kg_all_float < 0.01 AND af_exac_all < 0.01 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
+def autosomal_recessive(db, family, aaf):
+	filter = " --filter \" + aaf < " + aaf + " AND aaf_esp_all < 0.01 AND aaf_1kg_all_float < 0.01 AND af_exac_all < 0.01 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
 				AND filter IS NULL\" --min-gq 20 "
 	if family=='-':
 		ar_query = "gemini autosomal_recessive" + columns + db + " " + filter
@@ -50,8 +54,8 @@ def autosomal_recessive(db, family):
 	ar = ar.split('\n')
 	return(ar,ar_query)
 
-def de_novo(db, family):
-	filter = " --filter \"aaf < 0.1 AND aaf_esp_all < 0.005 AND aaf_1kg_all_float < 0.005 AND af_exac_all < 0.005 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
+def de_novo(db, family, aaf):
+	filter = " --filter \" + aaf < " + aaf + " AND aaf_esp_all < 0.005 AND aaf_1kg_all_float < 0.005 AND af_exac_all < 0.005 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
 				AND filter IS NULL\" --min-gq 20 "
 	if family=="-":
 		dn_query = "gemini de_novo" + columns + db + " " + filter
@@ -63,8 +67,8 @@ def de_novo(db, family):
 	dn = dn.split('\n')
 	return(dn, dn_query)
 
-def autosomal_dominant(db, family, lenient):
-	filter = " --filter \"aaf < 0.1 AND aaf_esp_all < 0.0001 AND aaf_1kg_all_float < 0.0001 AND af_exac_all < 0.0001 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
+def autosomal_dominant(db, family, lenient, aaf):
+	filter = " --filter \" + aaf < " + aaf + " AND aaf_esp_all < 0.0001 AND aaf_1kg_all_float < 0.0001 AND af_exac_all < 0.0001 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
 				AND filter IS NULL\" --min-gq 20 "
 	if family == "-":
 		ad_query = "gemini autosomal_dominant" + columns + db + " " + filter
@@ -80,8 +84,8 @@ def autosomal_dominant(db, family, lenient):
 	ad = ad.split('\n')
 	return(ad, ad_query)
 
-def x_linked_recessive(db, family):
-	filter = " --filter \"aaf < 0.1 AND aaf_esp_all < 0.005 AND aaf_1kg_all_float < 0.005 AND af_exac_all < 0.005 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
+def x_linked_recessive(db, family, aaf):
+	filter = " --filter \" + aaf < " + aaf + " AND aaf_esp_all < 0.005 AND aaf_1kg_all_float < 0.005 AND af_exac_all < 0.005 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
 				AND filter IS NULL\" --min-gq 20 "
 	if family == "-":
 		xlr_query = "gemini x_linked_recessive" + columns + db + " " + filter
@@ -93,8 +97,8 @@ def x_linked_recessive(db, family):
 	xlr = xlr.split('\n')
 	return(xlr, xlr_query)
 	
-def x_linked_dom(db, family):
-	filter = " --filter \"aaf < 0.1 AND aaf_esp_all < 0.005 AND aaf_1kg_all_float < 0.005 AND af_exac_all < 0.005 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
+def x_linked_dom(db, family, aaf):
+	filter = " --filter \" + aaf < " + aaf + " AND aaf_esp_all < 0.005 AND aaf_1kg_all_float < 0.005 AND af_exac_all < 0.005 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
 				AND filter IS NULL\" --min-gq 20 "
 	if family == "-":
 		xld_query = "gemini x_linked_dominant" + columns + db + " " + filter
@@ -106,8 +110,8 @@ def x_linked_dom(db, family):
 	xld = xld.split('\n')
 	return(xld, xld_query)
 
-def x_linked_de_novo(db, family):
-	filter = " --filter \"aaf < 0.1 AND aaf_esp_all < 0.005 AND aaf_1kg_all_float < 0.005 AND af_exac_all < 0.005 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
+def x_linked_de_novo(db, family, aaf):
+	filter = " --filter \" + aaf < " + aaf + " AND aaf_esp_all < 0.005 AND aaf_1kg_all_float < 0.005 AND af_exac_all < 0.005 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
 				AND filter IS NULL\" --min-gq 20 "
 	if family == "-":
 		xldn_query = "gemini x_linked_de_novo" + columns + db + " " + filter
@@ -119,8 +123,8 @@ def x_linked_de_novo(db, family):
 	xldn = xldn.split('\n')
 	return(xldn, xldn_query)
 
-def mendel_errors(db, family):
-	filter = " --filter \"aaf < 0.1 AND aaf_esp_all < 0.005 AND aaf_1kg_all_float < 0.005 AND af_exac_all < 0.005 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
+def mendel_errors(db, family, aaf):
+	filter = " --filter \" + aaf < " + aaf + " AND aaf_esp_all < 0.005 AND aaf_1kg_all_float < 0.005 AND af_exac_all < 0.005 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
 				AND filter IS NULL\" --min-gq 20 "
 	if family == '-':
 		me_query = "gemini mendel_errors" + columns + db + " " + filter
@@ -132,8 +136,8 @@ def mendel_errors(db, family):
 	me = me.split('\n')	
 	return(me, me_query)
 
-def comp_hets(db, family):
-	filter = " --filter \"aaf < 0.1 AND aaf_esp_all < 0.01 AND aaf_1kg_all_float < 0.01 AND af_exac_all < 0.01 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
+def comp_hets(db, family, aaf):
+	filter = " --filter \" + aaf < " + aaf + " AND aaf_esp_all < 0.01 AND aaf_1kg_all_float < 0.01 AND af_exac_all < 0.01 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
 				AND filter IS NULL\" --min-gq 20 --max-priority 2 "
 	if family == "-":
 		ch_query = "gemini comp_hets" + columns + db + " " + filter
@@ -167,9 +171,9 @@ def comp_hets(db, family):
 	new_ch.extend(common_ch)
 	return(new_ch, ch_query)
 
-def acmg_incidentals(db, family):
+def acmg_incidentals(db, family, aaf):
 	#ACMG http://www.ncbi.nlm.nih.gov/clinvar/docs/acmg/ (list pulled 2016-07-11) incidental gene list
-	filter = "aaf_esp_all < 0.01 AND aaf_1kg_all_float < 0.01 AND af_exac_all < 0.01 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
+	filter = "aaf < " + aaf + " AND aaf_esp_all < 0.01 AND aaf_1kg_all_float < 0.01 AND af_exac_all < 0.01 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
 				AND filter IS NULL"
 	acmg_genes = 'ACTA2','ACTC1','APC','APOB','BRCA1','BRCA2','CACNA1S','COL3A1','DSC2','DSG2','DSP','FBN1','GLA','KCNH2','KCNQ1',\
 				 'LDLR','LMNA','MEN1','MLH1','MSH2','MSH6','MUTYH','MYBPC3','MYH11','MYH7','MYL2','MYL3','MYLK','NF2','PCSK9','PKP2',\
@@ -310,40 +314,42 @@ def main():
 		family = '-'
 	lenient = args.lenient
 	lenient = lenient.lower()
+
+	aaf = args.af_change
 #	if lenient != 'no' or lenient != 'yes':
 #		print("-l --lenient must be 'Yes' or 'No'")
 #		sys.exit()
 	# output time
 	print('Running Autosomal Recessive')
-	ar, ar_query = autosomal_recessive(db, family)
+	ar, ar_query = autosomal_recessive(db, family, aaf)
 	output_to_xlsx(ar, "Autosomal Recessive", 'no')	
 
 	print('Running De Novo')
-	dn, dn_query = de_novo(db, family)
+	dn, dn_query = de_novo(db, family, aaf)
 	output_to_xlsx(dn, "De Novo", 'no')	
 	
 	print('Running Autosomal Dominant')
-	ad, ad_query = autosomal_dominant(db, family, lenient)
+	ad, ad_query = autosomal_dominant(db, family, lenient, aaf)
 	output_to_xlsx(ad, "Autosomal Dominant", 'no')
 	
 	print('Running X-Linked Tests')
-	xlr, xlr_query = x_linked_recessive(db, family)
+	xlr, xlr_query = x_linked_recessive(db, family, aaf)
 	output_to_xlsx(xlr, "XLR", 'no')
-	xld, xld_query = x_linked_dom(db, family)
+	xld, xld_query = x_linked_dom(db, family, aaf)
 	output_to_xlsx(xld, "XLD", 'no')
-	xldn, xldn_query = x_linked_de_novo(db, family)
+	xldn, xldn_query = x_linked_de_novo(db, family, aaf)
 	output_to_xlsx(xldn, "XLDeNovo", 'no')
 	
 	print('Running Mendelian Errors')
-	me, me_query = mendel_errors(db, family)
+	me, me_query = mendel_errors(db, family, aaf)
 	output_to_xlsx(me, "Mendelian Errors", 'no')
 
 	print('Running Compound Hets')
-	ch, ch_query = comp_hets(db, family)
+	ch, ch_query = comp_hets(db, family, aaf)
 	output_to_xlsx(ch, "Compound Hets", 'yes')
 
 	print('Running ACMG incidental findings')
-	acmg, acmg_query = acmg_incidentals(db, family)
+	acmg, acmg_query = acmg_incidentals(db, family, aaf)
 	output_to_xlsx(acmg, "ACMG Incidental Findings", 'no')
 
 
