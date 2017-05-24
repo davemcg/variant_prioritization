@@ -39,7 +39,8 @@ parser.add_argument('-l','--lenient', default='No', help="Use '-l Yes' to  to us
 parser.add_argument('-a','--af_change', default = '0.1', help='Give cohort 0<AF<1 to filter out common variants. Use this flag \
 					if your cohort is very small, then change to, for example, 0.7 to not accidentally remove autosomal \
 					recessive variants')
-
+parser.add_argument('-c','--collapse', default = 'No', help="Use '-c Yes' to collapse the different genetic model tests into one tab. \
+					There will be three tabs: Disease Candidates, ACMG, Info")
 #########CODE#############
 def autosomal_recessive(db, family, aaf):
 	filter = " --filter \" + aaf < " + aaf + " AND aaf_esp_all < 0.01 AND aaf_1kg_all_float < 0.01 AND af_exac_all < 0.01 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
@@ -247,7 +248,7 @@ def overview(db, queries):
 	output.extend(vcf_header_bits)
 	return(output)
 
-def output_to_xlsx(data,sheet_name,skip):
+def output_to_xlsx(data, sheet_name, skip):
 	worksheet = workbook.add_worksheet(sheet_name)
 	format_bold = workbook.add_format({'bold': True})
 	format_unbold = workbook.add_format({'bold': False})
@@ -306,6 +307,20 @@ def reorder(data):
 		pass
 	return(data)
 
+def column_adder(data, column_name, column_value):
+	"""
+	Takes a string and adds a new \t separated value at the end, with a repeating column_value
+	"""
+	try:
+		data[0] = column_name + '\t' + data[0]
+	except:
+		return(data)
+	for i in range(1,len(data)):
+		data[i] = column_value + '\t' + data[i]
+	if len(data) < 2:
+		data[0] = column_value + ': no variants found'
+	return(data)
+
 def main():
 	db = args.database
 	if args.family:
@@ -315,43 +330,56 @@ def main():
 	lenient = args.lenient
 	lenient = lenient.lower()
 
+	collapse = args.collapse
+	collapse = collapse.lower()
+
 	aaf = args.af_change
-#	if lenient != 'no' or lenient != 'yes':
-#		print("-l --lenient must be 'Yes' or 'No'")
-#		sys.exit()
-	# output time
+
 	print('Running Autosomal Recessive')
 	ar, ar_query = autosomal_recessive(db, family, aaf)
-	output_to_xlsx(ar, "Autosomal Recessive", 'no')	
-
+	
 	print('Running De Novo')
 	dn, dn_query = de_novo(db, family, aaf)
-	output_to_xlsx(dn, "De Novo", 'no')	
 	
 	print('Running Autosomal Dominant')
 	ad, ad_query = autosomal_dominant(db, family, lenient, aaf)
-	output_to_xlsx(ad, "Autosomal Dominant", 'no')
 	
 	print('Running X-Linked Tests')
 	xlr, xlr_query = x_linked_recessive(db, family, aaf)
-	output_to_xlsx(xlr, "XLR", 'no')
 	xld, xld_query = x_linked_dom(db, family, aaf)
-	output_to_xlsx(xld, "XLD", 'no')
 	xldn, xldn_query = x_linked_de_novo(db, family, aaf)
-	output_to_xlsx(xldn, "XLDeNovo", 'no')
-	
+		
 	print('Running Mendelian Errors')
 	me, me_query = mendel_errors(db, family, aaf)
-	output_to_xlsx(me, "Mendelian Errors", 'no')
-
+	
 	print('Running Compound Hets')
 	ch, ch_query = comp_hets(db, family, aaf)
-	output_to_xlsx(ch, "Compound Hets", 'yes')
-
+	
 	print('Running ACMG incidental findings')
 	acmg, acmg_query = acmg_incidentals(db, family, aaf)
+	
+	# write findings to xlsx sheet
+	print('Writing output')
+	if collapse == 'yes':
+		ar = column_adder(ar, 'Genetic Test', 'Autosomal Recessive')
+		dn = column_adder(dn, 'Genetic Test', 'De Novo')
+		ad = column_adder(ad, 'Genetic Test', 'Autosomal Dominant')
+		xlr = column_adder(xlr, 'Genetic Test', 'X Linked Recessive')
+		xld = column_adder(xld, 'Genetic Test', 'X Linked Dominant')
+		xldn = column_adder(xldn, 'Genetic Test', 'X Linked De Novo')
+		me = column_adder(me, 'Genetic Test', 'Mendelian Errors')
+		collapsed_tests = ar + dn + ad + xlr + xld + xldn + me
+		output_to_xlsx(collapsed_tests, 'Variants', 'no')
+	else:
+		output_to_xlsx(ar, "Autosomal Recessive", 'no')	
+		output_to_xlsx(dn, "De Novo", 'no')	
+		output_to_xlsx(ad, "Autosomal Dominant", 'no')
+		output_to_xlsx(xlr, "XLR", 'no')
+		output_to_xlsx(xld, "XLD", 'no')
+		output_to_xlsx(xldn, "XLDeNovo", 'no')
+		output_to_xlsx(me, "Mendelian Errors", 'no')
+	output_to_xlsx(ch, "Compound Hets", 'yes')
 	output_to_xlsx(acmg, "ACMG Incidental Findings", 'no')
-
 
 	# get all queries in one list
 	queries = []
