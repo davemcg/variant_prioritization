@@ -361,7 +361,7 @@ def main():
 	# write findings to xlsx sheet
 	print('Writing output')
 	if collapse == 'yes':
-		ar = column_adder(ar, 'Genetic Test', 'Autosomal Recessive')
+		ar = column_adder(ar, 'Genetic Test', 'Homozygous Alt')
 		dn = column_adder(dn, 'Genetic Test', 'De Novo')
 		ad = column_adder(ad, 'Genetic Test', 'Autosomal Dominant')
 		xlr = column_adder(xlr, 'Genetic Test', 'X Linked Recessive')
@@ -370,15 +370,16 @@ def main():
 		me = column_adder(me, 'Genetic Test', 'Mendelian Errors')
 		collapsed_tests = ar + dn + ad + xlr + xld + xldn + me
 		output_to_xlsx(collapsed_tests, 'Variants', 'no')
+		output_to_xlsx(ch, "Compound Hets", 'yes')
 	else:
-		output_to_xlsx(ar, "Autosomal Recessive", 'no')	
+		output_to_xlsx(ar, "Homozygous Alt", 'no')
+		output_to_xlsx(ch, "Compound Hets", 'yes')	
 		output_to_xlsx(dn, "De Novo", 'no')	
 		output_to_xlsx(ad, "Autosomal Dominant", 'no')
 		output_to_xlsx(xlr, "XLR", 'no')
 		output_to_xlsx(xld, "XLD", 'no')
 		output_to_xlsx(xldn, "XLDeNovo", 'no')
 		output_to_xlsx(me, "Mendelian Errors", 'no')
-	output_to_xlsx(ch, "Compound Hets", 'yes')
 	output_to_xlsx(acmg, "ACMG Incidental Findings", 'no')
 
 	# get all queries in one list
