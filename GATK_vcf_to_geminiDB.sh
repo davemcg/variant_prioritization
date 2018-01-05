@@ -8,7 +8,7 @@ module load vcf2db/7dfc48a
 VCF=$1
 ped=$2
 gemini_db_name=$3
-
+canonical=$4
 
 #vt to "left align and trim alternative variants"
 cat $VCF \
@@ -18,12 +18,21 @@ cat $VCF \
 	> /scratch/mcgaugheyd/${VCF%.gz}
 
 # annotate with VEP
-/home/mcgaugheyd/git/variant_prioritization/src/run_VEP.sh /scratch/mcgaugheyd/${VCF%.gz} GRCh37 $SLURM_CPUS_PER_TASK
-echo 'VEP done'
+# if canonical is selected, then only return one transcript per variant, using VEP pick order
+# use 'Yes' for clinical results, as gemini will pick the transcript with the most severe consequence, no matter how reliable the transcript is
+if [ $canonical = "Canonical" ]; then
+	echo 'Running VEP canonical'
+	/home/mcgaugheyd/git/variant_prioritization/src/run_VEP.sh /scratch/mcgaugheyd/${VCF%.gz} GRCh37 $SLURM_CPUS_PER_TASK Canonical
+	echo 'VEP canonical done'
+else
+	echo 'Running VEP'
+	/home/mcgaugheyd/git/variant_prioritization/src/run_VEP.sh /scratch/mcgaugheyd/${VCF%.gz} GRCh37 $SLURM_CPUS_PER_TASK All
+    echo 'VEP done'
+fi	
 
 # compress and index
-bgzip /scratch/mcgaugheyd/${VCF%.vcf.gz}.VEP.GRCh37.vcf
-tabix -p vcf /scratch/mcgaugheyd/${VCF%.vcf.gz}.VEP.GRCh37.vcf.gz
+bgzip -f /scratch/mcgaugheyd/${VCF%.vcf.gz}.VEP.GRCh37.vcf
+tabix -f -p vcf /scratch/mcgaugheyd/${VCF%.vcf.gz}.VEP.GRCh37.vcf.gz
 echo 'bgzip and tabix done'
 
 # annotate with custom annotations
