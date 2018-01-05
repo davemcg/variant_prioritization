@@ -1,0 +1,119 @@
+SAMPLE = str(config['input_vcf']).split('.vcf')[0]
+if type(config['ped']) == list:
+	PEDfile = [x.split('.ped')[0].split('/')[-1] for x in config['ped']]
+	PEDbase = '/'.join(config['ped'][0].split('.ped')[0].split('/')[:-1]) + '/'
+else:
+	PEDfile = config['ped'].split('.ped')[0].split('/')[-1]
+	PEDbase = '/'.join(config['ped'].split('.ped')[0].split('/')[:-1]) + '/'
+
+if type(config['family_name']) == str:
+	family_name_con = config['family_name']
+else:
+	family_name_con = '|'.join(config['family_name'])
+
+wildcard_constraints:
+	sample=SAMPLE,
+	family_name=family_name_con
+
+rule all:
+	input:
+		#expand('{sample}.PED_{ped}.gemini.db', sample=SAMPLE, ped=PED),
+		expand('{sample}.{family_name}.PED_{ped}.excel.report.xlsx', sample=SAMPLE, ped=PEDfile, family_name=config['family_name'])
+
+rule vt_bgzip_and_tabix_vcf:
+	input:
+		config['input_vcf']
+	output:
+		vcf = temp('temp/{sample}.vcf.gz'),
+		index = temp('temp/{sample}.vcf.gz.tbi')
+	shell:
+		"""
+		export REF_CACHE=/scratch/$SLURM_JOB_ID/
+		module load {config[samtools_version]}
+		cat {input} \
+			| sed 's/ID=AD,Number=./ID=AD,Number=R/' \
+			| ~/git/vt/./vt decompose -s - \
+			| ~/git/vt/./vt normalize -r {config[ref_genome]} - \
+			| bgzip -c > {output.vcf}
+		tabix -f -p vcf {output.vcf}
+		"""
+
+rule VEP_annotate:
+	input:
+		'temp/{sample}.vcf.gz'
+	output:
+		vcf = temp('temp/{sample}.SORTED.VT.VEP.vcf.gz'),
+		index = temp('temp/{sample}.SORTED.VT.VEP.vcf.gz.tbi')
+	threads: 16
+	shell:
+		"""
+		module load {config[VEP_version]}
+		vep -i {input} --offline \
+			--cache --dir_cache $VEPCACHEDIR \
+			--fasta $VEPCACHEDIR/GRCh37.fa --species human --assembly GRCh37  \
+			--format vcf \
+			--output_file {output.vcf} \
+			--plugin Grantham \
+			--plugin MaxEntScan,/data/OGVFB/resources/MaxEntScan \
+			--plugin CADD,/fdb/CADD/1.3/prescored/whole_genome_SNVs.tsv.gz,/fdb/CADD/1.3/prescored/InDels.tsv.gz \
+			--canonical \
+			--ccds \
+			--total_length \
+			--hgvs \
+			--sift b \
+			--polyphen b \
+			--symbol \
+			--numbers \
+			--biotype \
+			--total_length \
+			--pubmed \
+			--domains \
+			--gene_phenotype \
+			--pick \
+			--pick_order canonical, tsl, biotype, ccds, length \
+			--fields Consequence,Codons,Amino_acids,Gene,SYMBOL,Feature,EXON,PolyPhen,SIFT,Protein_position,BIOTYPE,CANONICAL,DOMAINS,CLIN_SIG,Grantham,MaxEntScan,HGVSc,HGVSp,PUBMED,Phenotypes,CADD_RAW,CADD_PHRED \
+			--vcf --compress_output bgzip --force_overwrite --fork {threads}
+		# tabix
+		tabix -f -p vcf {output.vcf}
+		"""
+
+rule vcfanno_annotate:
+	input:
+		vcf = 'temp/{sample}.SORTED.VT.VEP.vcf.gz',
+		index = 'temp/{sample}.SORTED.VT.VEP.vcf.gz'
+	output:
+		vcf = 'temp/{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz',
+		index = 'temp/{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz.tbi'
+	threads: 16
+	shell:
+		"""
+		module load {config[vcfanno_version]}
+		vcfanno -p {threads} -lua {config[vcfanno_lua]} {config[vcfanno_conf]} {input.vcf} | bgzip > {output.vcf} 
+		tabix -f -p vcf {output.vcf}
+		"""
+
+rule make_gemini_db:
+	input:
+		vcf = 'temp/{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz',
+		index = 'temp/{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz.tbi'
+	output:
+		'{sample}.PED_{ped}.gemini.db'
+	shell:
+		"""
+		module load {config[vcf2db_version]}
+		echo {wildcards.ped}.ped
+		vcf2db.py {input.vcf} {PEDbase}{wildcards.ped}.ped {output}
+		"""
+
+rule query_gemini:
+	input:
+		db = '{sample}.PED_{ped}.gemini.db'
+	params:
+		aaf = config['aaf_change']
+	output:
+		report_name = '{sample}.{family_name}.PED_{ped}.excel.report.xlsx'
+	shell:
+		"""
+		module load {config[gemini_version]}
+		bash /home/mcgaugheyd/git/variant_prioritization/query_gemini_wrapper.sh {input} {wildcards.family_name} {output} {params.aaf}
+		"""
