@@ -1,5 +1,5 @@
 # Genomic Variant Prioritization
-Snakemae worklow post-genotype calling to prioritize disease-causing variants.
+Snakemake worklow post-genotype calling to prioritize disease-causing variants.
 
 # Input
 - VCF from GVCF_to_hardFilteredVCF.sh
