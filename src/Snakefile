@@ -1,7 +1,12 @@
+#grab SAMPLE name from vcf input
 SAMPLE = str(config['input_vcf']).split('.vcf')[0]
+# logic to parse ped for families
+# can either be multiple families (a list) in the yaml as below
+# need to grab the family names from it
 if type(config['ped']) == list:
 	PEDfile = [x.split('.ped')[0].split('/')[-1] for x in config['ped']]
 	PEDbase = '/'.join(config['ped'][0].split('.ped')[0].split('/')[:-1]) + '/'
+# otherwise just one family can be provided, which would be a str as below:
 else:
 	PEDfile = config['ped'].split('.ped')[0].split('/')[-1]
 	PEDbase = '/'.join(config['ped'].split('.ped')[0].split('/')[:-1]) + '/'
@@ -20,6 +25,7 @@ rule all:
 		#expand('{sample}.PED_{ped}.gemini.db', sample=SAMPLE, ped=PED),
 		expand('{sample}.{family_name}.PED_{ped}.excel.report.xlsx', sample=SAMPLE, ped=PEDfile, family_name=config['family_name'])
 
+# use vt to left correct and normalize all variants, as gemini recommends
 rule vt_bgzip_and_tabix_vcf:
 	input:
 		config['input_vcf']
@@ -37,7 +43,7 @@ rule vt_bgzip_and_tabix_vcf:
 			| bgzip -c > {output.vcf}
 		tabix -f -p vcf {output.vcf}
 		"""
-
+# annotate with VEP
 rule VEP_annotate:
 	input:
 		'temp/{sample}.vcf.gz'
@@ -77,6 +83,7 @@ rule VEP_annotate:
 		tabix -f -p vcf {output.vcf}
 		"""
 
+# annotate with vcfanno
 rule vcfanno_annotate:
 	input:
 		vcf = 'temp/{sample}.SORTED.VT.VEP.vcf.gz',
@@ -92,6 +99,7 @@ rule vcfanno_annotate:
 		tabix -f -p vcf {output.vcf}
 		"""
 
+# create gemini database
 rule make_gemini_db:
 	input:
 		vcf = 'temp/{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz',
@@ -105,6 +113,7 @@ rule make_gemini_db:
 		vcf2db.py {input.vcf} {PEDbase}{wildcards.ped}.ped {output}
 		"""
 
+# now write report for each family given in the yaml family_name section
 rule query_gemini:
 	input:
 		db = '{sample}.PED_{ped}.gemini.db'
