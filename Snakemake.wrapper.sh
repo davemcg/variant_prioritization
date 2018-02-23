@@ -4,6 +4,7 @@
 # run in the data folder for this project
 
 module load snakemake || exit 1
+mkdir -p 00log
 
 sbcmd="sbatch --cpus-per-task={threads} \
 --mem={cluster.mem} \
