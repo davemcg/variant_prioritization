@@ -83,12 +83,16 @@ rule VEP_annotate:
 	shell:
 		"""
 		module load {config[VEP_version]}
+		module load {config[samtools_version]}
 		vep -i {input} --offline \
 			--cache --dir_cache $VEPCACHEDIR \
 			--fasta $VEPCACHEDIR/GRCh37.fa --species human --assembly GRCh37  \
 			--format vcf \
 			--output_file {output.vcf} \
 			--plugin Grantham \
+			--plugin dbNSFP,$VEPCACHEDIR/dbNSFP3.5a.txt.gz,DANN_score,DANN_rankscore,fathmm-MKL_coding_score,fathmm-MKL_coding_rankscore,fathmm-MKL_coding_pred,fathmm-MKL_coding_group \
+            --plugin GeneSplicer,$GS/bin/genesplicer,$GS/human,context=200 \
+            --plugin SpliceRegion \
 			--plugin MaxEntScan,/data/OGVFB/resources/MaxEntScan \
 			--plugin CADD,/fdb/CADD/1.3/prescored/whole_genome_SNVs.tsv.gz,/fdb/CADD/1.3/prescored/InDels.tsv.gz \
 			--canonical \
@@ -104,9 +108,8 @@ rule VEP_annotate:
 			--pubmed \
 			--domains \
 			--gene_phenotype \
-			--pick \
-			--pick_order canonical, tsl, biotype, ccds, length \
-			--fields Consequence,Codons,Amino_acids,Gene,SYMBOL,Feature,EXON,PolyPhen,SIFT,Protein_position,BIOTYPE,CANONICAL,DOMAINS,CLIN_SIG,Grantham,MaxEntScan,HGVSc,HGVSp,PUBMED,Phenotypes,CADD_RAW,CADD_PHRED \
+		    --custom /fdb/gnomad/vep/gnomad.genomes.r2.0.1.sites.noVEP.vcf.gz,gnomADg,vcf,exact,0,AF_AFR,AF_AMR,AF_ASJ,AF_EAS,AF_FIN,AF_NFE,AF_OTH \
+            --fields Allele,Consequence,Codons,Amino_acids,Gene,SYMBOL,Feature,EXON,PolyPhen,SIFT,Protein_position,BIOTYPE,CANONICAL,DOMAINS,CLIN_SIG,Grantham,MaxEntScan,HGVSc,HGVSp,PUBMED,Phenotypes,CADD_RAW,CADD_PHRED,DANN_score,DANN_rankscore,fathmm-MKL_coding_score,fathmm-MKL_coding_rankscore,fathmm-MKL_coding_pred,fathmm-MKL_coding_group,GeneSplicer,SpliceRegion \
 			--vcf --compress_output bgzip --force_overwrite --fork {threads}
 		# tabix
 		tabix -f -p vcf {output.vcf}
