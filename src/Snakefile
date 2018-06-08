@@ -16,6 +16,15 @@ if type(config['family_name']) == str:
 else:
 	family_name_con = '|'.join(config['family_name'])
 
+def pick():
+	# modifies VEP call to either pick most canonical tx or 
+	# return all tx possibilities
+	if config['pick'].upper() == 'CANONICAL':
+		out = '--pick --pick_order canonical, tsl, biotype, ccds, length '
+	if config['pick'].upper() == 'ALL':
+		out = '--flag_pick_allele_gene '
+	return(out)
+
 # import regions
 REGIONS_file = config['regions']
 REGIONS = open(REGIONS_file).readlines()
@@ -73,13 +82,22 @@ rule vt_bgzip_and_tabix_vcf:
 		"""
 
 # annotate with VEP
+# two paths here, set by config['pick'] in config.yaml and the pick() function:
+# 1. 'canonical' only returns one consequence per variant. 
+# 		Use this for clinical returns, as no risk of using odd tx with 
+# 		high consequence as choice in gemini
+# 2. 'all' will do multiple annotations with VEP and gemini will use 
+# 	the most serious consequence. 
+# 		Use for more research returns, to increase chances of finding 
+# 		interesting variants at cost of lower specificity.
 rule VEP_annotate:
 	input:
 		'temp/vt.{sample}__{region}.vcf.gz'
 	output:
 		vcf = temp('temp/{sample}__{region}.SORTED.VT.VEP.vcf.gz'),
 		index = temp('temp/{sample}__{region}.SORTED.VT.VEP.vcf.gz.tbi')
-	threads: 2
+	params:
+		pick = pick()
 	shell:
 		"""
 		module load {config[VEP_version]}
@@ -90,7 +108,7 @@ rule VEP_annotate:
 			--format vcf \
 			--output_file {output.vcf} \
 			--plugin Grantham \
-			--plugin dbNSFP,$VEPCACHEDIR/dbNSFP3.5a.txt.gz,DANN_score,DANN_rankscore,fathmm-MKL_coding_score,fathmm-MKL_coding_rankscore,fathmm-MKL_coding_pred,fathmm-MKL_coding_group \
+			--plugin dbscSNV,$VEPCACHEDIR/dbscSNV1.1.txt.gz \
             --plugin GeneSplicer,$GS/bin/genesplicer,$GS/human,context=200 \
             --plugin SpliceRegion \
 			--plugin MaxEntScan,/data/OGVFB/resources/MaxEntScan \
@@ -108,9 +126,9 @@ rule VEP_annotate:
 			--pubmed \
 			--domains \
 			--gene_phenotype \
-		    --custom /fdb/gnomad/vep/gnomad.genomes.r2.0.1.sites.noVEP.vcf.gz,gnomADg,vcf,exact,0,AF_AFR,AF_AMR,AF_ASJ,AF_EAS,AF_FIN,AF_NFE,AF_OTH \
-            --fields Allele,Consequence,Codons,Amino_acids,Gene,SYMBOL,Feature,EXON,PolyPhen,SIFT,Protein_position,BIOTYPE,CANONICAL,DOMAINS,CLIN_SIG,Grantham,MaxEntScan,HGVSc,HGVSp,PUBMED,Phenotypes,CADD_RAW,CADD_PHRED,DANN_score,DANN_rankscore,fathmm-MKL_coding_score,fathmm-MKL_coding_rankscore,fathmm-MKL_coding_pred,fathmm-MKL_coding_group,GeneSplicer,SpliceRegion \
-			--vcf --compress_output bgzip --force_overwrite --fork {threads}
+			{params.pick} \
+            --fields Allele,Consequence,Codons,Amino_acids,Gene,SYMBOL,Feature,EXON,PolyPhen,SIFT,Protein_position,BIOTYPE,CANONICAL,DOMAINS,CLIN_SIG,PICK,Grantham,MaxEntScan,HGVSc,HGVSp,PUBMED,Phenotypes,CADD_RAW,CADD_PHRED,GeneSplicer,SpliceRegion \
+			--vcf --compress_output bgzip --force_overwrite 
 		# tabix
 		tabix -f -p vcf {output.vcf}
 		"""
@@ -121,9 +139,9 @@ rule vcfanno_annotate:
 		vcf = 'temp/{sample}__{region}.SORTED.VT.VEP.vcf.gz',
 		index = 'temp/{sample}__{region}.SORTED.VT.VEP.vcf.gz'
 	output:
-		vcf = 'temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.vcf.gz',
-		index = 'temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.vcf.gz.tbi'
-	threads: 16
+		vcf = temp('temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.vcf.gz'),
+		index = temp('temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.vcf.gz.tbi')
+	threads: 4
 	shell:
 		"""
 		module load {config[vcfanno_version]}
@@ -131,11 +149,27 @@ rule vcfanno_annotate:
 		tabix -f -p vcf {output.vcf}
 		"""
 
+# fix number=A issue
+# Since I decompose variants into multiple lines,
+# I can make number=1 so vcf2b will keep
+rule tweak_header:
+	input:
+		'temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.vcf.gz'
+	output:
+		vcf = 'temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz',
+		index = 'temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz.tbi'
+	shell:
+		"""
+		zcat {input} | sed 's/Number=A/Number=1/g' | bgzip -c > {output.vcf}
+		tabix -f -p vcf {output.vcf}
+		"""
+
+
 # merge vcfs into one again
 rule merge_vcf:
 	input:
-		vcf = expand('temp/{{sample}}__{region}.SORTED.VT.VEP.VCFANNO.vcf.gz', region=REGIONS),
-		index = expand('temp/{{sample}}__{region}.SORTED.VT.VEP.VCFANNO.vcf.gz.tbi', region=REGIONS)
+		vcf = expand('temp/{{sample}}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz', region=REGIONS),
+		index = expand('temp/{{sample}}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz.tbi', region=REGIONS)
 	output:
 		vcf = 'temp/{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz',
 		index = 'temp/{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz.tbi'
