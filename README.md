@@ -1,8 +1,8 @@
 # Genomic Variant Prioritization
-Snakemake worklow post-genotype calling to prioritize disease-causing variants.
+Snakemake workflow post-genotype calling to prioritize disease-causing variants.
 
 # Input
-- VCF from GVCF_to_hardFilteredVCF.sh
+- VCF from [NGS_genotype_calling](https://github.com/davemcg/NGS_genotype_calling/blob/master/GVCF_to_VCF_snakemake.wrapper.sh)
 - PED with samples in VCF
 - List of families to process
 
