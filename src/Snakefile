@@ -1,4 +1,4 @@
-#grab SAMPLE name from vcf input:wq
+#grab SAMPLE name from vcf input
 SAMPLE = str(config['input_vcf']).split('.vcf')[0]
 # logic to parse ped for families
 # can either be  multiple families (a list) in the yaml as below
