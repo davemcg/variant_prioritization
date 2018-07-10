@@ -7,7 +7,7 @@ Snakemake workflow post-genotype calling to prioritize disease-causing variants.
 - List of families to process
 
 # Set up
-Copy [src/config_variant_prioritization.yaml]() to your local folder and edit the `ped` field to give a path to your ped file. You will also need to edit the `family_name` to instruct Snakemake which families (must match ped family field, column 1) to create reports from. You can either give one family like so:
+Copy [src/config_variant_prioritization.yaml](https://github.com/davemcg/variant_prioritization/blob/master/src/config_variant_prioritization.yaml) to your local folder and edit the `ped` field to give a path to your ped file. You will also need to edit the `family_name` to instruct Snakemake which families (must match ped family field, column 1) to create reports from. You can either give one family like so:
 
 - family_name: 'gupta_fam'
 
