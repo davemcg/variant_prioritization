@@ -193,7 +193,7 @@ rule peddy_QC:
 	shell:
 		"""
 		module load {config[peddy_version]}
-		peddy -p {threads} {input} {config[ped]} --prefix {sample}_PEDDY
+		peddy -p {threads} {input} {config[ped]} --prefix {wildcards.sample}_PEDDY
 		"""
 
 
@@ -222,6 +222,6 @@ rule query_gemini:
 		report_name = '{sample}.{family_name}.PED_{ped}.excel.report.xlsx'
 	shell:
 		"""
-		module load {config[R]}
-		Rscript {config[SeeGEM_script} {input} {wildcards.family_name} {output} {sample}_PEDDY
+		module load {config[R_version]}
+		Rscript {config[SeeGEM_script]} {input} {wildcards.family_name} {output} {wildcards.sample}_PEDDY
 		"""
