@@ -43,7 +43,7 @@ parser.add_argument('-c','--collapse', default = 'No', help="Use '-c Yes' to col
 					There will be three tabs: Disease Candidates, ACMG, Info")
 #########CODE#############
 def autosomal_recessive(db, family, aaf):
-	filter = " --filter \" + aaf < " + aaf + " AND aaf_esp_all < 0.01 AND aaf_1kg_all_float < 0.01 AND af_exac_all < 0.01 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
+	filter = " --filter \" + aaf < " + aaf + " AND aaf_esp_all < 0.01 AND aaf_1kg_all < 0.01 AND af_exac_all < 0.01 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
 				AND filter IS NULL\" --min-gq 20 "
 	if family=='-':
 		ar_query = "gemini autosomal_recessive" + columns + db + " " + filter
@@ -56,7 +56,7 @@ def autosomal_recessive(db, family, aaf):
 	return(ar,ar_query)
 
 def de_novo(db, family, aaf):
-	filter = " --filter \" + aaf < " + aaf + " AND aaf_esp_all < 0.005 AND aaf_1kg_all_float < 0.005 AND af_exac_all < 0.005 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
+	filter = " --filter \" + aaf < " + aaf + " AND aaf_esp_all < 0.005 AND aaf_1kg_all < 0.005 AND af_exac_all < 0.005 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
 				AND filter IS NULL\" --min-gq 20 "
 	if family=="-":
 		dn_query = "gemini de_novo" + columns + db + " " + filter
@@ -69,7 +69,7 @@ def de_novo(db, family, aaf):
 	return(dn, dn_query)
 
 def autosomal_dominant(db, family, lenient, aaf):
-	filter = " --filter \" + aaf < " + aaf + " AND aaf_esp_all < 0.0001 AND aaf_1kg_all_float < 0.0001 AND af_exac_all < 0.0001 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
+	filter = " --filter \" + aaf < " + aaf + " AND aaf_esp_all < 0.0001 AND aaf_1kg_all < 0.0001 AND af_exac_all < 0.0001 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
 				AND filter IS NULL\" --min-gq 20 "
 	if family == "-":
 		ad_query = "gemini autosomal_dominant" + columns + db + " " + filter
@@ -86,7 +86,7 @@ def autosomal_dominant(db, family, lenient, aaf):
 	return(ad, ad_query)
 
 def x_linked_recessive(db, family, aaf):
-	filter = " --filter \" + aaf < " + aaf + " AND aaf_esp_all < 0.005 AND aaf_1kg_all_float < 0.005 AND af_exac_all < 0.005 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
+	filter = " --filter \" + aaf < " + aaf + " AND aaf_esp_all < 0.005 AND aaf_1kg_all < 0.005 AND af_exac_all < 0.005 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
 				AND filter IS NULL\" --min-gq 20 "
 	if family == "-":
 		xlr_query = "gemini x_linked_recessive" + columns + db + " " + filter
@@ -99,7 +99,7 @@ def x_linked_recessive(db, family, aaf):
 	return(xlr, xlr_query)
 	
 def x_linked_dom(db, family, aaf):
-	filter = " --filter \" + aaf < " + aaf + " AND aaf_esp_all < 0.005 AND aaf_1kg_all_float < 0.005 AND af_exac_all < 0.005 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
+	filter = " --filter \" + aaf < " + aaf + " AND aaf_esp_all < 0.005 AND aaf_1kg_all < 0.005 AND af_exac_all < 0.005 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
 				AND filter IS NULL\" --min-gq 20 "
 	if family == "-":
 		xld_query = "gemini x_linked_dominant" + columns + db + " " + filter
@@ -112,7 +112,7 @@ def x_linked_dom(db, family, aaf):
 	return(xld, xld_query)
 
 def x_linked_de_novo(db, family, aaf):
-	filter = " --filter \" + aaf < " + aaf + " AND aaf_esp_all < 0.005 AND aaf_1kg_all_float < 0.005 AND af_exac_all < 0.005 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
+	filter = " --filter \" + aaf < " + aaf + " AND aaf_esp_all < 0.005 AND aaf_1kg_all < 0.005 AND af_exac_all < 0.005 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
 				AND filter IS NULL\" --min-gq 20 "
 	if family == "-":
 		xldn_query = "gemini x_linked_de_novo" + columns + db + " " + filter
@@ -125,7 +125,7 @@ def x_linked_de_novo(db, family, aaf):
 	return(xldn, xldn_query)
 
 def mendel_errors(db, family, aaf):
-	filter = " --filter \" + aaf < " + aaf + " AND aaf_esp_all < 0.005 AND aaf_1kg_all_float < 0.005 AND af_exac_all < 0.005 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
+	filter = " --filter \" + aaf < " + aaf + " AND aaf_esp_all < 0.005 AND aaf_1kg_all < 0.005 AND af_exac_all < 0.005 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
 				AND filter IS NULL\" --min-gq 20 "
 	if family == '-':
 		me_query = "gemini mendel_errors" + columns + db + " " + filter
@@ -138,7 +138,7 @@ def mendel_errors(db, family, aaf):
 	return(me, me_query)
 
 def comp_hets(db, family, aaf):
-	filter = " --filter \" + aaf < " + aaf + " AND aaf_esp_all < 0.01 AND aaf_1kg_all_float < 0.01 AND af_exac_all < 0.01 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
+	filter = " --filter \" + aaf < " + aaf + " AND aaf_esp_all < 0.01 AND aaf_1kg_all < 0.01 AND af_exac_all < 0.01 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
 				AND filter IS NULL\" --min-gq 20 --max-priority 2 "
 	if family == "-":
 		ch_query = "gemini comp_hets" + columns + db + " " + filter
@@ -174,11 +174,12 @@ def comp_hets(db, family, aaf):
 
 def acmg_incidentals(db, family, aaf):
 	#ACMG http://www.ncbi.nlm.nih.gov/clinvar/docs/acmg/ (list pulled 2016-07-11) incidental gene list
-	filter = "aaf < " + aaf + " AND aaf_esp_all < 0.01 AND aaf_1kg_all_float < 0.01 AND af_exac_all < 0.01 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
+	filter = "aaf < " + aaf + " AND aaf_esp_all < 0.01 AND aaf_1kg_all < 0.01 AND af_exac_all < 0.01 AND (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') \
 				AND filter IS NULL"
-	acmg_genes = 'ACTA2','ACTC1','APC','APOB','BRCA1','BRCA2','CACNA1S','COL3A1','DSC2','DSG2','DSP','FBN1','GLA','KCNH2','KCNQ1',\
-				 'LDLR','LMNA','MEN1','MLH1','MSH2','MSH6','MUTYH','MYBPC3','MYH11','MYH7','MYL2','MYL3','MYLK','NF2','PCSK9','PKP2',\
-				 'PMS2','PRKAG2','PTEN','RB1','RET','RYR1','RYR2','SCN5A','SDHAF2','SDHB','SDHC','SDHD','SMAD3','STK11','TGFBR1',\
+	# ACMG SF v2.0
+	acmg_genes = 'ACTA2','ACTC1','APC','APOB','ATP7B','BMPR1A','BRCA1','BRCA2','CACNA1S','COL3A1','DSC2','DSG2','DSP','FBN1','GLA','KCNH2','KCNQ1',\
+				 'LDLR','LMNA','MEN1','MLH1','MSH2','MSH6','MUTYH','MYBPC3','MYH11','MYH7','MYL2','MYL3','NF2','OTC','PCSK9','PKP2',\
+				 'PMS2','PRKAG2','PTEN','RB1','RET','RYR1','RYR2','SCN5A','SDHAF2','SDHB','SDHC','SDHD','SMAD3','SMAD4','STK11','TGFBR1',\
 				 'TGFBR2','TMEM43','TNNI3','TNNT2','TP53','TPM1','TSC1','TSC2','VHL','WT1'
 	acmg_columns = columns.replace('--columns', '')
 	acmg_columns = acmg_columns.replace('"','') 
@@ -361,7 +362,7 @@ def main():
 	# write findings to xlsx sheet
 	print('Writing output')
 	if collapse == 'yes':
-		ar = column_adder(ar, 'Genetic Test', 'Autosomal Recessive')
+		ar = column_adder(ar, 'Genetic Test', 'Homozygous Alt')
 		dn = column_adder(dn, 'Genetic Test', 'De Novo')
 		ad = column_adder(ad, 'Genetic Test', 'Autosomal Dominant')
 		xlr = column_adder(xlr, 'Genetic Test', 'X Linked Recessive')
@@ -370,15 +371,16 @@ def main():
 		me = column_adder(me, 'Genetic Test', 'Mendelian Errors')
 		collapsed_tests = ar + dn + ad + xlr + xld + xldn + me
 		output_to_xlsx(collapsed_tests, 'Variants', 'no')
+		output_to_xlsx(ch, "Compound Hets", 'yes')
 	else:
-		output_to_xlsx(ar, "Autosomal Recessive", 'no')	
+		output_to_xlsx(ar, "Homozygous Alt", 'no')
+		output_to_xlsx(ch, "Compound Hets", 'yes')	
 		output_to_xlsx(dn, "De Novo", 'no')	
 		output_to_xlsx(ad, "Autosomal Dominant", 'no')
 		output_to_xlsx(xlr, "XLR", 'no')
 		output_to_xlsx(xld, "XLD", 'no')
 		output_to_xlsx(xldn, "XLDeNovo", 'no')
 		output_to_xlsx(me, "Mendelian Errors", 'no')
-	output_to_xlsx(ch, "Compound Hets", 'yes')
 	output_to_xlsx(acmg, "ACMG Incidental Findings", 'no')
 
 	# get all queries in one list
@@ -399,8 +401,8 @@ def main():
 args = parser.parse_args()
 workbook = xlsxwriter.Workbook(args.output_name)
 columns = " --columns \"chrom, start, end, codon_change, aa_change, type, hgvsc, hgvsp, gene, \
-		   clinvar_diseases, impact, clinvar_sig, clinvar_pathogenic, impact_severity, pubmed, hgmd_overlap, \
-		   domains, max_aaf_all, gerp_elements, cadd_phred, aaf_1kg_all_float, af_exac_all, \
+		   clinvar_diseases, impact, clinvar_sig, clinvar_id, clinvar_pathogenic, impact_severity, \
+		   pubmed, hgmd_overlap, domains, max_aaf_all, gerp_elements, cadd_phred, aaf_1kg_all, af_exac_all, \
 		   exac_num_hom_alt, exac_num_het, call_rate, num_hom_ref, num_het, num_hom_alt, aaf, \
 	       polyphen_score, sift_pred, sift_score, maxentscan, grantham, variant_id, n_syn, \
 		   adj_exp_syn, n_mis,adj_exp_mis, n_lof, adj_exp_lof, precessive, pnull, pli, \

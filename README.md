@@ -1,12 +1,19 @@
 # Genomic Variant Prioritization
-Worklow post-genotype calling to prioritize disease-causing variants.
+Snakemake workflow post-genotype calling to prioritize disease-causing variants.
 
 # Input
-VCF from GVCF_to_hardFilteredVCF.sh
+- VCF from [NGS_genotype_calling](https://github.com/davemcg/NGS_genotype_calling/blob/master/GVCF_to_VCF_snakemake.wrapper.sh)
+- PED with samples in VCF
+- List of families to process
 
-# Process
-Annotate with vcf_to_annotated_vcf.sh
+# Set up
+Copy [src/config_variant_prioritization.yaml]() to your local folder and edit the `ped` field to give a path to your ped file. You will also need to edit the `family_name` to instruct Snakemake which families (must match ped family field, column 1) to create reports from. You can either give one family like so:
 
-Then create gemini db with vcf2db on cyclops (trying to get this installed on biowulf2)
+- family_name: 'gupta_fam'
 
-Note: If you are only processing a trio, then you need to modify query_gemini.py to NOT filter on AF < 0.1
+Or a list of families to process like so:
+
+- family_name: ['gupta_fam', 'smith_fam', 'chan_fam']
+
+# Run (in biowulf2)
+sbatch --time=12:00:00 ~/git/variant_prioritization/Snakemake.wrapper.sh COPIED_OVER_YAML_FILE.yaml

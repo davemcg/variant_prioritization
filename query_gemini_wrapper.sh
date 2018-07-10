@@ -1,6 +1,6 @@
 #!/bin/bash
 
-module load gemini/0.19.0
+module load gemini/0.20.1
 
 gemini_db=$1
 family_name=$2
