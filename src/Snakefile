@@ -39,11 +39,13 @@ wildcard_constraints:
 	family_name=family_name_con
 
 
-rule all:
-	input:
-		#expand('temp/{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz', sample=SAMPLE)
-		#expand('{sample}.PED_{ped}.gemini.db', sample=SAMPLE, ped=PED),
-		expand('{sample}.{family_name}.PED_{ped}.excel.report.xlsx', sample=SAMPLE, ped=PEDfile, family_name=config['family_name'])
+if config['family_name'] == '':
+	rule all:
+		'{sample}.PED_{ped}.gemini.db'
+else:
+	rule all:
+		input:
+			expand('sample_reports/{sample}.{family_name}.PED_{ped}.SeeGEM.report.html', sample=SAMPLE, ped=PEDfile, family_name=config['family_name'])
 
 rule n_split_vcf:
 	input:
@@ -186,9 +188,9 @@ rule peddy_QC:
 	input:
 		'temp/{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz'
 	output:
-		ped = '{sample}.ped_check.csv',
-		het = '{sample}.het_check.csv',
-		sex = '{sample}.sex_check.csv'
+		ped = '{sample}_PEDDY.ped_check.csv',
+		het = '{sample}_PEDDY.het_check.csv',
+		sex = '{sample}_PEDDY.sex_check.csv'
 	threads: 4
 	shell:
 		"""
@@ -215,13 +217,13 @@ rule make_gemini_db:
 rule query_gemini:
 	input:
 		db = '{sample}.PED_{ped}.gemini.db',
-		peddy_ped = '{sample}.ped_check.csv',
-		peddy_het = '{sample}.het_check.csv',
-		peddy_sex = '{sample}.sex_check.csv'
+		peddy_ped = '{sample}_PEDDY.ped_check.csv',
+		peddy_het = '{sample}_PEDDY.het_check.csv',
+		peddy_sex = '{sample}_PEDDY.sex_check.csv'
 	output:
-		report_name = '{sample}.{family_name}.PED_{ped}.excel.report.xlsx'
+		report_name = 'sample_reports/{sample}.{family_name}.PED_{ped}.SeeGEM.report.html'
 	shell:
 		"""
 		module load {config[R_version]}
-		Rscript {config[SeeGEM_script]} {input} {wildcards.family_name} {output} {wildcards.sample}_PEDDY
+		Rscript {config[SeeGEM_script]} {input.db} {wildcards.family_name} {output} {wildcards.sample}_PEDDY
 		"""
