@@ -41,7 +41,8 @@ wildcard_constraints:
 
 if config['family_name'] == '':
 	rule all:
-		'{sample}.PED_{ped}.gemini.db'
+		input:
+			expand('{sample}.PED_{ped}.gemini.db', sample=SAMPLE, ped=PEDfile)
 else:
 	rule all:
 		input:
