@@ -10,6 +10,7 @@ Snakemake workflow post-genotype calling to prioritize disease-causing variants.
 Copy [src/config_variant_prioritization.yaml](https://github.com/davemcg/variant_prioritization/blob/master/src/config_variant_prioritization.yaml) to your local folder and edit the `ped` field to give a path to your ped file. You will also need to edit the `family_name` to instruct Snakemake which families (must match ped family field, column 1) to create reports from. You can either give one family like so:
 
 - family_name: 'gupta_fam'
+  - if you leave this blank (family_name: '') then only the GEMINI database will be created (no family reports)
 
 Or a list of families to process like so:
 
