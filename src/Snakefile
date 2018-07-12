@@ -39,11 +39,14 @@ wildcard_constraints:
 	family_name=family_name_con
 
 
-rule all:
-	input:
-		#expand('temp/{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz', sample=SAMPLE)
-		#expand('{sample}.PED_{ped}.gemini.db', sample=SAMPLE, ped=PED),
-		expand('{sample}.{family_name}.PED_{ped}.excel.report.xlsx', sample=SAMPLE, ped=PEDfile, family_name=config['family_name'])
+if config['family_name'] == '':
+	rule all:
+		input:
+			expand('{sample}.PED_{ped}.gemini.db', sample=SAMPLE, ped=PEDfile)
+else:
+	rule all:
+		input:
+			expand('sample_reports/{sample}.{family_name}.PED_{ped}.SeeGEM.report.html', sample=SAMPLE, ped=PEDfile, family_name=config['family_name'])
 
 rule n_split_vcf:
 	input:
@@ -182,6 +185,21 @@ rule merge_vcf:
 		tabix -f -p vcf {output.vcf}
 		"""
 
+rule peddy_QC:
+	input:
+		'temp/{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz'
+	output:
+		ped = '{sample}_PEDDY.ped_check.csv',
+		het = '{sample}_PEDDY.het_check.csv',
+		sex = '{sample}_PEDDY.sex_check.csv'
+	threads: 4
+	shell:
+		"""
+		module load {config[peddy_version]}
+		peddy -p {threads} {input} {config[ped]} --prefix {wildcards.sample}_PEDDY
+		"""
+
+
 # create gemini database
 rule make_gemini_db:
 	input:
@@ -199,13 +217,14 @@ rule make_gemini_db:
 # now write report for each family given in the yaml family_name section
 rule query_gemini:
 	input:
-		db = '{sample}.PED_{ped}.gemini.db'
-	params:
-		aaf = config['aaf_change']
+		db = '{sample}.PED_{ped}.gemini.db',
+		peddy_ped = '{sample}_PEDDY.ped_check.csv',
+		peddy_het = '{sample}_PEDDY.het_check.csv',
+		peddy_sex = '{sample}_PEDDY.sex_check.csv'
 	output:
-		report_name = '{sample}.{family_name}.PED_{ped}.excel.report.xlsx'
+		report_name = 'sample_reports/{sample}.{family_name}.PED_{ped}.SeeGEM.report.html'
 	shell:
 		"""
-		module load {config[gemini_version]}
-		bash /home/mcgaugheyd/git/variant_prioritization/query_gemini_wrapper.sh {input} {wildcards.family_name} {output} {params.aaf}
+		module load {config[R_version]}
+		Rscript {config[SeeGEM_script]} {input.db} {wildcards.family_name} {output} {wildcards.sample}_PEDDY
 		"""
