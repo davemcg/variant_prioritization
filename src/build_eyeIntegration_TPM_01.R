@@ -22,5 +22,5 @@ colnames(table_eyeIntegration_TPM) <- gsub('\\)','', colnames(table_eyeIntegrati
 
 # remove NA col
 table_eyeIntegration_TPM <- table_eyeIntegration_TPM[,-56]
-out <- gzfile('~/git/variant_prioritization/data/eyeIntegration_TPM.tsv.gz', 'w')
-write.table(table_eyeIntegration_TPM, out, quote = F, sep ="\t", row.names = F)
+write.table(table_eyeIntegration_TPM, '~/git/variant_prioritization/data/eyeIntegration_TPM.tsv', quote = F, sep ="\t", row.names = F)
+system('bgzip ~/git/variant_prioritization/data/eyeIntegration_TPM.tsv')
