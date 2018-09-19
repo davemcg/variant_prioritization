@@ -11,6 +11,9 @@ else:
 	PEDfile = config['ped'].split('.ped')[0].split('/')[-1]
 	PEDbase = '/'.join(config['ped'].split('.ped')[0].split('/')[:-1]) + '/'
 
+if PEDbase == '/':
+	PEDbase = ''
+
 if type(config['family_name']) == str:
 	family_name_con = config['family_name']
 else:
@@ -226,5 +229,6 @@ rule query_gemini:
 	shell:
 		"""
 		module load {config[R_version]}
+		module load {config[gemini_version]}
 		Rscript {config[SeeGEM_script]} {input.db} {wildcards.family_name} {output} {wildcards.sample}_PEDDY
 		"""
