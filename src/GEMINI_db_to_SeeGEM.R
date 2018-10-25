@@ -5,10 +5,16 @@ gemini_db <- args[1]
 family_name <- args[2]
 output_html <- args[3]
 peddy_path <- args[4]
+if (is.null(args[5])) {
+	aaf_freq <- 0.1 } else {
+	aaf_freq <- args[5]
+}
+
 
 cur_dir <- getwd()
 
 library(SeeGEM)
+library(tidyr)
 
 writeLines('\n\n\n\n\n##########################################################')
 writeLines('Starting GEMINI queries')
@@ -17,73 +23,73 @@ GEMINI_list <- list()
 GEMINI_list$ar <- gemini_test_wrapper(gemini_db, 
                                       test = 'autosomal_recessive', 
                                       min_gq = 20, 
-                                      filter = "aaf < 0.1 AND aaf_esp_all < 0.01 AND 
+                                      filter = paste("aaf < ", aaf_freq, " AND aaf_esp_all < 0.01 AND 
                     aaf_1kg_all < 0.01 AND af_exac_all < 0.01 AND 
                     (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') 
-                    AND filter IS NULL",
+                    AND filter IS NULL"),
                                       families = family_name)
 writeLines('Autosomal Recessive test done')
 GEMINI_list$ad <- gemini_test_wrapper(gemini_db, 
                                       test = 'autosomal_dominant', 
                                       min_gq = 20, 
-                                      filter = "aaf < 0.1 AND aaf_esp_all < 0.0001 AND 
+                                      filter = paste("aaf < ", aaf_freq, " AND aaf_esp_all < 0.0001 AND 
                                       aaf_1kg_all < 0.0001 AND af_exac_all < 0.0001 AND 
                                       (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') 
-                                      AND filter IS NULL",
+                                      AND filter IS NULL"),
                                       families = family_name)
 writeLines('Autosomal Dominant test done')
 GEMINI_list$dn <- gemini_test_wrapper(gemini_db, 
                                       test = 'de_novo', 
                                       min_gq = 20, 
-                                      filter = "aaf < 0.1 AND aaf_esp_all < 0.005 AND 
+                                      filter = paste("aaf < ", aaf_freq, " AND aaf_esp_all < 0.005 AND 
                                       aaf_1kg_all < 0.005 AND af_exac_all < 0.005 AND 
                                       (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') 
-                                      AND filter IS NULL",
+                                      AND filter IS NULL"),
                                       families = family_name)
 writeLines('De novo test done')
 GEMINI_list$xlr <- gemini_test_wrapper(gemini_db, 
                                        test = 'x_linked_recessive', 
                                        min_gq = 20, 
-                                       filter = "aaf < 0.1 AND aaf_esp_all < 0.005 AND 
+                                       filter = paste("aaf < ", aaf_freq, " AND aaf_esp_all < 0.005 AND 
                                        aaf_1kg_all < 0.005 AND af_exac_all < 0.005 AND 
                                        (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') 
-                                       AND filter IS NULL",
+                                       AND filter IS NULL"),
                                        families = family_name)
 writeLines('XL Recessive test done')
 GEMINI_list$xld <- gemini_test_wrapper(gemini_db, 
                                        test = 'x_linked_dominant', 
                                        min_gq = 20, 
-                                       filter = "aaf < 0.1 AND aaf_esp_all < 0.005 AND 
+                                       filter = paste("aaf < ", aaf_freq, " AND aaf_esp_all < 0.005 AND 
                                        aaf_1kg_all < 0.005 AND af_exac_all < 0.005 AND 
                                        (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') 
-                                       AND filter IS NULL",
+                                       AND filter IS NULL"),
                                        families = family_name)
 writeLines('XL Dominant test done')
 GEMINI_list$xldn <- gemini_test_wrapper(gemini_db, 
                                         test = 'x_linked_de_novo', 
                                         min_gq = 20, 
-                                        filter = "aaf < 0.1 AND aaf_esp_all < 0.005 AND 
+                                        filter = paste("aaf < ", aaf_freq, " AND aaf_esp_all < 0.005 AND 
                                        aaf_1kg_all < 0.005 AND af_exac_all < 0.005 AND 
                                        (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') 
-                                       AND filter IS NULL",
+                                       AND filter IS NULL"),
                                         families = family_name)
 writeLines('XL De Novo test done')
 GEMINI_list$me <- gemini_test_wrapper(gemini_db, 
                                       test = 'mendel_errors', 
                                       min_gq = 20, 
-                                      filter = "aaf < 0.1 AND aaf_esp_all < 0.005 AND 
+                                      filter = paste("aaf < ", aaf_freq, " AND aaf_esp_all < 0.005 AND 
                                         aaf_1kg_all < 0.005 AND af_exac_all < 0.005 AND 
                                         (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') 
-                                        AND filter IS NULL",
+                                        AND filter IS NULL"),
                                       families = family_name)
 writeLines('Mendelian Errors test done')
 GEMINI_list$ch <- gemini_test_wrapper(gemini_db, 
                                       test = 'comp_hets', 
                                       min_gq = 20, 
-                                      filter = "aaf < 0.1 AND aaf_esp_all < 0.01 AND 
+                                      filter = paste("aaf < ", aaf_freq, " AND aaf_esp_all < 0.01 AND 
                                       aaf_1kg_all < 0.01 AND af_exac_all < 0.01 AND 
                                       (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') 
-                                      AND filter IS NULL",
+                                      AND filter IS NULL"),
                                       families = family_name)
 writeLines('Compound Hets test done')
 
@@ -94,15 +100,26 @@ acmg_genes = c('ACTA2','ACTC1','APC','APOB','ATP7B','BMPR1A','BRCA1','BRCA2',
                'PTEN','RB1','RET','RYR1','RYR2','SCN5A','SDHAF2','SDHB','SDHC',
                'SDHD','SMAD3','SMAD4','STK11','TGFBR1','TGFBR2','TMEM43','TNNI3',
                'TNNT2','TP53','TPM1','TSC1','TSC2','VHL','WT1')
+# gemini select * is annoying in that it won't grab the sample genotypes
+# they have to be explicitly given
+# so we'll pull the samples names for the family
+sample_ped <- gemini_query_wrapper(gemini_db,
+                                   ... = paste0("\"SELECT * FROM samples WHERE family_id == '",
+                                                family_name, "' \""))
+gts = paste0(rep('gts.', length(sample_ped$name)), sample_ped$name, collapse = ',')
+gts_var = paste0(rep('gts.', length(sample_ped$name)), sample_ped$name)
 GEMINI_list$acmg <- gemini_query_wrapper(gemini_db,
-                                         ... = paste0("\"SELECT * FROM variants WHERE (gene IN (\'",
+                                         ... = paste0("\"SELECT *,", gts, " FROM variants WHERE (gene IN (\'",
                                                       paste(acmg_genes, collapse="\',\'"),
                                                       "\')) AND ((clinvar_sig LIKE '%pathogenic%' OR impact_severity='HIGH') 
-                                                      AND (aaf < 0.1 AND aaf_esp_all < 0.01 AND
+                                                      AND (aaf < ", aaf_freq, " AND aaf_esp_all < 0.01 AND
                                                       aaf_1kg_all < 0.01 AND af_exac_all < 0.01))
                                                       AND filter IS NULL \" --gt-filter \"(gt_types).(family_id== \'", 
                                                       family_name, "\').(!=HOM_REF).(count>=1)\""),
                                          test_name = 'ACMG59')
+# make the family genotypes column
+GEMINI_list$acmg$family_members <- paste(sample_ped$name, collapse = ",")
+GEMINI_list$acmg <- unite(GEMINI_list$acmg, family_genotypes, gts_var, sep = ",")
 writeLines('ACMG test done')
 
 # data.table rbindlist will collapse each element of the list into one data frame
@@ -115,12 +132,8 @@ my_GEMINI_data <- data.table::rbindlist(GEMINI_list, fill = TRUE)
 # db. 
 
 # one wrinkle is that peddy doesn't give the family labels throughout the output,
-# rather it uses the sample ids. So we need to get them.
-# this is fairly simple with a GEMINI query
+# rather it uses the sample ids. So we need to get then frin the `sample_ped` query above
 writeLines('Create reactive document!')
-sample_ped <- gemini_query_wrapper(gemini_db,
-                                   ... = paste0("\"SELECT * FROM samples WHERE family_id == '",
-                                                family_name, "' \""))
 
 knit_see_gem(GEMINI_data = my_GEMINI_data, 
              output_file = paste0(cur_dir, '/', output_html), 
