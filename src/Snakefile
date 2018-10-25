@@ -23,7 +23,7 @@ def pick():
 	# modifies VEP call to either pick most canonical tx or 
 	# return all tx possibilities
 	if config['pick'].upper() == 'CANONICAL':
-		out = '--pick --pick_order canonical, tsl, biotype, ccds, length '
+		out = '--pick_allele_gene  --pick_order canonical, tsl, biotype, ccds, length '
 	if config['pick'].upper() == 'ALL':
 		out = '--flag_pick_allele_gene '
 	return(out)
@@ -230,5 +230,5 @@ rule query_gemini:
 		"""
 		module load {config[R_version]}
 		module load {config[gemini_version]}
-		Rscript {config[SeeGEM_script]} {input.db} {wildcards.family_name} {output} {wildcards.sample}_PEDDY
+		Rscript {config[SeeGEM_script]} {input.db} {wildcards.family_name} {output} {wildcards.sample}_PEDDY {config[aaf_change]}
 		"""
