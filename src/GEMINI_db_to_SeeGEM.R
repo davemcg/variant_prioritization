@@ -1,6 +1,7 @@
 # Generate a full series of GEMINI queries for a sample/trio
 args = commandArgs(trailingOnly=TRUE)
 
+# argument handling
 gemini_db <- args[1]
 family_name <- args[2]
 output_html <- args[3]
@@ -8,6 +9,17 @@ peddy_path <- args[4]
 if (is.null(args[5])) {
 	aaf_freq <- 0.1 } else {
 	aaf_freq <- args[5]
+}
+if (is.null(args[6])) {
+	lenient <- ''
+} else {
+	lenient <- args[6]
+}
+
+if (toupper(lenient) != 'YES') {
+	lenient <- ''
+} else {
+	lenient <- '--lenient'
 }
 
 
@@ -27,7 +39,7 @@ GEMINI_list$ar <- gemini_test_wrapper(gemini_db,
                     aaf_1kg_all < 0.01 AND af_exac_all < 0.01 AND 
                     (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') 
                     AND filter IS NULL"),
-                                      families = family_name)
+                                      families = family_name, ... = lenient)
 writeLines('Autosomal Recessive test done')
 GEMINI_list$ad <- gemini_test_wrapper(gemini_db, 
                                       test = 'autosomal_dominant', 
@@ -36,7 +48,7 @@ GEMINI_list$ad <- gemini_test_wrapper(gemini_db,
                                       aaf_1kg_all < 0.0001 AND af_exac_all < 0.0001 AND 
                                       (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') 
                                       AND filter IS NULL"),
-                                      families = family_name)
+                                      families = family_name, ... = lenient)
 writeLines('Autosomal Dominant test done')
 GEMINI_list$dn <- gemini_test_wrapper(gemini_db, 
                                       test = 'de_novo', 
@@ -45,7 +57,7 @@ GEMINI_list$dn <- gemini_test_wrapper(gemini_db,
                                       aaf_1kg_all < 0.005 AND af_exac_all < 0.005 AND 
                                       (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') 
                                       AND filter IS NULL"),
-                                      families = family_name)
+                                      families = family_name, ... = lenient)
 writeLines('De novo test done')
 GEMINI_list$xlr <- gemini_test_wrapper(gemini_db, 
                                        test = 'x_linked_recessive', 
@@ -81,7 +93,7 @@ GEMINI_list$me <- gemini_test_wrapper(gemini_db,
                                         aaf_1kg_all < 0.005 AND af_exac_all < 0.005 AND 
                                         (is_coding=1 OR is_splicing=1 OR impact_severity='HIGH') 
                                         AND filter IS NULL"),
-                                      families = family_name)
+                                      families = family_name, ... = lenient)
 writeLines('Mendelian Errors test done')
 GEMINI_list$ch <- gemini_test_wrapper(gemini_db, 
                                       test = 'comp_hets', 
@@ -108,15 +120,17 @@ sample_ped <- gemini_query_wrapper(gemini_db,
                                                 family_name, "' \""))
 gts = paste0(rep('gts.', length(sample_ped$name)), sample_ped$name, collapse = ',')
 gts_var = paste0(rep('gts.', length(sample_ped$name)), sample_ped$name)
+gt_types_het = paste0(rep('gt_types.', length(sample_ped$name)), sample_ped$name, rep(' == HET', length(sample_ped$name)), collapse = ' or ')
+gt_types_hom_alt = paste0(rep('gt_types.', length(sample_ped$name)), sample_ped$name, rep(' == HOM_ALT', length(sample_ped$name)), collapse = ' or ')
 GEMINI_list$acmg <- gemini_query_wrapper(gemini_db,
-                                         ... = paste0("\"SELECT *,", gts, " FROM variants WHERE (gene IN (\'",
-                                                      paste(acmg_genes, collapse="\',\'"),
-                                                      "\')) AND ((clinvar_sig LIKE '%pathogenic%' OR impact_severity='HIGH') 
-                                                      AND (aaf < ", aaf_freq, " AND aaf_esp_all < 0.01 AND
-                                                      aaf_1kg_all < 0.01 AND af_exac_all < 0.01))
-                                                      AND filter IS NULL \" --gt-filter \"(gt_types).(family_id== \'", 
-                                                      family_name, "\').(!=HOM_REF).(count>=1)\""),
-                                         test_name = 'ACMG59')
+                             ... = paste0("\"SELECT *,", gts, " FROM variants WHERE (gene IN (\'",
+                                          paste(acmg_genes, collapse="\',\'"),
+                                          "\')) AND ((clinvar_sig LIKE '%pathogenic%' OR impact_severity='HIGH')
+                                          AND (aaf < ", aaf_freq, " AND aaf_esp_all < 0.01 AND
+                                          aaf_1kg_all < 0.01 AND af_exac_all < 0.01))
+                                          AND filter IS NULL \" --gt-filter \"", gt_types_het, " or ", gt_types_hom_alt, "\""),
+                                          test_name = 'ACMG59')
+                                          
 # make the family genotypes column
 GEMINI_list$acmg$family_members <- paste(sample_ped$name, collapse = ",")
 GEMINI_list$acmg <- unite(GEMINI_list$acmg, family_genotypes, gts_var, sep = ",")

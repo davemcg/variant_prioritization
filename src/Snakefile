@@ -41,6 +41,7 @@ wildcard_constraints:
 #	region = '^[0-9a-zA-Z]+:\d+-\d+'
 	family_name=family_name_con
 
+localrules: query_gemini
 
 if config['family_name'] == '':
 	rule all:
@@ -49,7 +50,11 @@ if config['family_name'] == '':
 else:
 	rule all:
 		input:
-			expand('sample_reports/{sample}.{family_name}.PED_{ped}.SeeGEM.report.html', sample=SAMPLE, ped=PEDfile, family_name=config['family_name'])
+			expand('sample_reports/{sample}.{family_name}.PED_{ped}.lenient{gemini_lenient}.SeeGEM.report.html', \
+				sample=SAMPLE, \
+				ped=PEDfile, \
+				family_name=config['family_name'], \
+				gemini_lenient = ['Yes','No'])
 
 rule n_split_vcf:
 	input:
@@ -225,10 +230,14 @@ rule query_gemini:
 		peddy_het = '{sample}_PEDDY.het_check.csv',
 		peddy_sex = '{sample}_PEDDY.sex_check.csv'
 	output:
-		report_name = 'sample_reports/{sample}.{family_name}.PED_{ped}.SeeGEM.report.html'
+		report_name = '{sample}.{family_name}.PED_{ped}.lenient{gemini_lenient}.SeeGEM.report.html',
+		report_path = 'sample_reports/{sample}.{family_name}.PED_{ped}.lenient{gemini_lenient}.SeeGEM.report.html'
+	resources: res=1
 	shell:
 		"""
+		mkdir -p sample_reports
 		module load {config[R_version]}
 		module load {config[gemini_version]}
-		Rscript {config[SeeGEM_script]} {input.db} {wildcards.family_name} {output} {wildcards.sample}_PEDDY {config[aaf_change]}
+		Rscript {config[SeeGEM_script]} {input.db} {wildcards.family_name} {output.report_name} {wildcards.sample}_PEDDY {config[aaf_change]} {config[gemini_lenient]}
+		cp {output.report_name} {output.report_path}
 		"""
