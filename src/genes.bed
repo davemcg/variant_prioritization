@@ -1,0 +1,3 @@
+#!/bin/bash
+
+cut -f4,6,7 /data/mcgaugheyd/genomes/1000G_phase2_GRCh37/gemini_annotation/summary_gene_table_v75 
