@@ -54,7 +54,7 @@ else:
 				sample=SAMPLE, \
 				ped=PEDfile, \
 				family_name=config['family_name'], \
-				gemini_lenient = ['Yes','No'])
+				gemini_lenient = config['gemini_lenient'])
 
 rule n_split_vcf:
 	input:

@@ -148,14 +148,16 @@ my_GEMINI_data <- data.table::rbindlist(GEMINI_list, fill = TRUE)
 # one wrinkle is that peddy doesn't give the family labels throughout the output,
 # rather it uses the sample ids. So we need to get then frin the `sample_ped` query above
 writeLines('Create reactive document!')
-
-knit_see_gem(GEMINI_data = my_GEMINI_data, 
-             output_file = paste0(cur_dir, '/', output_html), 
-             peddy_path_prefix = paste0(cur_dir,'/',peddy_path), 
-             peddy_id = sample_ped$name, 
-             sample_name = family_name)
-
-
-
-
+if (toupper(peddy_path) != 'NO'){
+	knit_see_gem(GEMINI_data = my_GEMINI_data, 
+    	         output_file = paste0(cur_dir, '/', output_html), 
+        	     peddy_path_prefix = paste0(cur_dir,'/',peddy_path), 
+            	 peddy_id = sample_ped$name, 
+            	 sample_name = family_name)
+} else {
+	knit_see_gem(GEMINI_data = my_GEMINI_data, 
+    	         output_file = paste0(cur_dir, '/', output_html), 
+            	 skip_stats = 'yes', 
+				 sample_name = family_name)
+}
 
