@@ -20,5 +20,5 @@ snakemake -s /home/$USER/git/variant_prioritization/src/Snakefile \
 --configfile $1 \
 --cluster-config /home/$USER/git/variant_prioritization/src/cluster.json \
 --cluster "$sbcmd"  --latency-wait 120 --rerun-incomplete \
--k --restart-times 2 
+-k --restart-times 0 --resources res=1 
 
