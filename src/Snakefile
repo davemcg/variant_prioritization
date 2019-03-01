@@ -182,20 +182,49 @@ rule merge_vcf:
 		vcf = expand('temp/{{sample}}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz', region=REGIONS),
 		index = expand('temp/{{sample}}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz.tbi', region=REGIONS)
 	output:
-		vcf = 'temp/{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz',
-		index = 'temp/{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz.tbi'
+		vcf = ('{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz'),
+		index = ('{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz.tbi')
 	threads: 16
 	shell:
 		"""
 		export REF_CACHE=/scratch/$SLURM_JOB_ID/
 		module load {config[samtools_version]}
-		bcftools concat -O z -o {output.vcf} --threads {threads} {input.vcf} #| bcftools sort -T /scratch/$SLURM_JOB_ID/ -m 48G -O z -o {output.vcf}
+		bcftools concat --threads {threads} {input.vcf} | bcftools sort -T /scratch/$SLURM_JOB_ID/ -m 100G -O z -o {output.vcf}
 		tabix -f -p vcf {output.vcf}
 		"""
 
+#if config['re_sort'] == 'TRUE':
+	# ensure that the concat didn't mess up the order
+#	rule sort_tabix:
+#		input:
+#			vcf = 'temp/{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz'
+#		output:
+#			vcf = protected('{sample}.RESORTED.VT.VEP.VCFANNO.vcf.gz'),
+#			index = '{sample}.RESORTED.VT.VEP.VCFANNO.vcf.gz.tbi'
+#		shell:
+#			"""
+#			export REF_CACHE=/scratch/$SLURM_JOB_ID/
+#			/home/mcgaugheyd/bin/gsort_linux_amd64 --memory 60000 {input.vcf} /data/mcgaugheyd/genomes/1000G_phase2_GRCh37/GRCh37_gatk_order.genome | bgzip -c > {output.vcf}
+#			tabix -f -p vcf {output.vcf}
+#			"""
+#else:
+#	rule faux_sort_tabix:
+#		input:
+#			vcf = 'temp/{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz',
+#			index = 'temp/{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz.tbi'
+#		output:
+#			vcf = protected('{sample}.RESORTED.VT.VEP.VCFANNO.vcf.gz'),
+#			index = '{sample}.RESORTED.VT.VEP.VCFANNO.vcf.gz.tbi'
+#		shell:
+#			"""
+#			module load {config[samtools_version]}
+#			mv {input.vcf} {output.vcf}
+#			mv {input.index} {output.vcf}
+#			"""
+
 rule peddy_QC:
 	input:
-		'temp/{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz'
+		'{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz'
 	output:
 		ped = '{sample}_PEDDY.ped_check.csv',
 		het = '{sample}_PEDDY.het_check.csv',
@@ -211,7 +240,7 @@ rule peddy_QC:
 # create gemini database
 rule make_gemini_db:
 	input:
-		vcf = 'temp/{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz',
+		vcf = '{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz',
 #		index = 'temp/{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz.tbi'
 	output:
 		'{sample}.PED_{ped}.gemini.db'
