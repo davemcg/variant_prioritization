@@ -6,22 +6,27 @@ gemini_db <- args[1]
 family_name <- args[2]
 output_html <- args[3]
 peddy_path <- args[4]
+# cutoff cohort AF
 if (is.null(args[5])) {
 	aaf_freq <- 0.1 } else {
 	aaf_freq <- args[5]
 }
+# run gemini with lenient handing?
 if (is.null(args[6])) {
 	lenient <- ''
 } else {
 	lenient <- args[6]
 }
-
 if (toupper(lenient) != 'YES') {
 	lenient <- ''
 } else {
 	lenient <- '--lenient'
 }
-
+# output GEMINI as data frame also?
+if (is.null(args[7])) {
+    output_df <- '' } else {
+    output_df <- args[7]
+}
 
 cur_dir <- getwd()
 
@@ -140,7 +145,9 @@ writeLines('ACMG test done')
 # gemini_query_wrapper() and gemini_test_wrapper() will add the test name
 # to each query, so you can distinguish them later (via the 'test' column)
 my_GEMINI_data <- data.table::rbindlist(GEMINI_list, fill = TRUE)
-
+if (output_df != ''){
+	save(my_GEMINI_data, file = output_df)
+}
 # now that you've created the core data, you can create the reactive document
 # I'm assuming you've already run peddy on the same vcf you used to make the GEMINI
 # db. 
