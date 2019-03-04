@@ -158,7 +158,7 @@ rule merge_annovar_intervar:
 	shell:
 		"""
 		module load {config[samtools_version]}
-		cat {input} | head -n 1 > temp/annovar_intervar_header
+		set +o pipefail; cat {input} | head -n 1 {input} > temp/annovar_intervar_header
 		cat {input} | grep -v "^CHROM" | sort -k1,1 -k2,2n > {output}TEMP
 		cat temp/annovar_intervar_header {output}TEMP | bgzip -f > {output}
 		tabix -b 2 -e 2 -S 1 {output}
