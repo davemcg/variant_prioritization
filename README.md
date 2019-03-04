@@ -1,3 +1,6 @@
+
+
+
 # Genomic Variant Prioritization
 Snakemake workflow post-genotype calling to prioritize disease-causing variants.
 
@@ -18,3 +21,6 @@ Or a list of families to process like so:
 
 # Run (in biowulf2)
 sbatch --time=12:00:00 ~/git/variant_prioritization/Snakemake.wrapper.sh COPIED_OVER_YAML_FILE.yaml
+
+# Visualization
+![](variant_prioritization_dag.svg)
