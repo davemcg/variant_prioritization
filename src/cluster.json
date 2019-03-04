@@ -13,6 +13,11 @@
 		"partition" : "norm",
 		"time" : "24:00:00"
 	},
+	"annovar" :
+	{
+		"partition" : "norm",
+		"time" : "24:00:00"
+	},
 	"merge_vcf" :
 	{
 		"partition" : "norm",

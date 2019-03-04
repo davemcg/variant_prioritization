@@ -59,9 +59,6 @@ else:
 				ped=PEDfile, \
 				family_name=config['family_name'], \
 				gemini_lenient = config['gemini_lenient']),
-			expand('temp/{sample}__{region}.annovar_intervar.out',
-				sample=SAMPLE,
-				region=REGIONS)
 			
 rule n_split_vcf:
 	input:
@@ -99,7 +96,6 @@ rule vt_bgzip_and_tabix_vcf:
 		tabix -f -p vcf {output.vcf}
 		"""
 
-# Bin's annovar -> intervar annotation process begins
 rule annovar:
 	input:
 		vcf = 'temp/vt.{sample}__{region}.vcf.gz',
