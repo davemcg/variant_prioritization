@@ -54,8 +54,11 @@ else:
 				sample=SAMPLE, \
 				ped=PEDfile, \
 				family_name=config['family_name'], \
-				gemini_lenient = config['gemini_lenient'])
-
+				gemini_lenient = config['gemini_lenient']),
+			expand('temp/{sample}__{region}.annovar_intervar.out',
+				sample=SAMPLE,
+				region=REGIONS)
+			
 rule n_split_vcf:
 	input:
 		vcf = config['input_vcf']
@@ -91,6 +94,74 @@ rule vt_bgzip_and_tabix_vcf:
 			| bgzip -c > {output.vcf}
 		tabix -f -p vcf {output.vcf}
 		"""
+
+# Bin's annovar -> intervar annotation process begins
+rule annovar:
+	input:
+		vcf = 'temp/vt.{sample}__{region}.vcf.gz',
+		index = 'temp/vt.{sample}__{region}.vcf.gz.tbi'
+	output:
+		avinput = temp('temp/{sample}__{region}.avinput'),
+	threads: 2
+	shell:
+		"""
+		module unload python
+		module load {config[annovar_version]}
+		module load {config[InterVar_version]}
+		module load {config[R_version]}
+		convert2annovar.pl -format vcf4old {input.vcf} -includeinfo --outfile {output.avinput}
+		table_annovar.pl {output.avinput} \
+			$ANNOVAR_DATA/hg19 \
+			-buildver hg19 \
+			-remove \
+			-out {output.avinput}.INTERVAR \
+			--protocol refGene,esp6500siv2_all,1000g2015aug_all,avsnp147,dbnsfp33a,clinvar_20170905,exac03,dbscsnv11,dbnsfp31a_interpro,rmsk,ensGene,knownGene,refGeneWithVer,popfreq_max_20150413,gnomad_exome,gnomad_genome,spidex,avsnp150 \
+			-operation  g,f,f,f,f,f,f,f,f,r,g,g,g,f,f,f,f,f \
+			--argument '-hgvs',,,,,,,,,,,,'-splicing 50 -hgvs',,,,, \
+			--polish -nastring . \
+		    --thread {threads} \
+			--otherinfo
+		"""
+
+rule intervar:	
+	input:
+		avinput = temp('temp/{sample}__{region}.avinput'),
+	output:
+		temp('temp/{sample}__{region}.annovar_intervar.out')
+	shell:
+		"""
+		module unload python
+		module load {config[InterVar_version]}
+		module load {config[R_version]}
+		InterVar \
+			-i {input.avinput} \
+			--input_type=AVinput \
+			-d $ANNOVAR_DATA/hg19 \
+			-o {input.avinput}.INTERVAR \
+			--skip_annovar
+		
+		cut -f -139 {input.avinput}.INTERVAR.hg19_multianno.txt | \
+			sed "1 s/"Otherinfo"/"CHROM\\\tPOS\\\tID\\\tREF\\\tALT\\\tQUAL\\\tFILTER"/" - > \
+			{input.avinput}.INTERVAR.hg19_multianno.txt.CUT
+
+		Rscript {config[intervar_Rscript_path]} \
+			{input.avinput}.INTERVAR.hg19_multianno.txt.intervar \
+			{input.avinput}.INTERVAR.hg19_multianno.txt.CUT \
+			{output}
+		"""
+
+rule merge_annovar_intervar:
+	input:
+		expand('temp/{sample}__{region}.annovar_intervar.out', sample=SAMPLE, region=REGIONS)
+	output:
+		temp('temp/annovar_intervar_annotation.txt.gz')
+	shell:
+		"""
+		module load {config[samtools_version]}
+		cat {input} | sort -k1,1 -k2,2n | bgzip -f > {output}
+		tabix -b 2 -e 2 -S 1 {output}
+		"""
+
 
 # annotate with VEP
 # two paths here, set by config['pick'] in config.yaml and the pick() function:
@@ -147,6 +218,7 @@ rule VEP_annotate:
 # annotate with vcfanno
 rule vcfanno_annotate:
 	input:
+		annovar_intervar = temp('temp/annovar_intervar_annotation.txt.gz'),
 		vcf = 'temp/{sample}__{region}.SORTED.VT.VEP.vcf.gz',
 		index = 'temp/{sample}__{region}.SORTED.VT.VEP.vcf.gz'
 	output:
@@ -156,7 +228,12 @@ rule vcfanno_annotate:
 	shell:
 		"""
 		module load {config[vcfanno_version]}
-		vcfanno -p {threads} -lua {config[vcfanno_lua]} {config[vcfanno_conf]} {input.vcf} | bgzip > {output.vcf} 
+		# copy conf to local dir, then edit to put in the path
+		# to the annovar_intervar this Snakemake creates
+		cp {config[vcfanno_conf]} temp/
+		conf=`basename {config[vcfanno_conf]}`
+		sed -i 's/REPLACE_ME_PROGRAMATICALLY/{input.annovar_intervar}'/g temp/$conf
+		vcfanno -p {threads} -lua {config[vcfanno_lua]} temp/$conf {input.vcf} | bgzip > {output.vcf} 
 		tabix -f -p vcf {output.vcf}
 		"""
 
