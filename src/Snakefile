@@ -158,7 +158,9 @@ rule merge_annovar_intervar:
 	shell:
 		"""
 		module load {config[samtools_version]}
-		cat {input} | sort -k1,1 -k2,2n | bgzip -f > {output}
+		cat {input} | head -n 1 > temp/annovar_intervar_header
+		cat {input} | grep -v "^CHROM" | sort -k1,1 -k2,2n > {output}TEMP
+		cat temp/annovar_intervar_header {output}TEMP | bgzip -f > {output}
 		tabix -b 2 -e 2 -S 1 {output}
 		"""
 
@@ -216,12 +218,14 @@ rule VEP_annotate:
 		"""
 
 # annotate with vcfanno
+localrules:vcfanno_annotate
 rule vcfanno_annotate:
 	input:
 		annovar_intervar = temp('temp/annovar_intervar_annotation.txt.gz'),
 		vcf = 'temp/{sample}__{region}.SORTED.VT.VEP.vcf.gz',
 		index = 'temp/{sample}__{region}.SORTED.VT.VEP.vcf.gz'
 	output:
+		new_conf = temp('temp/{sample}__{region}_vcfanno.conf'),
 		vcf = temp('temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.vcf.gz'),
 		index = temp('temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.vcf.gz.tbi')
 	threads: 4
@@ -230,10 +234,10 @@ rule vcfanno_annotate:
 		module load {config[vcfanno_version]}
 		# copy conf to local dir, then edit to put in the path
 		# to the annovar_intervar this Snakemake creates
-		cp {config[vcfanno_conf]} temp/
-		conf=`basename {config[vcfanno_conf]}`
-		sed -i 's/REPLACE_ME_PROGRAMATICALLY/{input.annovar_intervar}'/g temp/$conf
-		vcfanno -p {threads} -lua {config[vcfanno_lua]} temp/$conf {input.vcf} | bgzip > {output.vcf} 
+		cp {config[vcfanno_conf]} {output.new_conf}
+		annovar_intervar_path=`echo {input.annovar_intervar} | sed 's:/:\\\\\/:g'`
+		sed -i "s/REPLACE_ME_PROGRAMATICALLY/$annovar_intervar_path/g" {output.new_conf}
+		vcfanno -p {threads} -lua {config[vcfanno_lua]} {output.new_conf} {input.vcf} | bgzip > {output.vcf} 
 		tabix -f -p vcf {output.vcf}
 		"""
 
