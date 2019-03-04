@@ -23,10 +23,11 @@ if (toupper(lenient) != 'YES') {
 	lenient <- '--lenient'
 }
 # output GEMINI as data frame also?
-if (is.null(args[7])) {
+if (is.na(args[7])) {
     output_df <- '' } else {
     output_df <- args[7]
 }
+cat("\n"); cat(output_df); cat("\n")
 
 cur_dir <- getwd()
 
