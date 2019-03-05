@@ -158,7 +158,7 @@ rule merge_annovar_intervar:
 	shell:
 		"""
 		module load {config[samtools_version]}
-		set +o pipefail; cat {input} | head -n 1 {input} > temp/annovar_intervar_header
+		head -n 1 {input} | grep "^CHROM" | uniq > temp/annovar_intervar_header
 		cat {input} | grep -v "^CHROM" | sort -k1,1 -k2,2n > {output}TEMP
 		cat temp/annovar_intervar_header {output}TEMP | bgzip -f > {output}
 		tabix -b 2 -e 2 -S 1 {output}
@@ -347,6 +347,7 @@ rule query_gemini:
 		mkdir -p sample_reports
 		module load {config[R_version]}
 		module load {config[gemini_version]}
+		module load {config[pandoc_version]}
 		Rscript {config[SeeGEM_script]} {input.db} {wildcards.family_name} {output.report_name} {wildcards.sample}_PEDDY {config[aaf_change]} {config[gemini_lenient]}
 		cp {output.report_name} {output.report_path}
 		"""
