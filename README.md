@@ -4,7 +4,7 @@
 # Genomic Variant Prioritization
 Snakemake workflow post-genotype calling to prioritize disease-causing variants on biowulf2.
 
-# Quick-ish Start
+# Quick-ish Test Start Using Demo vcf
 - Log into your biowulf2 account.
 - `sinteractive`
 - `module load R`
