@@ -19,7 +19,10 @@ Or a list of families to process like so:
 
 - family_name: ['gupta_fam', 'smith_fam', 'chan_fam']
 
-Install [SeeGEM](https://github.com/davemcg/SeeGEM) in `R` to produce the html report
+Install [SeeGEM](https://github.com/davemcg/SeeGEM) in `R` to produce the html report. 
+`sinteractive`
+`module load R`
+`R`
 `devtools::install_github('davemcg/see_gem', build_vignettes=T)`
 
 # Run (in biowulf2)
