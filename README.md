@@ -2,7 +2,22 @@
 
 
 # Genomic Variant Prioritization
-Snakemake workflow post-genotype calling to prioritize disease-causing variants.
+Snakemake workflow post-genotype calling to prioritize disease-causing variants on biowulf2.
+
+# Quick Start
+- Log into your biowulf2 account.
+- `sinteractive`
+- `module load R`
+- `R`
+- `devtools::install_github('davemcg/see_gem', build_vignettes=T)`
+- `q()`
+- `cd ~/`
+- `mkdir -p ~/git`
+- `cd git`
+- `git clone https://github.com/davemcg/variant_prioritization.git`
+- `cd variant_prioritization/tests`
+- `sbatch ../Snakemake.wrapper.sh config_variant_prioritization.yaml`
+
 
 # Input
 - VCF from [NGS_genotype_calling](https://github.com/davemcg/NGS_genotype_calling/blob/master/GVCF_to_VCF_snakemake.wrapper.sh)
@@ -24,6 +39,8 @@ Install [SeeGEM](https://github.com/davemcg/SeeGEM) in `R` on biowulf2 to produc
   - `module load R`
   - `R`
   - `devtools::install_github('davemcg/see_gem', build_vignettes=T)`
+
+Finally edit the first line of [src/config_variant_prioritization.yaml](https://github.com/davemcg/variant_prioritization/blob/master/src/config_variant_prioritization.yaml) to put your vcf (bgzip'ed and tabix'ed) in. 
 
 # Run (in biowulf2)
 sbatch --time=12:00:00 ~/git/variant_prioritization/Snakemake.wrapper.sh COPIED_OVER_YAML_FILE.yaml
