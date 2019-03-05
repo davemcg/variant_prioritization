@@ -19,6 +19,9 @@ Or a list of families to process like so:
 
 - family_name: ['gupta_fam', 'smith_fam', 'chan_fam']
 
+Install SeeGEM in `R` to produce the html report
+`devtools::install_github('davemcg/see_gem', build_vignettes=T)`
+
 # Run (in biowulf2)
 sbatch --time=12:00:00 ~/git/variant_prioritization/Snakemake.wrapper.sh COPIED_OVER_YAML_FILE.yaml
 
