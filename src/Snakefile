@@ -340,14 +340,48 @@ rule query_gemini:
 		peddy_sex = '{sample}_PEDDY.sex_check.csv'
 	output:
 		report_name = '{sample}.{family_name}.PED_{ped}.lenient{gemini_lenient}.SeeGEM.report.html',
-		report_path = 'sample_reports/{sample}.{family_name}.PED_{ped}.lenient{gemini_lenient}.SeeGEM.report.html'
+#		report_path = 'sample_reports/{sample}.{family_name}.PED_{ped}.lenient{gemini_lenient}.SeeGEM.report.html'
 	resources: res=1
+	run:
+		report_name = output.report_name
+	#	report_path = output.report_path
+		if config["output_raw"].upper() == 'NO':
+			shell("mkdir -p sample_reports; \
+					module load {config[R_version]}; \
+					module load {config[gemini_version]}; \
+					module load {config[pandoc_version]}; \
+					Rscript {config[SeeGEM_script]} \
+						{input.db} \
+						{wildcards.family_name} \
+						{output.report_name} \
+						{wildcards.sample}_PEDDY \
+						{config[aaf_change]} \
+						{config[gemini_lenient]}")
+#			shell("mv " + report_name + ' ' + report_path)
+		else:
+			raw_name = report_name.replace('.html','.tsv')
+			#raw_path = report_path.replace('.html','.tsv')
+			shell("mkdir -p sample_reports; \
+					module load {config[R_version]}; \
+					module load {config[gemini_version]}; \
+					module load {config[pandoc_version]}; \
+					Rscript {config[SeeGEM_script]} \
+						{input.db} \
+						{wildcards.family_name} \
+						{output.report_name} \
+						{wildcards.sample}_PEDDY \
+						{config[aaf_change]} \
+						{config[gemini_lenient]} " + raw_name)
+#			shell("mv " + report_name + ' ' + report_path)	
+#			shell("mv " + raw_name + ' ' + raw_path)
+
+localrules: move_reports
+rule move_reports:
+	input:
+		'{sample}.{family_name}.PED_{ped}.lenient{gemini_lenient}.SeeGEM.report.html'
+	output:
+		'sample_reports/{sample}.{family_name}.PED_{ped}.lenient{gemini_lenient}.SeeGEM.report.html'
 	shell:
 		"""
-		mkdir -p sample_reports
-		module load {config[R_version]}
-		module load {config[gemini_version]}
-		module load {config[pandoc_version]}
-		Rscript {config[SeeGEM_script]} {input.db} {wildcards.family_name} {output.report_name} {wildcards.sample}_PEDDY {config[aaf_change]} {config[gemini_lenient]}
-		cp {output.report_name} {output.report_path}
+		mv {input} {output}
 		"""
