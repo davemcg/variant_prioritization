@@ -14,10 +14,13 @@ sbcmd="sbatch --cpus-per-task={threads} \
 --error={cluster.error} \
 {cluster.extra}"
 
-if ["$2" -eq 0]; then
-	json="/home/$USER/git/variant_prioritization/src/cluster.json"
-else
+
+# if json given, then use it
+if [ ! -z "$2" ]; then
 	json="$2"
+# otherwise use the default
+else
+	json="/home/$USER/git/variant_prioritization/src/cluster.json"
 fi
 
 snakemake -s /home/$USER/git/variant_prioritization/src/Snakefile \

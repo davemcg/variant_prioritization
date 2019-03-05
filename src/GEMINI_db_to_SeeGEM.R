@@ -23,7 +23,7 @@ if (toupper(lenient) != 'YES') {
 	lenient <- '--lenient'
 }
 # output GEMINI as data frame also?
-if (is.null(args[7])) {
+if (is.na(args[7])) {
     output_df <- '' } else {
     output_df <- args[7]
 }
@@ -145,26 +145,34 @@ writeLines('ACMG test done')
 # gemini_query_wrapper() and gemini_test_wrapper() will add the test name
 # to each query, so you can distinguish them later (via the 'test' column)
 my_GEMINI_data <- data.table::rbindlist(GEMINI_list, fill = TRUE)
-if (output_df != ''){
+if (output_df != '' & toupper(stringr::str_sub(output_df, -5,-1)) == 'RDATA' ){
 	save(my_GEMINI_data, file = output_df)
-}
+} else if (output_df != '' & toupper(stringr::str_sub(output_df, -3,-1)) == 'TSV' ){
+	readr::write_tsv(my_GEMINI_data, path = output_df)
+} else {}
+
 # now that you've created the core data, you can create the reactive document
 # I'm assuming you've already run peddy on the same vcf you used to make the GEMINI
 # db. 
 
 # one wrinkle is that peddy doesn't give the family labels throughout the output,
-# rather it uses the sample ids. So we need to get then frin the `sample_ped` query above
+# rather it uses the sample ids. So we need to get then from the `sample_ped` query above
 writeLines('Create reactive document!')
+# first decorate
+decorated <- See_GEM_formatter(my_GEMINI_data,
+								extra_columns_to_retain = "^gno|rankscore$|*num*|^clin|*domain*|*codon*|*annov*|*interv*")
 if (toupper(peddy_path) != 'NO'){
-	knit_see_gem(GEMINI_data = my_GEMINI_data, 
+	knit_see_gem(GEMINI_data = decorated, 
     	         output_file = paste0(cur_dir, '/', output_html), 
         	     peddy_path_prefix = paste0(cur_dir,'/',peddy_path), 
             	 peddy_id = sample_ped$name, 
-            	 sample_name = family_name)
+            	 sample_name = family_name,
+				 decorate = FALSE)
 } else {
-	knit_see_gem(GEMINI_data = my_GEMINI_data, 
+	knit_see_gem(GEMINI_data = decorated, 
     	         output_file = paste0(cur_dir, '/', output_html), 
             	 skip_stats = 'yes', 
+				 decorate = FALSE,
 				 sample_name = family_name)
 }
 

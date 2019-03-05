@@ -1,3 +1,5 @@
+import os 
+
 #grab SAMPLE name from vcf input
 SAMPLE = str(config['input_vcf']).split('.vcf')[0]
 # logic to parse ped for families
@@ -30,6 +32,8 @@ def pick():
 
 # import regions
 REGIONS_file = config['regions']
+if '/home/$USER' in REGIONS_file:
+	REGIONS_file = os.environ['HOME'] + REGIONS_file.split('$USER')[-1]
 REGIONS = open(REGIONS_file).readlines()
 REGIONS = [r.strip() for r in REGIONS]
 MT_CONTIGS="MT,GL000207.1,GL000226.1,GL000229.1,GL000231.1,GL000210.1,GL000239.1,GL000235.1,GL000201.1,GL000247.1,GL000245.1,GL000197.1,GL000203.1,GL000246.1,GL000249.1,GL000196.1,GL000248.1,GL000244.1,GL000238.1,GL000202.1,GL000234.1,GL000232.1,GL000206.1,GL000240.1,GL000236.1,GL000241.1,GL000243.1,GL000242.1,GL000230.1,GL000237.1,GL000233.1,GL000204.1,GL000198.1,GL000208.1,GL000191.1,GL000227.1,GL000228.1,GL000214.1,GL000221.1,GL000209.1,GL000218.1,GL000220.1,GL000213.1,GL000211.1,GL000199.1,GL000217.1,GL000216.1,GL000215.1,GL000205.1,GL000219.1,GL000224.1,GL000223.1,GL000195.1,GL000212.1,GL000222.1,GL000200.1,GL000193.1,GL000194.1,GL000225.1,GL000192.1,NC_007605"
@@ -37,7 +41,7 @@ MT_CONTIGS="MT,GL000207.1,GL000226.1,GL000229.1,GL000231.1,GL000210.1,GL000239.1
 # set global Snakemake wildcard constraints
 wildcard_constraints:
 	sample=SAMPLE,
-	region = '.*\d|MT_contigs',
+	region = '|'.join(REGIONS),
 #	region = '^[0-9a-zA-Z]+:\d+-\d+'
 	family_name=family_name_con
 
@@ -54,8 +58,8 @@ else:
 				sample=SAMPLE, \
 				ped=PEDfile, \
 				family_name=config['family_name'], \
-				gemini_lenient = config['gemini_lenient'])
-
+				gemini_lenient = config['gemini_lenient']),
+			
 rule n_split_vcf:
 	input:
 		vcf = config['input_vcf']
@@ -91,6 +95,75 @@ rule vt_bgzip_and_tabix_vcf:
 			| bgzip -c > {output.vcf}
 		tabix -f -p vcf {output.vcf}
 		"""
+
+rule annovar:
+	input:
+		vcf = 'temp/vt.{sample}__{region}.vcf.gz',
+		index = 'temp/vt.{sample}__{region}.vcf.gz.tbi'
+	output:
+		avinput = temp('temp/{sample}__{region}.avinput'),
+	threads: 2
+	shell:
+		"""
+		module unload python
+		module load {config[annovar_version]}
+		module load {config[InterVar_version]}
+		module load {config[R_version]}
+		convert2annovar.pl -format vcf4old {input.vcf} -includeinfo --outfile {output.avinput}
+		table_annovar.pl {output.avinput} \
+			$ANNOVAR_DATA/hg19 \
+			-buildver hg19 \
+			-remove \
+			-out {output.avinput}.INTERVAR \
+			--protocol refGene,esp6500siv2_all,1000g2015aug_all,avsnp147,dbnsfp33a,clinvar_20170905,exac03,dbscsnv11,dbnsfp31a_interpro,rmsk,ensGene,knownGene,refGeneWithVer,popfreq_max_20150413,gnomad_exome,gnomad_genome,spidex,avsnp150 \
+			-operation  g,f,f,f,f,f,f,f,f,r,g,g,g,f,f,f,f,f \
+			--argument '-hgvs',,,,,,,,,,,,'-splicing 50 -hgvs',,,,, \
+			--polish -nastring . \
+		    --thread {threads} \
+			--otherinfo
+		"""
+
+rule intervar:	
+	input:
+		avinput = 'temp/{sample}__{region}.avinput',
+	output:
+		temp('temp/{sample}__{region}.annovar_intervar.out')
+	shell:
+		"""
+		module unload python
+		module load {config[InterVar_version]}
+		module load {config[R_version]}
+		InterVar \
+			-i {input.avinput} \
+			--input_type=AVinput \
+			-d $ANNOVAR_DATA/hg19 \
+			-o {input.avinput}.INTERVAR \
+			--skip_annovar
+		
+		cut -f -139 {input.avinput}.INTERVAR.hg19_multianno.txt | \
+			sed "1 s/"Otherinfo"/"CHROM\\\tPOS\\\tID\\\tREF\\\tALT\\\tQUAL\\\tFILTER"/" - > \
+			{input.avinput}.INTERVAR.hg19_multianno.txt.CUT
+
+		Rscript {config[intervar_Rscript_path]} \
+			{input.avinput}.INTERVAR.hg19_multianno.txt.intervar \
+			{input.avinput}.INTERVAR.hg19_multianno.txt.CUT \
+			{output}
+		"""
+
+rule merge_annovar_intervar:
+	input:
+		expand('temp/{sample}__{region}.annovar_intervar.out', sample=SAMPLE, region=REGIONS)
+	output:
+		temp('temp/annovar_intervar_annotation.txt.gz')
+	shell:
+		"""
+		module load {config[samtools_version]}
+		head -n 1 {input} | grep "^CHROM" | uniq > temp/annovar_intervar_header
+		cat {input} | grep -v "^CHROM" | sort -k1,1 -k2,2n > {output}TEMP
+		cat temp/annovar_intervar_header {output}TEMP | bgzip -f > {output}
+		tabix -b 2 -e 2 -S 1 {output}
+		"""
+
 
 # annotate with VEP
 # two paths here, set by config['pick'] in config.yaml and the pick() function:
@@ -147,16 +220,23 @@ rule VEP_annotate:
 # annotate with vcfanno
 rule vcfanno_annotate:
 	input:
+		annovar_intervar = 'temp/annovar_intervar_annotation.txt.gz',
 		vcf = 'temp/{sample}__{region}.SORTED.VT.VEP.vcf.gz',
 		index = 'temp/{sample}__{region}.SORTED.VT.VEP.vcf.gz'
 	output:
+		new_conf = temp('temp/{sample}__{region}_vcfanno.conf'),
 		vcf = temp('temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.vcf.gz'),
 		index = temp('temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.vcf.gz.tbi')
 	threads: 4
 	shell:
 		"""
 		module load {config[vcfanno_version]}
-		vcfanno -p {threads} -lua {config[vcfanno_lua]} {config[vcfanno_conf]} {input.vcf} | bgzip > {output.vcf} 
+		# copy conf to local dir, then edit to put in the path
+		# to the annovar_intervar this Snakemake creates
+		cp {config[vcfanno_conf]} {output.new_conf}
+		annovar_intervar_path=`echo {input.annovar_intervar} | sed 's:/:\\\\\/:g'`
+		sed -i "s/REPLACE_ME_PROGRAMATICALLY/$annovar_intervar_path/g" {output.new_conf}
+		vcfanno -p {threads} -lua {config[vcfanno_lua]} {output.new_conf} {input.vcf} | bgzip > {output.vcf} 
 		tabix -f -p vcf {output.vcf}
 		"""
 
@@ -260,13 +340,48 @@ rule query_gemini:
 		peddy_sex = '{sample}_PEDDY.sex_check.csv'
 	output:
 		report_name = '{sample}.{family_name}.PED_{ped}.lenient{gemini_lenient}.SeeGEM.report.html',
-		report_path = 'sample_reports/{sample}.{family_name}.PED_{ped}.lenient{gemini_lenient}.SeeGEM.report.html'
+#		report_path = 'sample_reports/{sample}.{family_name}.PED_{ped}.lenient{gemini_lenient}.SeeGEM.report.html'
 	resources: res=1
+	run:
+		report_name = output.report_name
+	#	report_path = output.report_path
+		if config["output_raw"].upper() == 'NO':
+			shell("mkdir -p sample_reports; \
+					module load {config[R_version]}; \
+					module load {config[gemini_version]}; \
+					module load {config[pandoc_version]}; \
+					Rscript {config[SeeGEM_script]} \
+						{input.db} \
+						{wildcards.family_name} \
+						{output.report_name} \
+						{wildcards.sample}_PEDDY \
+						{config[aaf_change]} \
+						{config[gemini_lenient]}")
+#			shell("mv " + report_name + ' ' + report_path)
+		else:
+			raw_name = report_name.replace('.html','.tsv')
+			#raw_path = report_path.replace('.html','.tsv')
+			shell("mkdir -p sample_reports; \
+					module load {config[R_version]}; \
+					module load {config[gemini_version]}; \
+					module load {config[pandoc_version]}; \
+					Rscript {config[SeeGEM_script]} \
+						{input.db} \
+						{wildcards.family_name} \
+						{output.report_name} \
+						{wildcards.sample}_PEDDY \
+						{config[aaf_change]} \
+						{config[gemini_lenient]} " + raw_name)
+#			shell("mv " + report_name + ' ' + report_path)	
+#			shell("mv " + raw_name + ' ' + raw_path)
+
+localrules: move_reports
+rule move_reports:
+	input:
+		'{sample}.{family_name}.PED_{ped}.lenient{gemini_lenient}.SeeGEM.report.html'
+	output:
+		'sample_reports/{sample}.{family_name}.PED_{ped}.lenient{gemini_lenient}.SeeGEM.report.html'
 	shell:
 		"""
-		mkdir -p sample_reports
-		module load {config[R_version]}
-		module load {config[gemini_version]}
-		Rscript {config[SeeGEM_script]} {input.db} {wildcards.family_name} {output.report_name} {wildcards.sample}_PEDDY {config[aaf_change]} {config[gemini_lenient]}
-		cp {output.report_name} {output.report_path}
+		mv {input} {output}
 		"""
