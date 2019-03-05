@@ -1,7 +1,7 @@
 input_vcf: 'test_trio.vcf.gz'
 aaf_change: '0.9'
 family_name: 'outside'
-ped: '/home/$USER/git/variant_prioritization/tests/test_trio.ped'
+ped: 'test_trio.ped'
 pick: 'canonical'
 samtools_version: 'samtools/1.6'
 ref_genome: '/data/OGVFB/resources/1000G_phase2_GRCh37/human_g1k_v37_decoy.fasta'
