@@ -15,7 +15,7 @@ Snakemake workflow post-genotype calling to prioritize disease-causing variants 
 - `mkdir -p ~/git`
 - `cd git`
 - `git clone https://github.com/davemcg/variant_prioritization.git`
-- `sed -i 's/mcgaugheyd/YOUR_BIOWULF2_USERNANE/g' src/vcfanno_v3.conf`
+- `sed -i 's/mcgaugheyd/YOUR_BIOWULF2_USERNAME/g' src/vcfanno_v3.conf`
 - `cd variant_prioritization/tests`
 - `sbatch ../Snakemake.wrapper.sh config_variant_prioritization.yaml`
 
