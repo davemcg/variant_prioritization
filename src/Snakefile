@@ -231,6 +231,7 @@ rule vcfanno_annotate:
 	threads: 4
 	shell:
 		"""
+		module load {config[samtools_version]}
 		module load {config[vcfanno_version]}
 		# copy conf to local dir, then edit to put in the path
 		# to the annovar_intervar this Snakemake creates
