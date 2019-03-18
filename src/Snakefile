@@ -253,6 +253,7 @@ rule tweak_header:
 		index = 'temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz.tbi'
 	shell:
 		"""
+		module load {config[samtools_version]}
 		zcat {input} | sed 's/Number=A/Number=1/g' | bgzip -c > {output.vcf}
 		tabix -f -p vcf {output.vcf}
 		"""
