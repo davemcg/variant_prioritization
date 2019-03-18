@@ -7,9 +7,11 @@ Snakemake workflow post-genotype calling to prioritize disease-causing variants 
 # Quick-ish Test Start Using Demo vcf
 - Log into your biowulf2 account.
 - `sinteractive`
-- `module load R`
+- `mkdir -p ~/R/3.5/library`
+- `module load R/3.5.2`
 - `R`
 - `devtools::install_github('davemcg/see_gem', build_vignettes=T)`
+- # THE ABOVE MUST INSTALL WITHOUT ERROR. IF IT DOES FIGURE IT OUT / ASK ME TO HELP.
 - `q()`
 - `cd ~/`
 - `mkdir -p ~/git`
