@@ -1,6 +1,6 @@
 input_vcf: 'test_trio.vcf.gz'
 aaf_change: '0.9'
-family_name: 'outside'
+family_name: ['family_1', 'family_2']
 ped: 'test_trio.ped'
 pick: 'canonical'
 samtools_version: 'samtools/1.6'
