@@ -118,3 +118,11 @@ function check_clinvar_aaf(clinvar_sig, max_aaf_all, aaf_cutoff)
     end
     return contains(clinvar_sig, "pathogenic") and max_aaf_all > aaf_cutoff
 end
+
+function split(s, delimiter)
+    result = {};
+    for match in (s..delimiter):gmatch("(.-)"..delimiter) do
+        table.insert(result, match);
+    end
+    return result;
+end
