@@ -127,12 +127,14 @@ rule spliceai_vcfanno:
 		| awk -F"\t" 'BEGIN{{OFS="\t"}} !/,/ {{split($6, splices, "|"); max = splices[3]; for(m = 3; m <=6; m++) {{if(max<splices[m]) max = splices[m]}} print $0,max}} /,/ {{n = split($6,annotation,","); max = 0; for (i = 1; i <=n; i++) {{split(annotation[i],splices,"|"); for(m = 3; m <=6; m++) {{if(max<splices[m]) max = splices[m]}}; }}; print $0,max }}' - \
 		| awk -F"\t" 'BEGIN{{OFS="\t"}} NR==1 {{$7="spliceai_maxscore"; print $0}} NR>1 {{if ($6==".") {{$7="."; print $0}} else {{print $0}} }}' - > {output.tsv_for_merge}
 		"""
-#Snakemake use {} as special wildcard, need to replace with {{}}. Also better use "" instead of ''.
+#Snakemake use {} as special wildcard, need to replace with {{}}.
+#Also better use double quotation marks "" instead of ''.
+#in sed, it appearst that \t needs to be \\t (or double quotations?)
 rule merge_spliceai:
 	input:
 		expand('temp/spliceai.{sample}__{region}.tsv.temp', sample=SAMPLE, region=REGIONS)
 	output:
-		temp('temp/spliceai.tsv.gz')
+		'temp/spliceai.tsv.gz'
 	shell:
 		"""
 		module load {config[samtools_version]}
@@ -155,7 +157,7 @@ rule annovar:
 		module unload python
 		#module load {config[annovar_version]}
 		module load {config[InterVar_version]}
-		module load {config[R_version]}
+		#module load {config[R_version]}
 		convert2annovar.pl -format vcf4old {input.vcf} -includeinfo --outfile {output.avinput}
 		table_annovar.pl {output.avinput} \
 			$ANNOVAR_DATA/hg19 \
@@ -164,7 +166,7 @@ rule annovar:
 			-out {output.avinput} \
 			--protocol refGene,esp6500siv2_all,1000g2015aug_all,avsnp147,dbnsfp33a,clinvar_20190305,gnomad_genome,dbscsnv11,dbnsfp31a_interpro,rmsk,ensGene,knownGene,refGeneWithVer,popfreq_max_20150413,gnomad_exome,spidex,avsnp150,spliceai_filtered \
 			-operation  g,f,f,f,f,f,f,f,f,r,g,g,g,f,f,f,f,f \
-			--argument '-hgvs',,,,,,,,,,,,'-splicing 50 -hgvs',,,,,
+			--argument '-hgvs',,,,,,,,,,,,'-splicing 50 -hgvs',,,,, \
 			--polish -nastring . \
 		    --thread {threads} \
 			--otherinfo
@@ -203,7 +205,7 @@ rule merge_annovar_intervar:
 	input:
 		expand('temp/{sample}__{region}.annovar_intervar.out', sample=SAMPLE, region=REGIONS)
 	output:
-		temp('temp/annovar_intervar_annotation.txt.gz')
+		'temp/annovar_intervar_annotation.txt.gz'
 	shell:
 		"""
 		module load {config[samtools_version]}
@@ -212,7 +214,7 @@ rule merge_annovar_intervar:
 		cat temp/annovar_intervar_header {output}TEMP | bgzip -f > {output}
 		tabix -b 2 -e 2 -S 1 {output}
 		"""
-
+# in above sort, will it work with alternative alleles?
 
 # annotate with VEP
 # two paths here, set by config['pick'] in config.yaml and the pick() function:
