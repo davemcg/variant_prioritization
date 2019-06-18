@@ -1,4 +1,4 @@
-import os 
+import os
 
 #grab SAMPLE name from vcf input
 SAMPLE = str(config['input_vcf']).split('.vcf')[0]
@@ -22,7 +22,7 @@ else:
 	family_name_con = '|'.join(config['family_name'])
 
 def pick():
-	# modifies VEP call to either pick most canonical tx or 
+	# modifies VEP call to either pick most canonical tx or
 	# return all tx possibilities
 	if config['pick'].upper() == 'CANONICAL':
 		out = '--pick_allele_gene  --pick_order canonical, tsl, biotype, ccds, length '
@@ -59,7 +59,7 @@ else:
 				ped=PEDfile, \
 				family_name=config['family_name'], \
 				gemini_lenient = config['gemini_lenient']),
-			
+
 rule n_split_vcf:
 	input:
 		vcf = config['input_vcf']
@@ -89,12 +89,57 @@ rule vt_bgzip_and_tabix_vcf:
 		export REF_CACHE=/scratch/$SLURM_JOB_ID/
 		module load {config[samtools_version]}
 		module load {config[vt_version]}
-		cat {input} \
+		zcat {input} \
 			| sed 's/ID=AD,Number=./ID=AD,Number=R/' \
 			| vt decompose -s - \
 			| vt normalize -r {config[ref_genome]} - \
 			| bgzip -c > {output.vcf}
 		tabix -f -p vcf {output.vcf}
+		"""
+
+rule spliceai:
+	input:
+		'temp/vt.{sample}__{region}.vcf.gz'
+	output:
+		vcf = temp('temp/spliceai.{sample}__{region}.vcf.gz'),
+		index = temp('temp/spliceai.{sample}__{region}.vcf.gz.tbi')
+	shell:
+		"""
+		module load {config[spliceai_version]}
+		spliceai -I {input} -R {config[ref_genome]} -A grch37 -O {output.vcf}
+		tabix -f -p vcf {output.vcf}
+		"""
+
+rule spliceai_vcfanno:
+	input:
+		'temp/spliceai.{sample}__{region}.vcf.gz'
+	output:
+		tsv = temp('temp/spliceai.{sample}__{region}.tsv'),
+		tsv_for_merge = temp('temp/spliceai.{sample}__{region}.tsv.temp')
+	#	index = temp('temp/spliceai.vt.{sample}__{region}.tsv.gz.tbi')
+	shell:
+	# use spliceai_vcfanno_v3.sh file for non-split files
+		"""
+	 	module load {config[samtools_version]}
+		module load {config[VCF-kit_version]}
+		vk vcf2tsv wide --print-header {input} > {output.tsv}
+		cut -f 1-5,$(head -1 {output.tsv} | sed "s/\\t/\\n/g" | grep -n "SpliceAI" | cut -f 1 -d:) {output.tsv} \
+		| awk -F"\t" 'BEGIN{{OFS="\t"}} !/,/ {{split($6, splices, "|"); max = splices[3]; for(m = 3; m <=6; m++) {{if(max<splices[m]) max = splices[m]}} print $0,max}} /,/ {{n = split($6,annotation,","); max = 0; for (i = 1; i <=n; i++) {{split(annotation[i],splices,"|"); for(m = 3; m <=6; m++) {{if(max<splices[m]) max = splices[m]}}; }}; print $0,max }}' - \
+		| awk -F"\t" 'BEGIN{{OFS="\t"}} NR==1 {{$7="spliceai_maxscore"; print $0}} NR>1 {{if ($6==".") {{$7="."; print $0}} else {{print $0}} }}' - > {output.tsv_for_merge}
+		"""
+#Snakemake use {} as special wildcard, need to replace with {{}}. Also better use "" instead of ''.
+rule merge_spliceai:
+	input:
+		expand('temp/spliceai.{sample}__{region}.tsv.temp', sample=SAMPLE, region=REGIONS)
+	output:
+		temp('temp/spliceai.tsv.gz')
+	shell:
+		"""
+		module load {config[samtools_version]}
+		head -n 1 {input} | grep "^CHROM" | uniq > temp/spliceai_header
+		cat {input} | grep -v "^CHROM" | sort -k1,1 -k2,2n > {output}TEMP
+		cat temp/spliceai_header {output}TEMP | bgzip -f > {output}
+		tabix -b 2 -e 2 -S 1 {output}
 		"""
 
 rule annovar:
@@ -103,11 +148,12 @@ rule annovar:
 		index = 'temp/vt.{sample}__{region}.vcf.gz.tbi'
 	output:
 		avinput = temp('temp/{sample}__{region}.avinput'),
+		annovar_out = temp('temp/{sample}__{region}.avinput.hg19_multianno.txt')
 	threads: 2
 	shell:
 		"""
 		module unload python
-		module load {config[annovar_version]}
+		#module load {config[annovar_version]}
 		module load {config[InterVar_version]}
 		module load {config[R_version]}
 		convert2annovar.pl -format vcf4old {input.vcf} -includeinfo --outfile {output.avinput}
@@ -115,18 +161,19 @@ rule annovar:
 			$ANNOVAR_DATA/hg19 \
 			-buildver hg19 \
 			-remove \
-			-out {output.avinput}.INTERVAR \
-			--protocol refGene,esp6500siv2_all,1000g2015aug_all,avsnp147,dbnsfp33a,clinvar_20170905,exac03,dbscsnv11,dbnsfp31a_interpro,rmsk,ensGene,knownGene,refGeneWithVer,popfreq_max_20150413,gnomad_exome,gnomad_genome,spidex,avsnp150 \
+			-out {output.avinput} \
+			--protocol refGene,esp6500siv2_all,1000g2015aug_all,avsnp147,dbnsfp33a,clinvar_20190305,gnomad_genome,dbscsnv11,dbnsfp31a_interpro,rmsk,ensGene,knownGene,refGeneWithVer,popfreq_max_20150413,gnomad_exome,spidex,avsnp150,spliceai_filtered \
 			-operation  g,f,f,f,f,f,f,f,f,r,g,g,g,f,f,f,f,f \
-			--argument '-hgvs',,,,,,,,,,,,'-splicing 50 -hgvs',,,,, \
+			--argument '-hgvs',,,,,,,,,,,,'-splicing 50 -hgvs',,,,,
 			--polish -nastring . \
 		    --thread {threads} \
 			--otherinfo
 		"""
 
-rule intervar:	
+rule intervar:
 	input:
 		avinput = 'temp/{sample}__{region}.avinput',
+		annovar_out = 'temp/{sample}__{region}.avinput.hg19_multianno.txt'
 	output:
 		temp('temp/{sample}__{region}.annovar_intervar.out')
 	shell:
@@ -138,16 +185,17 @@ rule intervar:
 			-i {input.avinput} \
 			--input_type=AVinput \
 			-d $ANNOVAR_DATA/hg19 \
-			-o {input.avinput}.INTERVAR \
+			--evidence_file={config[intervar_evidence]} \
+			-o {input.avinput} \
 			--skip_annovar
-		
-		cut -f -139 {input.avinput}.INTERVAR.hg19_multianno.txt | \
+
+		cut -f -132 {input.avinput}.hg19_multianno.txt | \
 			sed "1 s/"Otherinfo"/"CHROM\\\tPOS\\\tID\\\tREF\\\tALT\\\tQUAL\\\tFILTER"/" - > \
-			{input.avinput}.INTERVAR.hg19_multianno.txt.CUT
+			{input.avinput}.hg19_multianno.txt.CUT
 
 		Rscript {config[intervar_Rscript_path]} \
-			{input.avinput}.INTERVAR.hg19_multianno.txt.intervar \
-			{input.avinput}.INTERVAR.hg19_multianno.txt.CUT \
+			{input.avinput}.hg19_multianno.txt.intervar \
+			{input.avinput}.hg19_multianno.txt.CUT \
 			{output}
 		"""
 
@@ -168,12 +216,12 @@ rule merge_annovar_intervar:
 
 # annotate with VEP
 # two paths here, set by config['pick'] in config.yaml and the pick() function:
-# 1. 'canonical' only returns one consequence per variant. 
-# 		Use this for clinical returns, as no risk of using odd tx with 
+# 1. 'canonical' only returns one consequence per variant.
+# 		Use this for clinical returns, as no risk of using odd tx with
 # 		high consequence as choice in gemini
-# 2. 'all' will do multiple annotations with VEP and gemini will use 
-# 	the most serious consequence. 
-# 		Use for more research returns, to increase chances of finding 
+# 2. 'all' will do multiple annotations with VEP and gemini will use
+# 	the most serious consequence.
+# 		Use for more research returns, to increase chances of finding
 # 		interesting variants at cost of lower specificity.
 rule VEP_annotate:
 	input:
@@ -198,22 +246,26 @@ rule VEP_annotate:
             --plugin SpliceRegion \
 			--plugin MaxEntScan,/data/OGVFB/resources/MaxEntScan \
 			--plugin CADD,/fdb/CADD/1.3/prescored/whole_genome_SNVs.tsv.gz,/fdb/CADD/1.3/prescored/InDels.tsv.gz \
+			--plugin MPC,/data/OGVFB/OGL_NGS/variant_prioritization/data/MPC/fordist_constraint_official_mpc_values_v2.txt.gz \
 			--canonical \
 			--ccds \
 			--total_length \
 			--hgvs \
+			--shift_hgvs 1 \
 			--sift b \
 			--polyphen b \
 			--symbol \
+			--check_existing \
 			--numbers \
 			--biotype \
 			--total_length \
 			--pubmed \
 			--domains \
 			--gene_phenotype \
+			--max_af \
 			{params.pick} \
-            --fields Allele,Consequence,Codons,Amino_acids,Gene,SYMBOL,Feature,EXON,PolyPhen,SIFT,Protein_position,BIOTYPE,CANONICAL,DOMAINS,CLIN_SIG,PICK,Grantham,MaxEntScan,HGVSc,HGVSp,PUBMED,Phenotypes,CADD_RAW,CADD_PHRED,GeneSplicer,SpliceRegion,ada_score,rf_score \
-			--vcf --compress_output bgzip --force_overwrite 
+            --fields Allele,Consequence,Codons,Amino_acids,Gene,SYMBOL,Feature,EXON,HGVSc,HGVSp,MAX_AF,MAX_AF_POPS,PolyPhen,SIFT,MPC,Protein_position,BIOTYPE,CANONICAL,DOMAINS,Existing_variation,CLIN_SIG,PICK,Grantham,PUBMED,Phenotypes,CADD_RAW,CADD_PHRED,GeneSplicer,SpliceRegion,ada_score,rf_score,MaxEntScan, \
+			--vcf --compress_output bgzip --force_overwrite
 		# tabix
 		tabix -f -p vcf {output.vcf}
 		"""
@@ -222,8 +274,9 @@ rule VEP_annotate:
 rule vcfanno_annotate:
 	input:
 		annovar_intervar = 'temp/annovar_intervar_annotation.txt.gz',
+		spliceai = 'temp/spliceai.tsv.gz',
 		vcf = 'temp/{sample}__{region}.SORTED.VT.VEP.vcf.gz',
-		index = 'temp/{sample}__{region}.SORTED.VT.VEP.vcf.gz'
+	#	index = 'temp/{sample}__{region}.SORTED.VT.VEP.vcf.gz'
 	output:
 		new_conf = temp('temp/{sample}__{region}_vcfanno.conf'),
 		vcf = temp('temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.vcf.gz'),
@@ -237,8 +290,10 @@ rule vcfanno_annotate:
 		# to the annovar_intervar this Snakemake creates
 		cp {config[vcfanno_conf]} {output.new_conf}
 		annovar_intervar_path=`echo {input.annovar_intervar} | sed 's:/:\\\\\/:g'`
-		sed -i "s/REPLACE_ME_PROGRAMATICALLY/$annovar_intervar_path/g" {output.new_conf}
-		vcfanno -p {threads} -lua {config[vcfanno_lua]} {output.new_conf} {input.vcf} | bgzip > {output.vcf} 
+		spliceai_path=`echo {input.spliceai} | sed 's:/:\\\\\/:g'`
+		sed -i "s/ANNOVAR_INTERVAR_FILE/$annovar_intervar_path/g" {output.new_conf}
+		sed -i "s/SPLICEAI_FILE/$spliceai_path/g" {output.new_conf}
+		vcfanno -p {threads} -lua {config[vcfanno_lua]} {output.new_conf} {input.vcf} | bgzip > {output.vcf}
 		tabix -f -p vcf {output.vcf}
 		"""
 
@@ -375,7 +430,7 @@ rule query_gemini:
 						{wildcards.sample}_PEDDY \
 						{config[aaf_change]} \
 						{config[gemini_lenient]} " + raw_name)
-#			shell("mv " + report_name + ' ' + report_path)	
+#			shell("mv " + report_name + ' ' + report_path)
 #			shell("mv " + raw_name + ' ' + raw_path)
 
 localrules: move_reports

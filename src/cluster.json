@@ -8,6 +8,13 @@
 		"error" : "00log/{rule}_{wildcards}.err",
 		"extra" : ""
 	},
+	"spliceai" :
+	{
+		"partition" : "gpu",
+		"extra" : "--gres=gpu:p100:1",
+		"mem" : "20g",
+		"time" : "24:00:00"
+	},
 	"VEP_annotate" :
 	{
 		"partition" : "norm",
@@ -30,11 +37,10 @@
 		"time" : "24:00:00",
 		"mem" : "64g"
 	},
-	"make_gemini_db" : 
+	"make_gemini_db" :
 	{
 		"partition" : "norm",
 		"time" : "12:00:00",
 		"mem" : "32g"
 	}
 }
-	
