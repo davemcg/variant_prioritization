@@ -23,7 +23,12 @@
 	"annovar" :
 	{
 		"partition" : "norm",
-		"time" : "24:00:00"
+		"time" : "24:00:00",
+		"mem" : "16g"
+	},
+	"intervar" :
+	{
+		"mem" : "32g"
 	},
 	"merge_vcf" :
 	{
