@@ -25,4 +25,7 @@ pandoc_version: 'pandoc/2.1.1'
 gemini_lenient: 'Yes'
 output_raw: 'Yes'
 SeeGEM_script: '/home/$USER/git/variant_prioritization/src/GEMINI_db_to_SeeGEM.R'
-regions: '/home/$USER/git/variant_prioritization/src/vcf_region_split_2_coords.txt'
+regions: '/home/$USER/git/variant_prioritization/src/vcf_region_split_1_coords.txt'
+#regions, 1 for panel (only 1,2,..,22,x,y)
+#regions, 25 or 100 for WGS of 50 cases.
+#quotation marks can be single or double 
