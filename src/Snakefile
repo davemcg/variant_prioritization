@@ -110,12 +110,12 @@ rule spliceai:
 		tabix -f -p vcf {output.vcf}
 		"""
 
-rule spliceai_vcfanno:
+rule spliceai_edit:
 	input:
 		'temp/spliceai.{sample}__{region}.vcf.gz'
 	output:
 		tsv = temp('temp/spliceai.{sample}__{region}.tsv'),
-		tsv_for_merge = temp('temp/spliceai.{sample}__{region}.tsv.temp')
+		tsv_cut = temp('temp/spliceai.{sample}__{region}.tsv.cut')
 	#	index = temp('temp/spliceai.vt.{sample}__{region}.tsv.gz.tbi')
 	shell:
 	# use spliceai_vcfanno_v3.sh file for non-split files
@@ -125,32 +125,35 @@ rule spliceai_vcfanno:
 		vk vcf2tsv wide --print-header {input} > {output.tsv}
 		cut -f 1-5,$(head -1 {output.tsv} | sed "s/\\t/\\n/g" | grep -n "SpliceAI" | cut -f 1 -d:) {output.tsv} \
 		| awk -F"\t" 'BEGIN{{OFS="\t"}} !/,/ {{split($6, splices, "|"); max = splices[3]; for(m = 3; m <=6; m++) {{if(max<splices[m]) max = splices[m]}} print $0,max}} /,/ {{n = split($6,annotation,","); max = 0; for (i = 1; i <=n; i++) {{split(annotation[i],splices,"|"); for(m = 3; m <=6; m++) {{if(max<splices[m]) max = splices[m]}}; }}; print $0,max }}' - \
-		| awk -F"\t" 'BEGIN{{OFS="\t"}} NR==1 {{$7="spliceai_maxscore"; print $0}} NR>1 {{if ($6==".") {{$7="."; print $0}} else {{print $0}} }}' - > {output.tsv_for_merge}
+		| awk -F"\t" 'BEGIN{{OFS="\t"}} NR==1 {{$7="spliceai_maxscore"; print $0}} NR>1 {{if ($6==".") {{$7="."; print $0}} else {{print $0}} }}' - \
+		| awk -F"\t" 'BEGIN{{OFS="\t"}} NR==1 {{$8="spliceai_rank"; print $6, $7, $8}} NR>1 {{ if ($7==".") {{$8 = 0}} else {{ if ($7 >= 0.8) {{$8 = 8}} else {{if ($7 >= 0.5) {{$8 = 6}} else {{if ($7 >= 0.2) {{$8 = 3}} else {{if ($7 >= 0.15) {{$8 = 1}} else {{$8 = 0}}}}}} }}}}; print $6, $7, $8}}' -  > {output.tsv_cut}
 		"""
 #Snakemake use {} as special wildcard, need to replace with {{}}.
 #Also better use double quotation marks "" instead of ''.
 #in sed, it appearst that \t needs to be \\t (or double quotations?)
-rule merge_spliceai:
-	input:
-		expand('temp/spliceai.{sample}__{region}.tsv.temp', sample=SAMPLE, region=REGIONS)
-	output:
-		'temp/spliceai.tsv.gz'
-	shell:
-		"""
-		module load {config[samtools_version]}
-		head -n 1 {input} | grep "^CHROM" | uniq > temp/spliceai_header
-		cat {input} | grep -v "^CHROM" | sort -k1,1 -k2,2n > {output}TEMP
-		cat temp/spliceai_header {output}TEMP | bgzip -f > {output}
-		tabix -b 2 -e 2 -S 1 {output}
-		"""
 
-rule annovar:
+# rule merge_spliceai:
+# 	input:
+# 		expand('temp/spliceai.{sample}__{region}.tsv.temp', sample=SAMPLE, region=REGIONS)
+# 	output:
+# 		'temp/spliceai.tsv.gz'
+# 	shell:
+# 		"""
+# 		module load {config[samtools_version]}
+# 		head -n 1 {input} | grep "^CHROM" | uniq > temp/spliceai_header
+# 		cat {input} | grep -v "^CHROM" | sort -k1,1 -k2,2n > {output}TEMP
+# 		cat temp/spliceai_header {output}TEMP | bgzip -f > {output}
+# 		tabix -b 2 -e 2 -S 1 {output}
+# 		"""
+
+rule annovar_intervar:
 	input:
 		vcf = 'temp/vt.{sample}__{region}.vcf.gz',
 		index = 'temp/vt.{sample}__{region}.vcf.gz.tbi'
 	output:
 		avinput = temp('temp/{sample}__{region}.avinput'),
-		annovar_out = temp('temp/{sample}__{region}.avinput.hg19_multianno.txt')
+		annovar_out = temp('temp/{sample}__{region}.avinput.hg19_multianno.txt'),
+		intervar_out = temp('temp/{sample}__{region}.avinput.hg19_multianno.txt.intervar')
 	threads: 2
 	shell:
 		"""
@@ -170,42 +173,38 @@ rule annovar:
 			--polish -nastring . \
 		    --thread {threads} \
 			--otherinfo
-		"""
-
-rule intervar:
-	input:
-		avinput = 'temp/{sample}__{region}.avinput',
-		annovar_out = 'temp/{sample}__{region}.avinput.hg19_multianno.txt'
-	output:
-		temp('temp/{sample}__{region}.annovar_intervar.out')
-	shell:
-		"""
-		module unload python
-		module load {config[InterVar_version]}
-		module load {config[R_version]}
 		InterVar \
-			-i {input.avinput} \
+			-i {output.avinput} \
 			--input_type=AVinput \
 			-d $ANNOVAR_DATA/hg19 \
 			--evidence_file={config[intervar_evidence]} \
-			-o {input.avinput} \
+			-o {output.avinput} \
 			--skip_annovar
+		"""
 
-		cut -f -132 {input.avinput}.hg19_multianno.txt | \
-			sed "1 s/"Otherinfo"/"CHROM\\\tPOS\\\tID\\\tREF\\\tALT\\\tQUAL\\\tFILTER"/" - > \
-			{input.avinput}.hg19_multianno.txt.CUT
-
+rule spliceai_intervar_edit:
+	input:
+		spliceai = 'temp/spliceai.{sample}__{region}.tsv.cut',
+		annovar = 'temp/{sample}__{region}.avinput.hg19_multianno.txt',
+		intervar = 'temp/{sample}__{region}.avinput.hg19_multianno.txt.intervar'
+	output:
+		intermediate = temp('temp/{sample}__{region}.avinput.hg19_multianno.spliceai.txt'),
+		spliceai_intervar = temp('temp/{sample}__{region}.spliceai_annovar_intervar')
+	shell:
+		"""
+		module load {config[R_version]}
+		cut -f -132 {input.annovar} | sed "1 s/"Otherinfo"/"CHROM\\\tPOS\\\tID\\\tREF\\\tALT\\\tQUAL\\\tFILTER"/" - | paste - {input.spliceai} > {output.intermediate}
 		Rscript {config[intervar_Rscript_path]} \
-			{input.avinput}.hg19_multianno.txt.intervar \
-			{input.avinput}.hg19_multianno.txt.CUT \
-			{output}
+			{input.intervar} \
+			{output.intermediate} \
+			{output.spliceai_intervar}
 		"""
 
 rule merge_annovar_intervar:
 	input:
-		expand('temp/{sample}__{region}.annovar_intervar.out', sample=SAMPLE, region=REGIONS)
+		expand('temp/{sample}__{region}.spliceai_annovar_intervar', sample=SAMPLE, region=REGIONS)
 	output:
-		'temp/annovar_intervar_annotation.txt.gz'
+		'temp/spliceai_annovar_intervar_annotation.txt.gz'
 	shell:
 		"""
 		module load {config[samtools_version]}
@@ -275,8 +274,7 @@ rule VEP_annotate:
 # annotate with vcfanno
 rule vcfanno_annotate:
 	input:
-		annovar_intervar = 'temp/annovar_intervar_annotation.txt.gz',
-		spliceai = 'temp/spliceai.tsv.gz',
+		annovar_intervar = 'temp/spliceai_annovar_intervar_annotation.txt.gz',
 		vcf = 'temp/{sample}__{region}.SORTED.VT.VEP.vcf.gz',
 	#	index = 'temp/{sample}__{region}.SORTED.VT.VEP.vcf.gz'
 	output:
@@ -292,9 +290,7 @@ rule vcfanno_annotate:
 		# to the annovar_intervar this Snakemake creates
 		cp {config[vcfanno_conf]} {output.new_conf}
 		annovar_intervar_path=`echo {input.annovar_intervar} | sed 's:/:\\\\\/:g'`
-		spliceai_path=`echo {input.spliceai} | sed 's:/:\\\\\/:g'`
 		sed -i "s/ANNOVAR_INTERVAR_FILE/$annovar_intervar_path/g" {output.new_conf}
-		sed -i "s/SPLICEAI_FILE/$spliceai_path/g" {output.new_conf}
 		vcfanno -p {threads} -lua {config[vcfanno_lua]} {output.new_conf} {input.vcf} | bgzip > {output.vcf}
 		tabix -f -p vcf {output.vcf}
 		"""

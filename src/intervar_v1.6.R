@@ -38,7 +38,7 @@ annovar <- read.delim(args[2], sep = "\t", header = TRUE, na.strings = c("."),
                                      "numeric","numeric","numeric","numeric","character","character","character","character","character","character",
                                      "character","character","character","character","character","character","character","character","character","character",
                                      "character","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric",
-                                     "numeric","numeric","numeric","character","character","factor","integer","character","character","character","numeric","factor") )
+                                     "numeric","numeric","numeric","character","character","factor","integer","character","character","character","numeric","factor","character","character","numeric") )
 
 
 #pick one annotation for each variant that is of highest Priority score
@@ -64,14 +64,16 @@ intervar_for_sorting <- intervar %>%
 annovar_inter <- merge(x = annovar, y = intervar_for_sorting, 
                        by.x = c("Chr", "Start", "End", "Ref", "Alt"), by.y = c("X.Chr", "Start", "End", "Ref", "Alt"), all.x = TRUE, 
                        sort = FALSE, suffixes = c(".annovar", ".intervar"), no.dups = TRUE,
-                       incomparables = NULL) %>% 
-  replace_na(list(dpsi_max_tissue = 0, dpsi_zscore = 0 )) %>%
-  mutate(dpsi_spliceai_value = ifelse((PVS1 == 0 & abs(dpsi_max_tissue + dpsi_zscore) > 2.5), 1, 0) + ifelse((PVS1 ==0 & !is.na(spliceai_filtered)), 1, 0) ) %>%
-  mutate(Priority.Score = Priority.Score + dpsi_spliceai_value*2) %>% 
+                       incomparables = NULL) %>%
+  mutate(dpsi_max_tissue_temp = dpsi_max_tissue) %>% 
+  mutate(dpsi_zscore_temp = dpsi_zscore) %>% 
+  replace_na(list(dpsi_max_tissue_temp = 0, dpsi_zscore_temp = 0 )) %>%
+  mutate(dpsi_spliceai_value = ifelse(PVS1 == 0 & abs(dpsi_max_tissue_temp + dpsi_zscore_temp) > 5, 3, (ifelse((PVS1 == 0 & abs(dpsi_max_tissue_temp + dpsi_zscore_temp) > 2.5), 1, 0)))  ) %>%
+  mutate(Priority.Score = Priority.Score + dpsi_spliceai_value + ifelse(PVS1 == 1, 0, spliceai_rank) ) %>% 
   select(c("CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "Chr", "Start", "End", "Ref", "Alt", "Priority.Score", "Ref.Gene",  
 		"Func.refGene.intervar", "Gene.refGeneWithVer", "GeneDetail.refGeneWithVer", "ExonicFunc.refGeneWithVer", "AAChange.refGeneWithVer",
 		"clinvar..Clinvar", "InterVar..InterVar.and.Evidence", "PopFreqMax", "gnomAD_exome_ALL", "gnomAD_genome_ALL", 
-		"Freq_esp6500siv2_all", "Freq_1000g2015aug_all","dbscSNV_ADA_SCORE.intervar", "dbscSNV_RF_SCORE.intervar", "dpsi_max_tissue", "dpsi_zscore",
+		"Freq_esp6500siv2_all", "Freq_1000g2015aug_all","dbscSNV_ADA_SCORE.intervar", "dbscSNV_RF_SCORE.intervar", "dpsi_max_tissue", "dpsi_zscore", "SpliceAI", "spliceai_maxscore",
     "spliceai_filtered", "SIFT_score.intervar", "MetaSVM_score.intervar", "CADD_raw.intervar", "CADD_phred.intervar", "GERP.._RS.intervar", "phyloP46way_placental", 
 		"Func.refGeneWithVer", "ExonicFunc.refGene.intervar", "avsnp150", "Interpro_domain.intervar")) %>% 
   replace_na(list(ID = ".")) %>% 

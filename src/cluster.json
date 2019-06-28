@@ -20,13 +20,13 @@
 		"partition" : "norm",
 		"time" : "24:00:00"
 	},
-	"annovar" :
+	"annovar_intervar" :
 	{
 		"partition" : "norm",
 		"time" : "24:00:00",
 		"mem" : "16g"
 	},
-	"intervar" :
+	"spliceai_intervar_edit" :
 	{
 		"mem" : "32g"
 	},
