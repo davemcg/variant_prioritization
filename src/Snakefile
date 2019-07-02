@@ -5,6 +5,7 @@ SAMPLE = str(config['input_vcf']).split('.vcf')[0]
 # logic to parse ped for families
 # can either be  multiple families (a list) in the yaml as below
 # need to grab the family names from it
+# better to obtain family name from ped file directly to save one step.
 if type(config['ped']) == list:
 	PEDfile = [x.split('.ped')[0].split('/')[-1] for x in config['ped']]
 	PEDbase = '/'.join(config['ped'][0].split('.ped')[0].split('/')[:-1]) + '/'
@@ -38,19 +39,30 @@ REGIONS = open(REGIONS_file).readlines()
 REGIONS = [r.strip() for r in REGIONS]
 MT_CONTIGS="MT,GL000207.1,GL000226.1,GL000229.1,GL000231.1,GL000210.1,GL000239.1,GL000235.1,GL000201.1,GL000247.1,GL000245.1,GL000197.1,GL000203.1,GL000246.1,GL000249.1,GL000196.1,GL000248.1,GL000244.1,GL000238.1,GL000202.1,GL000234.1,GL000232.1,GL000206.1,GL000240.1,GL000236.1,GL000241.1,GL000243.1,GL000242.1,GL000230.1,GL000237.1,GL000233.1,GL000204.1,GL000198.1,GL000208.1,GL000191.1,GL000227.1,GL000228.1,GL000214.1,GL000221.1,GL000209.1,GL000218.1,GL000220.1,GL000213.1,GL000211.1,GL000199.1,GL000217.1,GL000216.1,GL000215.1,GL000205.1,GL000219.1,GL000224.1,GL000223.1,GL000195.1,GL000212.1,GL000222.1,GL000200.1,GL000193.1,GL000194.1,GL000225.1,GL000192.1,NC_007605"
 
+SampleID = list()
+with open(config['ped']) as PED_file:
+	for line in PED_file:
+		if line.startswith("#"):
+			continue
+		else:
+			print(line.split("\t")[1])
+			SampleID.append(line.split("\t")[1])
+print(SampleID)
+
+#name = '|'.join(open({config['ped']}).readlines().split('\t')[1])
 # set global Snakemake wildcard constraints
 wildcard_constraints:
 	sample=SAMPLE,
 	region = '|'.join(REGIONS),
 #	region = '^[0-9a-zA-Z]+:\d+-\d+'
-	family_name=family_name_con
-
-localrules: query_gemini
+	family_name=family_name_con,
+	sampleid = '|'.join(SampleID)
 
 if config['family_name'] == '':
 	rule all:
 		input:
-			expand('{sample}.PED_{ped}.gemini.db', sample=SAMPLE, ped=PEDfile)
+			expand('{sample}.PED_{ped}.gemini.db', sample=SAMPLE, ped=PEDfile),
+			expand('{sample}.{ped}.{sampleid}.gemini.sorted.tsv', sample=SAMPLE, ped=PEDfile, sampleid=SampleID)
 else:
 	rule all:
 		input:
@@ -59,6 +71,7 @@ else:
 				ped=PEDfile, \
 				family_name=config['family_name'], \
 				gemini_lenient = config['gemini_lenient']),
+			expand('{sample}.{ped}.{sampleid}.gemini.sorted.tsv', sample=SAMPLE, ped=PEDfile, sampleid=SampleID)
 
 rule n_split_vcf:
 	input:
@@ -265,7 +278,7 @@ rule VEP_annotate:
 			--gene_phenotype \
 			--max_af \
 			{params.pick} \
-            --fields Allele,Consequence,Codons,Amino_acids,Gene,SYMBOL,Feature,EXON,HGVSc,HGVSp,MAX_AF,MAX_AF_POPS,PolyPhen,SIFT,MPC,Protein_position,BIOTYPE,CANONICAL,DOMAINS,Existing_variation,CLIN_SIG,PICK,Grantham,PUBMED,Phenotypes,CADD_RAW,CADD_PHRED,GeneSplicer,SpliceRegion,ada_score,rf_score,MaxEntScan, \
+            --fields Allele,Consequence,Codons,Amino_acids,Gene,SYMBOL,Feature,EXON,HGVSc,HGVSp,MAX_AF,MAX_AF_POPS,PolyPhen,SIFT,MPC,Protein_position,BIOTYPE,CANONICAL,DOMAINS,Existing_variation,CLIN_SIG,PICK,Grantham,PUBMED,Phenotypes,CADD_RAW,CADD_PHRED,GeneSplicer,SpliceRegion,ada_score,rf_score,MaxEntScan_diff,MaxEntScan_ref,MaxEntScan_alt \
 			--vcf --compress_output bgzip --force_overwrite
 		# tabix
 		tabix -f -p vcf {output.vcf}
@@ -380,14 +393,42 @@ rule make_gemini_db:
 #		index = 'temp/{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz.tbi'
 	output:
 		'{sample}.PED_{ped}.gemini.db'
+#	threads: 8
 	shell:
 		"""
 		module load {config[vcf2db_version]}
 		echo {wildcards.ped}.ped
 		vcf2db.py {input.vcf} {PEDbase}{wildcards.ped}.ped {output}
 		"""
+#		module load {config[gemini_version]}
+#		gemini load -v {input.vcf} -t VEP -p {config[ped]} --skip-gerp-bp --skip-cadd --cores {threads} {output}
+#		--skip-gene-tables --save-info-string needed? the size generated using load is 4x larger than vcf2db.py below, but the db file cannot be queried as before, probably only VEP fields are included.
+
+localrules: query_gemini_individual
+rule query_gemini_individual:
+	input:
+		db = '{sample}.PED_{ped}.gemini.db',
+	output:
+		tsv = temp('{sample}.{ped}.{sampleid}.gemini.tsv'),
+		sorted_tsv = '{sample}.{ped}.{sampleid}.gemini.sorted.tsv'
+	shell:
+		"""
+		module load {config[R_version]}
+		module load {config[gemini_version]}
+ 		gemini query -q \
+		"SELECT chrom, start, end, ref, alt, qual, filter, Chr_annovar, Start_annovar, End_annovar, Ref_annovar, Alt_annovar, Priority_Score_intervar, gene, exon, aa_length, hgvsc, hgvsp, Ref_Gene_annovar, Func_refGene_annovar, Gene_refGeneWithVer_annovar, GeneDetail_refGeneWithVer_annovar, ExonicFunc_refGeneWithVer_annovar, AAChange_refGeneWithVer_annovar, hgmd_overlap, existing_variation, pubmed, Clinvar_intervar, intervar_and_evidence, clinvar_id, clinvar_pathogenic, clinvar_sig, clin_sig, PopFreqMax_annovar, gnomAD_exome_ALL_annovar, gnomAD_genome_ALL_annovar, Freq_esp6500siv2_all_annovar, Freq_1000g2015aug_all_annovar, aaf_esp_all, aaf_1kg_all, af_exac_all, max_af, max_af_pops, exac_num_hom_alt, gno_hom, dbscSNV_ADA_SCORE_intervar, dbscSNV_RF_SCORE_intervar, dpsi_max_tissue_annovar, dpsi_zscore_annovar, spliceai, spliceai_maxscore, spliceai_filtered, genesplicer, MaxEntScan_diff, MaxEntScan_ref, MaxEntScan_alt, branchpoint_u2_binding_energy, branchpoint_prob, branchpoint_to_3prime, SIFT_score_intervar, MetaSVM_score_intervar, clinpred_score, mpc, CADD_raw_intervar, CADD_phred_intervar, GERP_RS_intervar, phyloP46way_placental_intervar, primatedl, Func_refGeneWithVer_annovar, ExonicFunc_refGene_intervar, avsnp150_annovar, Interpro_domain_intervar, pfam_domain, tfbs, pli, lof_z, mis_z, sigmaaf_lof_0001, sigmaaf_lof_01, sigmaaf_missense_0001, sigmaaf_missense_01, omim_genesymbol, omim_inheritance, omim_phenotypes, atac_rpe_itemrgb, atac_rpe_score, eyeintegration_rnaseq_tpm_rpe_adulttissue, eyeintegration_rnaseq_tpm_rpe_cellline, eyeintegration_rnaseq_tpm_rpe_fetaltissue, eyeintegration_rnaseq_tpm_rpe_stemcellline, eyeintegration_rnaseq_tpm_retina_adulttissue, eyeintegration_rnaseq_tpm_retina_stemcellline, eyeintegration_rnaseq_tpm_wholeblood, gt_types.{wildcards.sampleid}, gts.{wildcards.sampleid}, gt_phases.{wildcards.sampleid}, gt_depths.{wildcards.sampleid}, gt_alt_freqs.{wildcards.sampleid}, gt_quals.{wildcards.sampleid} FROM variants WHERE gno_af_all < 0.2 AND af_exac_all < 0.2 AND (priority_score_intervar >= 0 OR priority_score_intervar = -1 OR priority_score_intervar = -2) " \
+		--header --gt-filter "gt_types.{wildcards.sampleid} != HOM_REF AND gt_depths.{wildcards.sampleid} > 2 AND gt_quals.{wildcards.sampleid} > 5" {input.db} > {output.tsv}
+		Rscript /home/$USER/git/variant_prioritization/src/sortGeminiTSV.R \
+			{output.tsv} {output.sorted_tsv} /data/OGVFB/OGL_NGS/variant_prioritization/data/OGLv1_panel_DxORcandidate.txt
+ 		"""
+
+# Could consider adding vcf format in the output.
+# "NA" or "." in annovar annotation converted to NA in gemini, thus did not list NA when filtering < 0.1
+# "NA" in 1k, esp, exac AF in David's code was converted to -1, and was included when filtering < 0.01
 
 # now write report for each family given in the yaml family_name section
+
+localrules: query_gemini
 rule query_gemini:
 	input:
 		db = '{sample}.PED_{ped}.gemini.db',

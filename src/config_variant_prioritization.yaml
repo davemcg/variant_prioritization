@@ -1,5 +1,5 @@
 input_vcf: 'test_trio.vcf.gz'
-aaf_change: '1'
+aaf_change: '1.1'
 family_name: ['family_1', 'family_2']
 ped: 'test_trio.ped'
 pick: 'canonical'
