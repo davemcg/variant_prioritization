@@ -254,7 +254,6 @@ rule VEP_annotate:
 			--fasta $VEPCACHEDIR/GRCh37.fa --species human --assembly GRCh37  \
 			--format vcf \
 			--output_file {output.vcf} \
-			--plugin Grantham \
 			--plugin dbscSNV,$VEPCACHEDIR/dbscSNV1.1.txt.gz \
             --plugin GeneSplicer,$GS/bin/genesplicer,$GS/human,context=200 \
             --plugin SpliceRegion \
