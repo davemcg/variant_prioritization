@@ -28,7 +28,7 @@ Snakemake workflow post-genotype calling to prioritize disease-causing variants 
   Has to be bgzipped.
 - PED with samples in VCF. The samples in PED and VCF must match. PED file has to be "\t" deliminated. If header is in PED, it has to start with #.
 - SampleID in fastq files and PED files CANNOT contain "-" or "_". Can consider adding these characters in next version.
-- "Default" Gemini quieries for samples and families will be included.
+- "Default" Gemini quieries for samples and families will be included. All variants inlcuding filtered ones are in the output. 
 
 # Set up
 Copy [src/config_variant_prioritization.yaml](https://github.com/davemcg/variant_prioritization/blob/master/src/config_variant_prioritization.yaml) to your local folder and edit the `ped` field to give a path to your ped file. You will also need to edit the `family_name` to instruct Snakemake which families (must match ped family field, column 1) to create reports from. You can either give one family like so:
