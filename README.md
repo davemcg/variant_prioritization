@@ -26,7 +26,7 @@ Snakemake workflow post-genotype calling to prioritize disease-causing variants 
 # Input
 - VCF from [NGS_genotype_calling](https://github.com/davemcg/NGS_genotype_calling/blob/master/GVCF_to_VCF_snakemake.wrapper.sh)
   Has to be bgzipped.
-- PED with samples in VCF. The samples in PED and VCF must match. PED file has to be "\t" deliminated. If header is in PED, it has to start with #.
+- PED with samples in VCF. The samples in PED and VCF must match. PED file has to be "\t" delimited. If header in PED, it has to start with #.
 - SampleID in fastq files and PED files CANNOT contain "-" or "_". Can consider adding these characters in next version.
 - "Default" Gemini quieries for samples and families will be included. All variants inlcuding filtered ones are in the output. 
 
