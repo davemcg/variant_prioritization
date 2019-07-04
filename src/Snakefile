@@ -17,10 +17,10 @@ else:
 if PEDbase == '/':
 	PEDbase = ''
 
-if type(config['family_name']) == str:
-	family_name_con = config['family_name']
-else:
-	family_name_con = '|'.join(config['family_name'])
+# if type(config['family_name']) == str:
+# 	family_name_con = config['family_name']
+# else:
+# 	family_name_con = '|'.join(config['family_name'])
 
 def pick():
 	# modifies VEP call to either pick most canonical tx or
@@ -39,39 +39,55 @@ REGIONS = open(REGIONS_file).readlines()
 REGIONS = [r.strip() for r in REGIONS]
 MT_CONTIGS="MT,GL000207.1,GL000226.1,GL000229.1,GL000231.1,GL000210.1,GL000239.1,GL000235.1,GL000201.1,GL000247.1,GL000245.1,GL000197.1,GL000203.1,GL000246.1,GL000249.1,GL000196.1,GL000248.1,GL000244.1,GL000238.1,GL000202.1,GL000234.1,GL000232.1,GL000206.1,GL000240.1,GL000236.1,GL000241.1,GL000243.1,GL000242.1,GL000230.1,GL000237.1,GL000233.1,GL000204.1,GL000198.1,GL000208.1,GL000191.1,GL000227.1,GL000228.1,GL000214.1,GL000221.1,GL000209.1,GL000218.1,GL000220.1,GL000213.1,GL000211.1,GL000199.1,GL000217.1,GL000216.1,GL000215.1,GL000205.1,GL000219.1,GL000224.1,GL000223.1,GL000195.1,GL000212.1,GL000222.1,GL000200.1,GL000193.1,GL000194.1,GL000225.1,GL000192.1,NC_007605"
 
+#if sampleid field has "-", convert it to "_", because gemini converts "-" this to "_".
 SampleID = list()
+Family_Name = list()
 with open(config['ped']) as PED_file:
 	for line in PED_file:
 		if line.startswith("#"):
 			continue
 		else:
-			print(line.split("\t")[1])
-			SampleID.append(line.split("\t")[1])
+			Family_Name.append(line.split("\t")[0])
+			SampleID.append(line.split("\t")[1].replace("-", "_"))
+print(Family_Name)
 print(SampleID)
-
+#unique values of family_name
+Family_Name = list(set(Family_Name))
+print(Family_Name)
 #name = '|'.join(open({config['ped']}).readlines().split('\t')[1])
+
 # set global Snakemake wildcard constraints
 wildcard_constraints:
 	sample=SAMPLE,
 	region = '|'.join(REGIONS),
 #	region = '^[0-9a-zA-Z]+:\d+-\d+'
-	family_name=family_name_con,
+#	family_name=family_name_con,
+	family_name = '|'.join(Family_Name),
 	sampleid = '|'.join(SampleID)
 
-if config['family_name'] == '':
-	rule all:
-		input:
-			expand('{sample}.PED_{ped}.gemini.db', sample=SAMPLE, ped=PEDfile),
-			expand('{sample}.{ped}.{sampleid}.gemini.sorted.tsv', sample=SAMPLE, ped=PEDfile, sampleid=SampleID)
-else:
-	rule all:
-		input:
-			expand('sample_reports/{sample}.{family_name}.PED_{ped}.lenient{gemini_lenient}.SeeGEM.report.html', \
-				sample=SAMPLE, \
-				ped=PEDfile, \
-				family_name=config['family_name'], \
-				gemini_lenient = config['gemini_lenient']),
-			expand('{sample}.{ped}.{sampleid}.gemini.sorted.tsv', sample=SAMPLE, ped=PEDfile, sampleid=SampleID)
+# if config['family_name'] == '':
+# 	rule all:
+# 		input:
+# 			expand('{sample}.PED_{ped}.gemini.db', sample=SAMPLE, ped=PEDfile),
+# 			expand('{sample}.{ped}.{sampleid}.gemini.sorted.tsv', sample=SAMPLE, ped=PEDfile, sampleid=SampleID)
+# else:
+# 	rule all:
+# 		input:
+# 			expand('sample_reports/{sample}.{family_name}.PED_{ped}.lenient{gemini_lenient}.SeeGEM.report.html', \
+# 				sample=SAMPLE, \
+# 				ped=PEDfile, \
+# 				family_name=config['family_name'], \
+# 				gemini_lenient = config['gemini_lenient']),
+# 			expand('{sample}.{ped}.{sampleid}.gemini.sorted.tsv', sample=SAMPLE, ped=PEDfile, sampleid=SampleID)
+
+rule all:
+	input:
+		expand('sample_reports/{sample}.{family_name}.PED_{ped}.lenient{gemini_lenient}.SeeGEM.report.html', \
+			sample=SAMPLE, \
+			ped=PEDfile, \
+			family_name=Family_Name, \
+			gemini_lenient = config['gemini_lenient']),
+		expand('{sample}.{ped}.{sampleid}.gemini.sorted.tsv', sample=SAMPLE, ped=PEDfile, sampleid=SampleID)
 
 rule n_split_vcf:
 	input:
@@ -110,6 +126,41 @@ rule vt_bgzip_and_tabix_vcf:
 		tabix -f -p vcf {output.vcf}
 		"""
 
+rule annovar_intervar:
+	input:
+		vcf = 'temp/vt.{sample}__{region}.vcf.gz',
+		index = 'temp/vt.{sample}__{region}.vcf.gz.tbi'
+	output:
+		avinput = temp('temp/{sample}__{region}.avinput'),
+		annovar_out = temp('temp/{sample}__{region}.avinput.hg19_multianno.txt'),
+		intervar_out = temp('temp/{sample}__{region}.avinput.hg19_multianno.txt.intervar')
+	threads: 2
+	shell:
+		"""
+		module unload python
+		module load {config[InterVar_version]}
+		convert2annovar.pl -format vcf4old {input.vcf} -includeinfo --outfile {output.avinput}
+		table_annovar.pl {output.avinput} \
+			$ANNOVAR_DATA/hg19 \
+			-buildver hg19 \
+			-remove \
+			-out {output.avinput} \
+			--protocol refGene,esp6500siv2_all,1000g2015aug_all,avsnp147,dbnsfp33a,clinvar_20190305,gnomad_genome,dbscsnv11,dbnsfp31a_interpro,rmsk,ensGene,knownGene,refGeneWithVer,popfreq_max_20150413,gnomad_exome,spidex,avsnp150,spliceai_filtered \
+			-operation  g,f,f,f,f,f,f,f,f,r,g,g,g,f,f,f,f,f \
+			--argument '-hgvs',,,,,,,,,,,,'-splicing 50 -hgvs',,,,, \
+			--polish -nastring . \
+		    --thread {threads} \
+			--otherinfo
+		InterVar \
+			-i {output.avinput} \
+			--input_type=AVinput \
+			-d $ANNOVAR_DATA/hg19 \
+			--evidence_file={config[intervar_evidence]} \
+			-o {output.avinput} \
+			--skip_annovar
+		"""
+#		module load {config[annovar_version]}
+
 rule spliceai:
 	input:
 		'temp/vt.{sample}__{region}.vcf.gz'
@@ -119,6 +170,7 @@ rule spliceai:
 	shell:
 		"""
 		module load {config[spliceai_version]}
+		module load {config[samtools_version]}
 		spliceai -I {input} -R {config[ref_genome]} -A grch37 -O {output.vcf}
 		tabix -f -p vcf {output.vcf}
 		"""
@@ -158,42 +210,6 @@ rule spliceai_edit:
 # 		cat temp/spliceai_header {output}TEMP | bgzip -f > {output}
 # 		tabix -b 2 -e 2 -S 1 {output}
 # 		"""
-
-rule annovar_intervar:
-	input:
-		vcf = 'temp/vt.{sample}__{region}.vcf.gz',
-		index = 'temp/vt.{sample}__{region}.vcf.gz.tbi'
-	output:
-		avinput = temp('temp/{sample}__{region}.avinput'),
-		annovar_out = temp('temp/{sample}__{region}.avinput.hg19_multianno.txt'),
-		intervar_out = temp('temp/{sample}__{region}.avinput.hg19_multianno.txt.intervar')
-	threads: 2
-	shell:
-		"""
-		module unload python
-		#module load {config[annovar_version]}
-		module load {config[InterVar_version]}
-		#module load {config[R_version]}
-		convert2annovar.pl -format vcf4old {input.vcf} -includeinfo --outfile {output.avinput}
-		table_annovar.pl {output.avinput} \
-			$ANNOVAR_DATA/hg19 \
-			-buildver hg19 \
-			-remove \
-			-out {output.avinput} \
-			--protocol refGene,esp6500siv2_all,1000g2015aug_all,avsnp147,dbnsfp33a,clinvar_20190305,gnomad_genome,dbscsnv11,dbnsfp31a_interpro,rmsk,ensGene,knownGene,refGeneWithVer,popfreq_max_20150413,gnomad_exome,spidex,avsnp150,spliceai_filtered \
-			-operation  g,f,f,f,f,f,f,f,f,r,g,g,g,f,f,f,f,f \
-			--argument '-hgvs',,,,,,,,,,,,'-splicing 50 -hgvs',,,,, \
-			--polish -nastring . \
-		    --thread {threads} \
-			--otherinfo
-		InterVar \
-			-i {output.avinput} \
-			--input_type=AVinput \
-			-d $ANNOVAR_DATA/hg19 \
-			--evidence_file={config[intervar_evidence]} \
-			-o {output.avinput} \
-			--skip_annovar
-		"""
 
 rule spliceai_intervar_edit:
 	input:
@@ -237,6 +253,7 @@ rule merge_annovar_intervar:
 # 	the most serious consequence.
 # 		Use for more research returns, to increase chances of finding
 # 		interesting variants at cost of lower specificity.
+
 rule VEP_annotate:
 	input:
 		'temp/vt.{sample}__{region}.vcf.gz'
@@ -277,11 +294,12 @@ rule VEP_annotate:
 			--gene_phenotype \
 			--max_af \
 			{params.pick} \
-            --fields Allele,Consequence,Codons,Amino_acids,Gene,SYMBOL,Feature,EXON,HGVSc,HGVSp,MAX_AF,MAX_AF_POPS,PolyPhen,SIFT,MPC,Protein_position,BIOTYPE,CANONICAL,DOMAINS,Existing_variation,CLIN_SIG,PICK,Grantham,PUBMED,Phenotypes,CADD_RAW,CADD_PHRED,GeneSplicer,SpliceRegion,ada_score,rf_score,MaxEntScan_diff \
+            --fields Allele,Consequence,Codons,Amino_acids,Gene,SYMBOL,Feature,EXON,HGVSc,HGVSp,MAX_AF,MAX_AF_POPS,PolyPhen,SIFT,MPC,Protein_position,BIOTYPE,CANONICAL,DOMAINS,Existing_variation,CLIN_SIG,PICK,PUBMED,Phenotypes,CADD_RAW,CADD_PHRED,GeneSplicer,SpliceRegion,ada_score,rf_score,MaxEntScan_diff \
 			--vcf --compress_output bgzip --force_overwrite
 		# tabix
 		tabix -f -p vcf {output.vcf}
 		"""
+#remove Grantham
 
 # annotate with vcfanno
 rule vcfanno_annotate:
