@@ -18,25 +18,24 @@ Snakemake workflow post-genotype calling to prioritize disease-causing variants 
 - `cd ~/git`
 - `git clone https://github.com/davemcg/variant_prioritization.git`
 - `cd variant_prioritization`
-- `sed -i 's/mcgaugheyd/YOUR_BIOWULF2_USERNAME/g' src/vcfanno_v3.conf`
+- `sed -i 's/mcgaugheyd|guanb/YOUR_BIOWULF2_USERNAME/g' src/vcfanno_v4.conf`
 - `cd variant_prioritization/tests`
-- `sbatch ../Snakemake.wrapper.sh config_variant_prioritization.yaml`
+- `sbatch --time=12:0:0 ../Snakemake.wrapper.sh config_variant_prioritization.yaml`
 
 
 # Input
 - VCF from [NGS_genotype_calling](https://github.com/davemcg/NGS_genotype_calling/blob/master/GVCF_to_VCF_snakemake.wrapper.sh)
-- PED with samples in VCF
-- List of families to process
+  Has to be bgzipped.
+- PED with samples in VCF. The samples in PED and VCF must match.
+- SampleID in fastq files and PED files CANNOT contain "-" or "_". Can consider adding these characters in next version.
+- "Default" Gemini quieries for samples and families will be included.
 
 # Set up
 Copy [src/config_variant_prioritization.yaml](https://github.com/davemcg/variant_prioritization/blob/master/src/config_variant_prioritization.yaml) to your local folder and edit the `ped` field to give a path to your ped file. You will also need to edit the `family_name` to instruct Snakemake which families (must match ped family field, column 1) to create reports from. You can either give one family like so:
 
-- family_name: 'gupta_fam'
-  - if you leave this blank (`family_name: ''`) then only the GEMINI database will be created (no family reports)
+####- family_name: 'gupta_fam'  - if you leave this blank (`family_name: ''`) then only the GEMINI database will be created (no family reports) Or a list of families to process like so:- family_name: ['gupta_fam', 'smith_fam', 'chan_fam']
 
-Or a list of families to process like so:
-
-- family_name: ['gupta_fam', 'smith_fam', 'chan_fam']
+family_name will be generated from PED file by the pipeline
 
 Install [SeeGEM](https://github.com/davemcg/SeeGEM) in `R` on biowulf2 to produce the html report. 
   - `sinteractive`
@@ -50,4 +49,4 @@ Finally edit the first line of [src/config_variant_prioritization.yaml](https://
 sbatch --time=12:00:00 ~/git/variant_prioritization/Snakemake.wrapper.sh COPIED_OVER_YAML_FILE.yaml
 
 # Visualization
-![](variant_prioritization_dag.svg)
+![](variant_prioritization_dag_ogl.svg)
