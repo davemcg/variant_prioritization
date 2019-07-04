@@ -26,7 +26,7 @@ Snakemake workflow post-genotype calling to prioritize disease-causing variants 
 # Input
 - VCF from [NGS_genotype_calling](https://github.com/davemcg/NGS_genotype_calling/blob/master/GVCF_to_VCF_snakemake.wrapper.sh)
   Has to be bgzipped.
-- PED with samples in VCF. The samples in PED and VCF must match.
+- PED with samples in VCF. The samples in PED and VCF must match. PED file has to be "\t" deliminated. If header is in PED, it has to start with #.
 - SampleID in fastq files and PED files CANNOT contain "-" or "_". Can consider adding these characters in next version.
 - "Default" Gemini quieries for samples and families will be included.
 
@@ -46,7 +46,8 @@ Install [SeeGEM](https://github.com/davemcg/SeeGEM) in `R` on biowulf2 to produc
 Finally edit the first line of [src/config_variant_prioritization.yaml](https://github.com/davemcg/variant_prioritization/blob/master/src/config_variant_prioritization.yaml) to put your vcf (bgzip'ed and tabix'ed) in. 
 
 # Run (in biowulf2)
-sbatch --time=12:00:00 ~/git/variant_prioritization/Snakemake.wrapper.sh COPIED_OVER_YAML_FILE.yaml
+freen to pick gpu p100 (default withouting specifying $2 below), v100 (need to edit cluster.json file), or k80 ($2 below). Currently using 4 gpu thus one node. When gpu node is busy, spliceai could take time to be started.
+sbatch --time=12:00:00 ~/git/variant_prioritization/Snakemake.wrapper.sh COPIED_OVER_YAML_FILE.yaml [optional: ~/git/variant_prioritization/src/k80cluster.json]
 
 # Visualization
 ![](variant_prioritization_dag_ogl.svg)
