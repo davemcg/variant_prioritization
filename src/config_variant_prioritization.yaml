@@ -1,7 +1,7 @@
 input_vcf: 'test_trio.vcf.gz'
 aaf_change: '1.1'
-family_name: ['family_1', 'family_2']
-ped: 'test_trio.ped'
+#family_name: ['family_1', 'family_2']
+ped: 'test_trio.ped' # has to be \t delimited.
 pick: 'canonical'
 samtools_version: 'samtools/1.9'
 ref_genome: '/data/OGVFB/resources/1000G_phase2_GRCh37/human_g1k_v37_decoy.fasta'

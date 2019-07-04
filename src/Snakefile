@@ -49,11 +49,11 @@ with open(config['ped']) as PED_file:
 		else:
 			Family_Name.append(line.split("\t")[0])
 			SampleID.append(line.split("\t")[1].replace("-", "_"))
-print(Family_Name)
-print(SampleID)
+#print(Family_Name)
+#print(SampleID)
 #unique values of family_name
 Family_Name = list(set(Family_Name))
-print(Family_Name)
+#print(Family_Name)
 #name = '|'.join(open({config['ped']}).readlines().split('\t')[1])
 
 # set global Snakemake wildcard constraints
