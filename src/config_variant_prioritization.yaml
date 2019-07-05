@@ -28,4 +28,5 @@ SeeGEM_script: '/home/$USER/git/variant_prioritization/src/GEMINI_db_to_SeeGEM_O
 regions: '/home/$USER/git/variant_prioritization/src/vcf_region_split_1_coords.txt'
 #regions, 1 for panel (only 1,2,..,22,x,y)
 #regions, 25 or 100 for WGS of 50 cases.
-#quotation marks can be single or double
+#quotation marks can be single or doubl
+##this is to force git to commit this file "OGL" added in the SeeGEM_script
