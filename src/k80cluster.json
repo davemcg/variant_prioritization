@@ -11,7 +11,7 @@
 	"spliceai" :
 	{
 		"partition" : "gpu",
-		"extra" : "--gres=gpu:p100:2",
+		"extra" : "--gres=gpu:k80:2",
 		"mem" : "20g",
 		"time" : "24:00:00"
 	},

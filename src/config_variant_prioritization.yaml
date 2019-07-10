@@ -1,7 +1,7 @@
 input_vcf: 'test_trio.vcf.gz'
-aaf_change: '0.9'
-family_name: ['family_1', 'family_2']
-ped: 'test_trio.ped'
+aaf_change: '1.1'
+#family_name: ['family_1', 'family_2']
+ped: 'test_trio.ped' # has to be \t delimited.
 pick: 'canonical'
 samtools_version: 'samtools/1.9'
 ref_genome: '/data/OGVFB/resources/1000G_phase2_GRCh37/human_g1k_v37_decoy.fasta'
@@ -24,8 +24,9 @@ intervar_Rscript_path: '/home/$USER/git/variant_prioritization/src/intervar_v1.6
 pandoc_version: 'pandoc/2.1.1'
 gemini_lenient: 'Yes'
 output_raw: 'Yes'
-SeeGEM_script: '/home/$USER/git/variant_prioritization/src/GEMINI_db_to_SeeGEM.R'
+SeeGEM_script: '/home/$USER/git/variant_prioritization/src/GEMINI_db_to_SeeGEM_OGL.R'
 regions: '/home/$USER/git/variant_prioritization/src/vcf_region_split_1_coords.txt'
 #regions, 1 for panel (only 1,2,..,22,x,y)
 #regions, 25 or 100 for WGS of 50 cases.
-#quotation marks can be single or double 
+#quotation marks can be single or doubl
+##this is to force git to commit this file "OGL" added in the SeeGEM_script
