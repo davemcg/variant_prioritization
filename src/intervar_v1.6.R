@@ -14,6 +14,7 @@
 ## Intervar - select one gene for each variant
 
 args <- commandArgs(trailingOnly=TRUE)
+#args <- c("freebayes.filtered.20190722__1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,X,Y.avinput.hg19_multianno.txt.intervar", "freebayes.filtered.20190722__1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,X,Y.avinput.hg19_multianno.spliceai.txt", "output.txt")
 
 library(tidyverse)
 
@@ -38,7 +39,8 @@ annovar <- read.delim(args[2], sep = "\t", header = TRUE, na.strings = c("."),
                                      "numeric","numeric","numeric","numeric","character","character","character","character","character","character",
                                      "character","character","character","character","character","character","character","character","character","character",
                                      "character","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric",
-                                     "numeric","numeric","numeric","character","character","numeric","factor","integer","character","character","character","numeric","factor") )
+                                     "numeric","numeric","numeric","character","character","numeric","factor","integer","character","character",
+                                     "character","numeric","factor","character","numeric","integer") )
 
 
 #pick one annotation for each variant that is of highest Priority score
