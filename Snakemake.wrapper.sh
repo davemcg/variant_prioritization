@@ -30,3 +30,6 @@ snakemake -s /home/$USER/git/variant_prioritization/src/Snakefile \
 --cluster "$sbcmd"  --latency-wait 120 --rerun-incomplete \
 -k --restart-times 0 --resources res=1
 
+# --notemp Ignore temp() declaration;
+# --dryrun 
+# --unlock

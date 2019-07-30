@@ -39,20 +39,36 @@ REGIONS = open(REGIONS_file).readlines()
 REGIONS = [r.strip() for r in REGIONS]
 MT_CONTIGS="MT,GL000207.1,GL000226.1,GL000229.1,GL000231.1,GL000210.1,GL000239.1,GL000235.1,GL000201.1,GL000247.1,GL000245.1,GL000197.1,GL000203.1,GL000246.1,GL000249.1,GL000196.1,GL000248.1,GL000244.1,GL000238.1,GL000202.1,GL000234.1,GL000232.1,GL000206.1,GL000240.1,GL000236.1,GL000241.1,GL000243.1,GL000242.1,GL000230.1,GL000237.1,GL000233.1,GL000204.1,GL000198.1,GL000208.1,GL000191.1,GL000227.1,GL000228.1,GL000214.1,GL000221.1,GL000209.1,GL000218.1,GL000220.1,GL000213.1,GL000211.1,GL000199.1,GL000217.1,GL000216.1,GL000215.1,GL000205.1,GL000219.1,GL000224.1,GL000223.1,GL000195.1,GL000212.1,GL000222.1,GL000200.1,GL000193.1,GL000194.1,GL000225.1,GL000192.1,NC_007605"
 
+if not config['family_name']:
+#if (config['family_name']) == '':
+	Family_Name = list()
+	with open(config['ped']) as PED_file:
+		for line in PED_file:
+			if line.startswith("#"):
+				continue
+			else:
+				Family_Name.append(line.split("\t")[0])
+	Family_Name = list(set(Family_Name))
+# elif type(config['family_name']) == str:
+# 	Family_Name = config['family_name']
+else:
+	Family_Name = config['family_name']
+	# Family_Name = '|'.join(config['family_name'])
+
 #if sampleid field has "-", convert it to "_", because gemini converts "-" this to "_".
 SampleID = list()
-Family_Name = list()
+#Family_Name = list()
 with open(config['ped']) as PED_file:
 	for line in PED_file:
 		if line.startswith("#"):
 			continue
 		else:
-			Family_Name.append(line.split("\t")[0])
+#			Family_Name.append(line.split("\t")[0])
 			SampleID.append(line.split("\t")[1].replace("-", "_"))
-#print(Family_Name)
+print(Family_Name)
 #print(SampleID)
 #unique values of family_name
-Family_Name = list(set(Family_Name))
+#Family_Name = list(set(Family_Name))
 #print(Family_Name)
 #name = '|'.join(open({config['ped']}).readlines().split('\t')[1])
 
@@ -80,14 +96,35 @@ wildcard_constraints:
 # 				gemini_lenient = config['gemini_lenient']),
 # 			expand('{sample}.{ped}.{sampleid}.gemini.sorted.tsv', sample=SAMPLE, ped=PEDfile, sampleid=SampleID)
 
+# rule all:
+# 	input:
+# 		expand('sample_reports/{sample}.{family_name}.PED_{ped}.lenient{gemini_lenient}.SeeGEM.report.html', \
+# 			sample=SAMPLE, \
+# 			ped=PEDfile, \
+# 			family_name=Family_Name, \
+# 			gemini_lenient = config['gemini_lenient']),
+# 		expand('{sample}.{ped}.{sampleid}.gemini.sorted.tsv', sample=SAMPLE, ped=PEDfile, sampleid=SampleID)
+
 rule all:
 	input:
+		expand('{sample}.PED_{ped}.gemini.db', sample=SAMPLE, ped=PEDfile) if ('geminiDB' in config['output_type']) else 'dummy.txt',
 		expand('sample_reports/{sample}.{family_name}.PED_{ped}.lenient{gemini_lenient}.SeeGEM.report.html', \
 			sample=SAMPLE, \
 			ped=PEDfile, \
 			family_name=Family_Name, \
-			gemini_lenient = config['gemini_lenient']),
-		expand('{sample}.{ped}.{sampleid}.gemini.sorted.tsv', sample=SAMPLE, ped=PEDfile, sampleid=SampleID)
+			gemini_lenient = config['gemini_lenient']) if ('family_query' in config['output_type']) else 'dummy.txt',
+		expand('{sample}.{ped}.{sampleid}.gemini.sorted.tsv', sample=SAMPLE, ped=PEDfile, sampleid=SampleID) if ('individual_query' in config['output_type']) else 'dummy.txt'
+
+localrules: dummy
+rule dummy:
+	input:
+		config['ped']
+	output:
+		temp('dummy.txt')
+	shell:
+		"""
+		touch {output}
+		"""
 
 rule n_split_vcf:
 	input:
@@ -145,11 +182,11 @@ rule annovar_intervar:
 			-buildver hg19 \
 			-remove \
 			-out {output.avinput} \
-			--protocol refGene,esp6500siv2_all,1000g2015aug_all,avsnp147,dbnsfp33a,clinvar_20190305,gnomad_genome,dbscsnv11,dbnsfp31a_interpro,rmsk,ensGene,knownGene,refGeneWithVer,popfreq_max_20150413,gnomad_exome,spidex,avsnp150,spliceai_filtered \
-			-operation  g,f,f,f,f,f,f,f,f,r,g,g,g,f,f,f,f,f \
-			--argument '-hgvs',,,,,,,,,,,,'-splicing 50 -hgvs',,,,, \
+			--protocol refGene,esp6500siv2_all,1000g2015aug_all,avsnp147,dbnsfp33a,clinvar_20190305,gnomad_genome,dbscsnv11,dbnsfp31a_interpro,rmsk,ensGene,knownGene,refGeneWithVer,popfreq_max_20150413,gnomad_exome,spidex,avsnp150,spliceai_filtered,ljb26_phylop46way_placental \
+			-operation  g,f,f,f,f,f,f,f,f,r,g,g,g,f,f,f,f,f,f \
+			--argument '-hgvs',,,,,,,,,,,,'-splicing 50 -hgvs',,,,,, \
 			--polish -nastring . \
-		    --thread {threads} \
+			--thread {threads} \
 			--otherinfo
 		InterVar \
 			-i {output.avinput} \
@@ -160,7 +197,7 @@ rule annovar_intervar:
 			--skip_annovar
 		"""
 #		module load {config[annovar_version]}
-
+#		annovar_out = temp('temp/{sample}__{region}.avinput.hg19_multianno.txt'),
 rule spliceai:
 	input:
 		'temp/vt.{sample}__{region}.vcf.gz'
@@ -222,7 +259,7 @@ rule spliceai_intervar_edit:
 	shell:
 		"""
 		module load {config[R_version]}
-		cut -f -132 {input.annovar} | sed "1 s/"Otherinfo"/"CHROM\\\tPOS\\\tID\\\tREF\\\tALT\\\tQUAL\\\tFILTER"/" - | paste - {input.spliceai} > {output.intermediate}
+		cut -f -133 {input.annovar} | sed "1 s/"Otherinfo"/"CHROM\\\tPOS\\\tID\\\tREF\\\tALT\\\tQUAL\\\tFILTER"/" - | paste - {input.spliceai} > {output.intermediate}
 		Rscript {config[intervar_Rscript_path]} \
 			{input.intervar} \
 			{output.intermediate} \
@@ -433,10 +470,10 @@ rule query_gemini_individual:
 		module load {config[R_version]}
 		module load {config[gemini_version]}
  		gemini query -q \
-		"SELECT chrom, start, end, ref, alt, qual, filter, Chr_annovar, Start_annovar, End_annovar, Ref_annovar, Alt_annovar, Priority_Score_intervar, gene, exon, aa_length, hgvsc, hgvsp, Ref_Gene_annovar, Func_refGene_annovar, Gene_refGeneWithVer_annovar, GeneDetail_refGeneWithVer_annovar, ExonicFunc_refGeneWithVer_annovar, AAChange_refGeneWithVer_annovar, hgmd_overlap, existing_variation, pubmed, Clinvar_intervar, intervar_and_evidence, clinvar_id, clinvar_pathogenic, clinvar_sig, clin_sig, PopFreqMax_annovar, gnomAD_exome_ALL_annovar, gnomAD_genome_ALL_annovar, Freq_esp6500siv2_all_annovar, Freq_1000g2015aug_all_annovar, aaf_esp_all, aaf_1kg_all, af_exac_all, max_af, max_af_pops, exac_num_hom_alt, gno_hom, dbscSNV_ADA_SCORE_intervar, dbscSNV_RF_SCORE_intervar, dpsi_max_tissue_annovar, dpsi_zscore_annovar, spliceai, spliceai_maxscore, spliceai_filtered, genesplicer, MaxEntScan_diff, branchpoint_u2_binding_energy, branchpoint_prob, branchpoint_to_3prime, SIFT_score_intervar, MetaSVM_score_intervar, clinpred_score, mpc, CADD_raw_intervar, CADD_phred_intervar, GERP_RS_intervar, phyloP46way_placental_intervar, primatedl, Func_refGeneWithVer_annovar, ExonicFunc_refGene_intervar, avsnp150_annovar, Interpro_domain_intervar, pfam_domain, tfbs, pli, lof_z, mis_z, sigmaaf_lof_0001, sigmaaf_lof_01, sigmaaf_missense_0001, sigmaaf_missense_01, omim_genesymbol, omim_inheritance, omim_phenotypes, atac_rpe_itemrgb, atac_rpe_score, eyeintegration_rnaseq_tpm_rpe_adulttissue, eyeintegration_rnaseq_tpm_rpe_cellline, eyeintegration_rnaseq_tpm_rpe_fetaltissue, eyeintegration_rnaseq_tpm_rpe_stemcellline, eyeintegration_rnaseq_tpm_retina_adulttissue, eyeintegration_rnaseq_tpm_retina_stemcellline, eyeintegration_rnaseq_tpm_wholeblood, gt_types.{wildcards.sampleid}, gts.{wildcards.sampleid}, gt_phases.{wildcards.sampleid}, gt_depths.{wildcards.sampleid}, gt_alt_freqs.{wildcards.sampleid}, gt_quals.{wildcards.sampleid} FROM variants WHERE gno_af_all < 0.2 AND af_exac_all < 0.2 AND (priority_score_intervar >= 0 OR priority_score_intervar = -1 OR priority_score_intervar = -2) " \
-		--header --gt-filter "gt_types.{wildcards.sampleid} != HOM_REF AND gt_depths.{wildcards.sampleid} > 2 AND gt_quals.{wildcards.sampleid} > 5" {input.db} > {output.tsv}
+		"SELECT  Chr_annovar, Start_annovar, End_annovar, Ref_annovar, Alt_annovar, qual, filter, Priority_Score_intervar, gene, exon, aa_length, Ref_Gene_annovar, Func_refGene_annovar, Gene_refGeneWithVer_annovar, GeneDetail_refGeneWithVer_annovar, ExonicFunc_refGeneWithVer_annovar, AAChange_refGeneWithVer_annovar, hgmd_overlap, existing_variation, Clinvar_intervar, intervar_and_evidence, clinvar_id, clinvar_pathogenic, clinvar_sig, clin_sig, gnomAD_exome_ALL_annovar, gnomAD_genome_ALL_annovar, PopFreqMax_annovar, max_af, max_af_pops, exac_num_hom_alt, gno_hom, dbscSNV_ADA_SCORE_intervar, dbscSNV_RF_SCORE_intervar, dpsi_max_tissue_annovar, dpsi_zscore_annovar, spliceai, spliceai_maxscore, spliceai_filtered, genesplicer, MaxEntScan_diff, branchpoint_u2_binding_energy, branchpoint_prob, branchpoint_to_3prime, SIFT_score_intervar, MetaSVM_score_intervar, clinpred_score, mpc, CADD_raw_intervar, CADD_phred_intervar, GERP_RS_intervar, phyloP46way_placental_intervar, primatedl, Func_refGeneWithVer_annovar, ExonicFunc_refGene_intervar, avsnp150_annovar, Interpro_domain_intervar, pfam_domain, tfbs, pli, lof_z, mis_z, sigmaaf_lof_0001, sigmaaf_lof_01, sigmaaf_missense_0001, sigmaaf_missense_01, omim_genesymbol, omim_inheritance, omim_phenotypes, atac_rpe_itemrgb, atac_rpe_score, eyeintegration_rnaseq_tpm_rpe_adulttissue, eyeintegration_rnaseq_tpm_rpe_cellline, eyeintegration_rnaseq_tpm_rpe_fetaltissue, eyeintegration_rnaseq_tpm_rpe_stemcellline, eyeintegration_rnaseq_tpm_retina_adulttissue, eyeintegration_rnaseq_tpm_retina_stemcellline, eyeintegration_rnaseq_tpm_wholeblood, chrom, start, end, ref, alt, hgvsc, hgvsp, Freq_esp6500siv2_all_annovar, Freq_1000g2015aug_all_annovar, aaf_esp_all, aaf_1kg_all, af_exac_all, pubmed, gt_types.{wildcards.sampleid}, gts.{wildcards.sampleid}, gt_phases.{wildcards.sampleid}, gt_depths.{wildcards.sampleid}, gt_alt_freqs.{wildcards.sampleid}, gt_quals.{wildcards.sampleid} FROM variants WHERE gno_af_all < 0.2 AND af_exac_all < 0.2 AND (priority_score_intervar >= 0 OR priority_score_intervar = -1 OR priority_score_intervar = -2) AND filter IS NULL " \
+		--header --gt-filter "gt_types.{wildcards.sampleid} != HOM_REF AND gt_depths.{wildcards.sampleid} > 2" {input.db} > {output.tsv}
 		Rscript /home/$USER/git/variant_prioritization/src/sortGeminiTSV.R \
-			{output.tsv} {output.sorted_tsv} /data/OGVFB/OGL_NGS/variant_prioritization/data/OGLv1_panel_DxORcandidate.txt
+			{output.tsv} {output.sorted_tsv} {config[OGL_Dx_research_genes]}
  		"""
 # 7/2/19 deleted MaxEntScan_ref, MaxEntScan_alt,
 # Could consider adding vcf format in the output.
@@ -444,7 +481,7 @@ rule query_gemini_individual:
 # "NA" in 1k, esp, exac AF in David's code was converted to -1, and was included when filtering < 0.01
 
 # now write report for each family given in the yaml family_name section
-
+# gt_quals.{wildcards.sampleid} > 5 needes to be removed for freebayes call. So just remove this alltogether.
 localrules: query_gemini
 rule query_gemini:
 	input:

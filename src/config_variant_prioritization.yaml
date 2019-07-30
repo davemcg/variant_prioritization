@@ -1,6 +1,7 @@
 input_vcf: 'test_trio.vcf.gz'
 aaf_change: '1.1'
-#family_name: ['family_1', 'family_2']
+output_type: ['geminiDB', 'family_query', 'individual_query'] #list, delete the compopnent that is not needed.
+family_name: [] # empty list or One or more family names in the list ['family_1', 'family_2']. If it's blank and output_type includes family_query, then it will take ped file and make a family list.
 ped: 'test_trio.ped' # has to be \t delimited.
 pick: 'canonical'
 samtools_version: 'samtools/1.9'
@@ -21,6 +22,7 @@ annovar_version: 'annovar/2018-04-16'
 InterVar_version: 'intervar/2.1.2'
 intervar_evidence: '/data/OGVFB/OGL_NGS/OGL.variants.evidence.txt'
 intervar_Rscript_path: '/home/$USER/git/variant_prioritization/src/intervar_v1.6.R'
+OGL_Dx_research_genes: '/data/OGVFB/OGL_NGS/variant_prioritization/data/OGLv1_panel_DxORcandidate.txt'
 pandoc_version: 'pandoc/2.1.1'
 gemini_lenient: 'Yes'
 output_raw: 'Yes'
