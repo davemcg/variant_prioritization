@@ -38,7 +38,7 @@ annovar <- read.delim(args[2], sep = "\t", header = TRUE, na.strings = c("."),
                                      "numeric","numeric","numeric","numeric","character","character","character","character","character","character",
                                      "character","character","character","character","character","character","character","character","character","character",
                                      "character","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric",
-                                     "numeric","numeric","numeric","character","character","factor","integer","character","character","character","numeric","factor","character","character","numeric") )
+                                     "numeric","numeric","numeric","character","character","numeric","factor","integer","character","character","character","numeric","factor") )
 
 
 #pick one annotation for each variant that is of highest Priority score
@@ -76,7 +76,7 @@ annovar_inter <- merge(x = annovar, y = intervar_for_sorting,
 		"Func.refGene.intervar", "Gene.refGeneWithVer", "GeneDetail.refGeneWithVer", "ExonicFunc.refGeneWithVer", "AAChange.refGeneWithVer",
 		"clinvar..Clinvar", "InterVar..InterVar.and.Evidence", "PopFreqMax", "gnomAD_exome_ALL", "gnomAD_genome_ALL", 
 		"Freq_esp6500siv2_all", "Freq_1000g2015aug_all","dbscSNV_ADA_SCORE.intervar", "dbscSNV_RF_SCORE.intervar", "dpsi_max_tissue", "dpsi_zscore", "SpliceAI", "spliceai_maxscore",
-    "spliceai_filtered", "SIFT_score.intervar", "MetaSVM_score.intervar", "CADD_raw.intervar", "CADD_phred.intervar", "GERP.._RS.intervar", "phyloP46way_placental", 
+    "spliceai_filtered", "SIFT_score.intervar", "MetaSVM_score.intervar", "CADD_raw.intervar", "CADD_phred.intervar", "GERP.._RS.intervar", "phyloP46way_placental.annovar", 
 		"Func.refGeneWithVer", "ExonicFunc.refGene.intervar", "avsnp150", "Interpro_domain.intervar")) %>% 
   replace_na(list(ID = ".")) %>% 
   rename(Chr_annovar = Chr, Start_annovar = Start, Ref_annovar = Ref, Alt_annovar = Alt, End_annovar = End)
