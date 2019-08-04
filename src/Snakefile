@@ -452,12 +452,12 @@ rule make_gemini_db:
 		"""
 		module load {config[vcf2db_version]}
 		echo {wildcards.ped}.ped
-		vcf2db.py {input.vcf} {PEDbase}{wildcards.ped}.ped {output}
+		vcf2db.py --info-exclude MLEAF --info-exclude MLEAC {input.vcf} {PEDbase}{wildcards.ped}.ped {output}
 		"""
 #		module load {config[gemini_version]}
 #		gemini load -v {input.vcf} -t VEP -p {config[ped]} --skip-gerp-bp --skip-cadd --cores {threads} {output}
 #		--skip-gene-tables --save-info-string needed? the size generated using load is 4x larger than vcf2db.py below, but the db file cannot be queried as before, probably only VEP fields are included.
-
+# 8/4/19:  --info-exclude MLEAF --info-exclude MLEAC because EU's exome data has 2 values in these two fields. 
 localrules: query_gemini_individual
 rule query_gemini_individual:
 	input:
