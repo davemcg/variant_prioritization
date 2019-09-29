@@ -457,24 +457,41 @@ rule make_gemini_db:
 #		module load {config[gemini_version]}
 #		gemini load -v {input.vcf} -t VEP -p {config[ped]} --skip-gerp-bp --skip-cadd --cores {threads} {output}
 #		--skip-gene-tables --save-info-string needed? the size generated using load is 4x larger than vcf2db.py below, but the db file cannot be queried as before, probably only VEP fields are included.
-# 8/4/19:  --info-exclude MLEAF --info-exclude MLEAC because EU's exome data has 2 values in these two fields. 
+# 8/4/19:  --info-exclude MLEAF --info-exclude MLEAC because EU's exome data has 2 values in these two fields.
 localrules: query_gemini_individual
 rule query_gemini_individual:
 	input:
 		db = '{sample}.PED_{ped}.gemini.db',
 	output:
-		tsv = temp('{sample}.{ped}.{sampleid}.gemini.tsv'),
+		tsv = '{sample}.{ped}.{sampleid}.gemini.tsv',
 		sorted_tsv = '{sample}.{ped}.{sampleid}.gemini.sorted.tsv'
 	shell:
 		"""
 		module load {config[R_version]}
 		module load {config[gemini_version]}
  		gemini query -q \
-		"SELECT  Chr_annovar, Start_annovar, End_annovar, Ref_annovar, Alt_annovar, qual, filter, Priority_Score_intervar, gene, exon, aa_length, Ref_Gene_annovar, Func_refGene_annovar, Gene_refGeneWithVer_annovar, GeneDetail_refGeneWithVer_annovar, ExonicFunc_refGeneWithVer_annovar, AAChange_refGeneWithVer_annovar, hgmd_overlap, existing_variation, Clinvar_intervar, intervar_and_evidence, clinvar_id, clinvar_pathogenic, clinvar_sig, clin_sig, gnomAD_exome_ALL_annovar, gnomAD_genome_ALL_annovar, PopFreqMax_annovar, max_af, max_af_pops, exac_num_hom_alt, gno_hom, dbscSNV_ADA_SCORE_intervar, dbscSNV_RF_SCORE_intervar, dpsi_max_tissue_annovar, dpsi_zscore_annovar, spliceai, spliceai_maxscore, spliceai_filtered, genesplicer, MaxEntScan_diff, branchpoint_u2_binding_energy, branchpoint_prob, branchpoint_to_3prime, SIFT_score_intervar, MetaSVM_score_intervar, clinpred_score, mpc, CADD_raw_intervar, CADD_phred_intervar, GERP_RS_intervar, phyloP46way_placental_intervar, primatedl, Func_refGeneWithVer_annovar, ExonicFunc_refGene_intervar, avsnp150_annovar, Interpro_domain_intervar, pfam_domain, tfbs, pli, lof_z, mis_z, sigmaaf_lof_0001, sigmaaf_lof_01, sigmaaf_missense_0001, sigmaaf_missense_01, omim_genesymbol, omim_inheritance, omim_phenotypes, atac_rpe_itemrgb, atac_rpe_score, eyeintegration_rnaseq_tpm_rpe_adulttissue, eyeintegration_rnaseq_tpm_rpe_cellline, eyeintegration_rnaseq_tpm_rpe_fetaltissue, eyeintegration_rnaseq_tpm_rpe_stemcellline, eyeintegration_rnaseq_tpm_retina_adulttissue, eyeintegration_rnaseq_tpm_retina_stemcellline, eyeintegration_rnaseq_tpm_wholeblood, chrom, start, end, ref, alt, hgvsc, hgvsp, Freq_esp6500siv2_all_annovar, Freq_1000g2015aug_all_annovar, aaf_esp_all, aaf_1kg_all, af_exac_all, pubmed, gt_types.{wildcards.sampleid}, gts.{wildcards.sampleid}, gt_phases.{wildcards.sampleid}, gt_depths.{wildcards.sampleid}, gt_alt_freqs.{wildcards.sampleid}, gt_quals.{wildcards.sampleid} FROM variants WHERE gno_af_all < 0.2 AND af_exac_all < 0.2 AND (priority_score_intervar >= 0 OR priority_score_intervar = -1 OR priority_score_intervar = -2) AND filter IS NULL " \
+		"SELECT *, gt_types.{wildcards.sampleid}, gts.{wildcards.sampleid}, gt_phases.{wildcards.sampleid}, gt_depths.{wildcards.sampleid}, gt_alt_freqs.{wildcards.sampleid}, gt_quals.{wildcards.sampleid} FROM variants " \
 		--header --gt-filter "gt_types.{wildcards.sampleid} != HOM_REF AND gt_depths.{wildcards.sampleid} > 2" {input.db} > {output.tsv}
-		Rscript /home/$USER/git/variant_prioritization/src/sortGeminiTSV.R \
+		Rscript /home/$USER/git/variant_prioritization/src/sortGeminiTSV_v1.R \
 			{output.tsv} {output.sorted_tsv} {config[OGL_Dx_research_genes]}
  		"""
+
+# rule query_gemini_individual:
+# 	input:
+# 		db = '{sample}.PED_{ped}.gemini.db',
+# 	output:
+# 		tsv = temp('{sample}.{ped}.{sampleid}.gemini.tsv'),
+# 		sorted_tsv = '{sample}.{ped}.{sampleid}.gemini.sorted.tsv'
+# 	shell:
+# 		"""
+# 		module load {config[R_version]}
+# 		module load {config[gemini_version]}
+#  		gemini query -q \
+# 		"SELECT  Chr_annovar, Start_annovar, End_annovar, Ref_annovar, Alt_annovar, qual, filter, Priority_Score_intervar, gene, exon, aa_length, Ref_Gene_annovar, Func_refGene_annovar, Gene_refGeneWithVer_annovar, GeneDetail_refGeneWithVer_annovar, ExonicFunc_refGeneWithVer_annovar, AAChange_refGeneWithVer_annovar, hgmd_overlap, existing_variation, Clinvar_intervar, intervar_and_evidence, clinvar_id, clinvar_pathogenic, clinvar_sig, clin_sig, gnomAD_exome_ALL_annovar, gnomAD_genome_ALL_annovar, PopFreqMax_annovar, max_af, max_af_pops, exac_num_hom_alt, gno_hom, dbscSNV_ADA_SCORE_intervar, dbscSNV_RF_SCORE_intervar, dpsi_max_tissue_annovar, dpsi_zscore_annovar, spliceai, spliceai_maxscore, spliceai_filtered, genesplicer, MaxEntScan_diff, branchpoint_u2_binding_energy, branchpoint_prob, branchpoint_to_3prime, SIFT_score_intervar, MetaSVM_score_intervar, clinpred_score, mpc, CADD_raw_intervar, CADD_phred_intervar, GERP_RS_intervar, phyloP46way_placental_intervar, primatedl, Func_refGeneWithVer_annovar, ExonicFunc_refGene_intervar, avsnp150_annovar, Interpro_domain_intervar, pfam_domain, tfbs, pli, lof_z, mis_z, sigmaaf_lof_0001, sigmaaf_lof_01, sigmaaf_missense_0001, sigmaaf_missense_01, omim_genesymbol, omim_inheritance, omim_phenotypes, atac_rpe_itemrgb, atac_rpe_score, eyeintegration_rnaseq_tpm_rpe_adulttissue, eyeintegration_rnaseq_tpm_rpe_cellline, eyeintegration_rnaseq_tpm_rpe_fetaltissue, eyeintegration_rnaseq_tpm_rpe_stemcellline, eyeintegration_rnaseq_tpm_retina_adulttissue, eyeintegration_rnaseq_tpm_retina_stemcellline, eyeintegration_rnaseq_tpm_wholeblood, chrom, start, end, ref, alt, hgvsc, hgvsp, Freq_esp6500siv2_all_annovar, Freq_1000g2015aug_all_annovar, aaf_esp_all, aaf_1kg_all, af_exac_all, pubmed, gt_types.{wildcards.sampleid}, gts.{wildcards.sampleid}, gt_phases.{wildcards.sampleid}, gt_depths.{wildcards.sampleid}, gt_alt_freqs.{wildcards.sampleid}, gt_quals.{wildcards.sampleid} FROM variants WHERE gno_af_all < 0.2 AND af_exac_all < 0.2 AND (priority_score_intervar >= 0 OR priority_score_intervar = -1 OR priority_score_intervar = -2) AND filter IS NULL " \
+# 		--header --gt-filter "gt_types.{wildcards.sampleid} != HOM_REF AND gt_depths.{wildcards.sampleid} > 2" {input.db} > {output.tsv}
+# 		Rscript /home/$USER/git/variant_prioritization/src/sortGeminiTSV.R \
+# 			{output.tsv} {output.sorted_tsv} {config[OGL_Dx_research_genes]}
+#  		"""
 # 7/2/19 deleted MaxEntScan_ref, MaxEntScan_alt,
 # Could consider adding vcf format in the output.
 # "NA" or "." in annovar annotation converted to NA in gemini, thus did not list NA when filtering < 0.1
