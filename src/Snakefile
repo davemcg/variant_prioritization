@@ -113,7 +113,7 @@ rule all:
 			ped=PEDfile, \
 			family_name=Family_Name, \
 			gemini_lenient = config['gemini_lenient']) if ('family_query' in config['output_type']) else 'dummy.txt',
-		expand('{sample}.{ped}.{sampleid}.gemini.sorted.tsv', sample=SAMPLE, ped=PEDfile, sampleid=SampleID) if ('individual_query' in config['output_type']) else 'dummy.txt'
+		expand('gemini_tsv_filtered/{sample}.{ped}.{sampleid}.gemini.filtered.tsv', sample=SAMPLE, ped=PEDfile, sampleid=SampleID) if ('individual_query' in config['output_type']) else 'dummy.txt'
 
 localrules: dummy
 rule dummy:
@@ -463,8 +463,9 @@ rule query_gemini_individual:
 	input:
 		db = '{sample}.PED_{ped}.gemini.db',
 	output:
-		tsv = '{sample}.{ped}.{sampleid}.gemini.tsv',
-		sorted_tsv = '{sample}.{ped}.{sampleid}.gemini.sorted.tsv'
+		tsv = temp('{sample}.{ped}.{sampleid}.gemini.tsv'),
+		sorted_tsv = '{sample}.{ped}.{sampleid}.gemini.sorted.tsv',
+		filtered_tsv = '{sample}.{ped}.{sampleid}.gemini.filtered.tsv'
 	shell:
 		"""
 		module load {config[R_version]}
@@ -473,8 +474,22 @@ rule query_gemini_individual:
 		"SELECT *, gt_types.{wildcards.sampleid}, gts.{wildcards.sampleid}, gt_phases.{wildcards.sampleid}, gt_depths.{wildcards.sampleid}, gt_alt_freqs.{wildcards.sampleid}, gt_quals.{wildcards.sampleid} FROM variants " \
 		--header --gt-filter "gt_types.{wildcards.sampleid} != HOM_REF AND gt_depths.{wildcards.sampleid} > 2" {input.db} > {output.tsv}
 		Rscript /home/$USER/git/variant_prioritization/src/sortGeminiTSV_v1.R \
-			{output.tsv} {output.sorted_tsv} {config[OGL_Dx_research_genes]}
+			{output.tsv} {config[OGL_Dx_research_genes]} {output.sorted_tsv} {output.filtered_tsv}
  		"""
+
+localrules: move_tsv_reports
+rule move_tsv_reports:
+	input:
+		sorted_tsv = '{sample}.{ped}.{sampleid}.gemini.sorted.tsv',
+		filtered_tsv = '{sample}.{ped}.{sampleid}.gemini.filtered.tsv'
+	output:
+		sorted_tsv = 'gemini_tsv/{sample}.{ped}.{sampleid}.gemini.sorted.tsv',
+		filtered_tsv = 'gemini_tsv_filtered/{sample}.{ped}.{sampleid}.gemini.filtered.tsv'
+	shell:
+		"""
+		mv {input.sorted_tsv} {output.sorted_tsv}
+		mv {input.filtered_tsv} {output.filtered_tsv}
+		"""
 
 # rule query_gemini_individual:
 # 	input:
@@ -499,6 +514,7 @@ rule query_gemini_individual:
 
 # now write report for each family given in the yaml family_name section
 # gt_quals.{wildcards.sampleid} > 5 needes to be removed for freebayes call. So just remove this alltogether.
+
 localrules: query_gemini
 rule query_gemini:
 	input:
