@@ -40,7 +40,10 @@ annovar <- read.delim(args[2], sep = "\t", header = TRUE, na.strings = c("."),
                                      "character","character","character","character","character","character","character","character","character","character",
                                      "character","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric",
                                      "numeric","numeric","numeric","character","character","numeric","factor","integer","character","character",
-                                     "character","numeric","factor","character","numeric","integer") )
+                                     "character","numeric","factor","character","numeric","integer") ) %>% 
+  unite("variantkey_annovar", Chr:Alt, sep = "_", remove = FALSE) %>% 
+  group_by(variantkey_annovar) %>%
+  slice(which.max(QUAL))
 
 
 #pick one annotation for each variant that is of highest Priority score
