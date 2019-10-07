@@ -21,6 +21,7 @@ gemini <-  gemini_input %>% mutate( temp_start_vcf = start + 1 ) %>%
   replace_na(list(gnomad_exome_all_annovar=0, gnomad_genome_all_annovar=0, popfreqmax_annovar=0, max_af=0, gno_af_popmax=0, max_aaf_all=0)) %>% 
   mutate(maxaf_postgemini = pmax(gnomad_exome_all_annovar, gnomad_genome_all_annovar, popfreqmax_annovar, max_af, gno_af_popmax, max_aaf_all, na.rm = TRUE)) %>% 
   unite("temp_clinvar", clinvar_sig, clin_sig, clinvar_intervar, sep = "-", remove = FALSE ) %>% 
+  mutate(temp_clinvar = gsub("_interpretations_of_pathogenicity", "", temp_clinvar)) %>% 
   mutate(temp_existing_variant = gsub("rs\\d+", "", existing_variation)) %>% 
   mutate(temp_existing_variant = gsub("COSM\\d+", "", temp_existing_variant)) %>%
   mutate(temp_existing_variant = gsub("\\w+_\\w+", "", temp_existing_variant)) %>%

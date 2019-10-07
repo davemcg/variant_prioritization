@@ -7,7 +7,7 @@
 ## BA = -5
 ## BS = -3
 ## BP = -1
-## if PVS = 0 & frameshit or stop_gain or Start_loss (?intervar), Score=+3 (equals weight of PM)
+## if PVS = 0 & frameshit or stop_gain or Start_loss (?intervar), Score=+6 (equals weight of PS)
 ## implemented after gemini: if PVS = 0 & dbscSNV's ada > 0.8 and rf>0.5, Score=+3 (equals weight of PM)
 ## implemented after gemini: if PVS = 0 & |dpsi_max_tissue+dpsi_zscore| > 5, score=+3; > 2.5, score=+1 make a histogram of dpsi of WGS set and determine the cut-off
 ## implemented after gemini: if PVS = 0 & spliceai_rank >0.8, score=+8; >0.5, score=+6; >0.2, score=+3; >0.15, score=+1; make a histogram of splicai score and determine the cut-off
@@ -59,7 +59,7 @@ intervar_for_sorting <- intervar %>%
   mutate(BP8 = str_sub(BP8, 2, 2)) %>% 
   mutate(BP8 = as.integer(BP8)) %>%
   mutate(truncating = ifelse((PVS1 == 0 & grepl("^frameshift|stop", ExonicFunc.refGene, ignore.case = TRUE)), 1, 0)) %>% 
-  mutate(Priority.Score = (PVS1*8+(PS1+PS2+PS3+PS4+PS5)*6+(PM1+PM2+PM3+PM4+PM5+PM6+PM7+truncating)*3+(PP1+PP2+PP3+PP4+PP5+PP6)-BA1*5-(BS1+BS2+BS3+BS4+BS5)*3-(BP1+BP2+BP3+BP4+BP5+BP6+BP7+BP8))) %>% 
+  mutate(Priority.Score = (PVS1*8+(PS1+PS2+PS3+PS4+PS5+truncating)*6+(PM1+PM2+PM3+PM4+PM5+PM6+PM7)*3+(PP1+PP2+PP3+PP4+PP5+PP6)-BA1*5-(BS1+BS2+BS3+BS4+BS5)*3-(BP1+BP2+BP3+BP4+BP5+BP6+BP7+BP8))) %>% 
   unite("variantkey", X.Chr:Alt, sep = "_", remove = FALSE ) %>%
   group_by(variantkey) %>%
   slice(which.max(Priority.Score))
