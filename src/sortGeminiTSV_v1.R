@@ -34,7 +34,7 @@ gemini <-  gemini_input %>% mutate( temp_start_vcf = start + 1 ) %>%
            ifelse(grepl("damaging", polyphen_pred), 0.5, 0) + ifelse(grepl("D", metasvm_pred), 0.5, 0) + 
            ifelse(is.na(primatedl), 0, ifelse(primatedl > 0.803, 0.5, 0)) +
            ifelse(is.na(mpc), 0, ifelse(mpc > 1.5 & maxaf_postgemini < 0.02, 0.5, 0)) +
-           ifelse(grepl("H|M", mutationassessor_pred), 0.5, 0) + ifelse(grepl("D", mutationtaster_pred), 0.5, 0) +
+           ifelse(grepl("H|M", mutationassessor_pred), 0.5, 0) + ifelse(grepl("D", mutationtaster_pred), 0.5, 0) + ifelse(grepl("D", provean_pred), 0.5, 0) +
            ifelse(is.na(eigen_pc_raw), 0, ifelse(eigen_pc_raw > 0 | eigen_raw > 0, 0.5, 0)) + 
            ifelse(is.na(cadd_phred), 0, ifelse(cadd_phred > 15, 0.5, 0) ) +
            ifelse(is.na(phylop_100way), 0, ifelse(phylop_100way > 2, 0.5, 0)) +

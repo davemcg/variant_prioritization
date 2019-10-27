@@ -11,9 +11,9 @@
 	"spliceai" :
 	{
 		"partition" : "gpu",
-		"extra" : "--gres=gpu:k80:2",
-		"mem" : "20g",
-		"time" : "24:00:00"
+		"extra" : "--gres=gpu:k80:2,lscratch:200",
+		"mem" : "120g",
+		"time" : "48:00:00"
 	},
 	"VEP_annotate" :
 	{

@@ -113,7 +113,7 @@ rule all:
 			ped=PEDfile, \
 			family_name=Family_Name, \
 			gemini_lenient = config['gemini_lenient']) if ('family_query' in config['output_type']) else 'dummy.txt',
-		expand('gemini_tsv_filtered/{sample}.{ped}.{sampleid}.gemini.filtered.tsv', sample=SAMPLE, ped=PEDfile, sampleid=SampleID) if ('individual_query' in config['output_type']) else 'dummy.txt'
+		expand('gemini_tsv_filtered/{sampleid}.{sample}.{ped}.gemini.filtered.tsv', sample=SAMPLE, ped=PEDfile, sampleid=SampleID) if ('individual_query' in config['output_type']) else 'dummy.txt'
 
 localrules: dummy
 rule dummy:
@@ -198,7 +198,22 @@ rule annovar_intervar:
 		"""
 #		module load {config[annovar_version]}
 #		annovar_out = temp('temp/{sample}__{region}.avinput.hg19_multianno.txt'),
-rule spliceai:
+
+# rule spliceai:
+# 	input:
+# 		'temp/vt.{sample}__{region}.vcf.gz'
+# 	output:
+# 		vcf = temp('temp/spliceai.{sample}__{region}.vcf.gz'),
+# 		index = temp('temp/spliceai.{sample}__{region}.vcf.gz.tbi')
+# 	shell:
+# 		"""
+# 		module load {config[spliceai_version]}
+# 		module load {config[samtools_version]}
+# 		spliceai -I {input} -R {config[ref_genome]} -A grch37 -O {output.vcf}
+# 		tabix -f -p vcf {output.vcf}
+# 		"""
+
+rule spliceai_wrapper:
 	input:
 		'temp/vt.{sample}__{region}.vcf.gz'
 	output:
@@ -206,9 +221,16 @@ rule spliceai:
 		index = temp('temp/spliceai.{sample}__{region}.vcf.gz.tbi')
 	shell:
 		"""
-		module load {config[spliceai_version]}
+		module load spliceai-wrapper
 		module load {config[samtools_version]}
-		spliceai -I {input} -R {config[ref_genome]} -A grch37 -O {output.vcf}
+		spliceai-wrapper annotate \
+			--input-vcf {input} \
+			--output-vcf {output.vcf} \
+			--precomputed-db-path /data/OGVFB/OGL_NGS/variant_prioritization/data/spliceai_wrapper/precomputed.sqlite3 \
+			--cache-db-path /data/OGVFB/OGL_NGS/variant_prioritization/data/spliceai_wrapper/cache.sqlite3 \
+			--release GRCh37 \
+			--path-reference {config[ref_genome]} \
+			--genes-tsv /data/OGVFB/OGL_NGS/variant_prioritization/data/spliceai_wrapper/grch37.txt
 		tabix -f -p vcf {output.vcf}
 		"""
 
@@ -463,28 +485,28 @@ rule query_gemini_individual:
 	input:
 		db = '{sample}.PED_{ped}.gemini.db',
 	output:
-		tsv = temp('{sample}.{ped}.{sampleid}.gemini.tsv'),
-		sorted_tsv = '{sample}.{ped}.{sampleid}.gemini.sorted.tsv',
-		filtered_tsv = '{sample}.{ped}.{sampleid}.gemini.filtered.tsv'
+		tsv = temp('{sampleid}.{sample}.{ped}.gemini.tsv'),
+		sorted_tsv = '{sampleid}.{sample}.{ped}.gemini.sorted.tsv',
+		filtered_tsv = '{sampleid}.{sample}.{ped}.gemini.filtered.tsv'
 	shell:
 		"""
 		module load {config[R_version]}
 		module load {config[gemini_version]}
  		gemini query -q \
 		"SELECT *, gt_types.{wildcards.sampleid}, gts.{wildcards.sampleid}, gt_phases.{wildcards.sampleid}, gt_depths.{wildcards.sampleid}, gt_alt_freqs.{wildcards.sampleid}, gt_quals.{wildcards.sampleid} FROM variants " \
-		--header --gt-filter "gt_types.{wildcards.sampleid} != HOM_REF AND gt_depths.{wildcards.sampleid} > 2" {input.db} > {output.tsv}
+		--header --gt-filter "gt_types.{wildcards.sampleid} != HOM_REF AND gts.{wildcards.sampleid} != './.' " {input.db} > {output.tsv}
 		Rscript /home/$USER/git/variant_prioritization/src/sortGeminiTSV_v1.R \
 			{output.tsv} {config[OGL_Dx_research_genes]} {output.sorted_tsv} {output.filtered_tsv}
  		"""
-
+#10/26/19: gt_depths.{wildcards.sampleid} > 2 was replaced with gts.{wildcards.sampleid} != './.' because RPGR ORF15 variants somehow had gt_depths as -1 in freebayes.
 localrules: move_tsv_reports
 rule move_tsv_reports:
 	input:
-		sorted_tsv = '{sample}.{ped}.{sampleid}.gemini.sorted.tsv',
-		filtered_tsv = '{sample}.{ped}.{sampleid}.gemini.filtered.tsv'
+		sorted_tsv = '{sampleid}.{sample}.{ped}.gemini.sorted.tsv',
+		filtered_tsv = '{sampleid}.{sample}.{ped}.gemini.filtered.tsv'
 	output:
-		sorted_tsv = 'gemini_tsv/{sample}.{ped}.{sampleid}.gemini.sorted.tsv',
-		filtered_tsv = 'gemini_tsv_filtered/{sample}.{ped}.{sampleid}.gemini.filtered.tsv'
+		sorted_tsv = 'gemini_tsv/{sampleid}.{sample}.{ped}.gemini.sorted.tsv',
+		filtered_tsv = 'gemini_tsv_filtered/{sampleid}.{sample}.{ped}.gemini.filtered.tsv'
 	shell:
 		"""
 		mv {input.sorted_tsv} {output.sorted_tsv}
