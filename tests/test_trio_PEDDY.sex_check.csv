@@ -1,4 +1,0 @@
-error,het_count,het_ratio,hom_alt_count,hom_ref_count,ped_sex,predicted_sex,sample_id
-False,0,0,2,0,male,male,Father
-True,0,0,1,0,female,male,Mother
-True,1,1,1,0,unknown,female,Proband
