@@ -8,13 +8,13 @@
 		"error" : "00log/{rule}_{wildcards}.err",
 		"extra" : ""
 	},
-        "spliceai_wrapper" :
-        {
-                "partition" : "gpu",
-                "extra" : "--gres=gpu:k80:2,lscratch:20 --cpus-per-task=4",
-                "mem" : "32g",
-                "time" : "24:00:00"
-        },
+  "spliceai_wrapper" :
+  {
+    "partition" : "gpu",
+    "extra" : "--gres=gpu:p100:1,lscratch:50 --cpus-per-task=4",
+    "mem" : "32g",
+    "time" : "12:00:00"
+  },
 	"spliceai" :
 	{
 		"partition" : "gpu",

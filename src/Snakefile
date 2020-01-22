@@ -113,7 +113,9 @@ rule all:
 			ped=PEDfile, \
 			family_name=Family_Name, \
 			gemini_lenient = config['gemini_lenient']) if ('family_query' in config['output_type']) else 'dummy.txt',
-		expand('gemini_tsv_filtered/{sampleid}.{sample}.{ped}.gemini.filtered.tsv', sample=SAMPLE, ped=PEDfile, sampleid=SampleID) if ('individual_query' in config['output_type']) else 'dummy.txt'
+		expand('gemini_tsv_filtered/{sampleid}.{sample}.{ped}.gemini.filtered.tsv', sample=SAMPLE, ped=PEDfile, sampleid=SampleID) if ('individual_query' in config['output_type']) else 'dummy.txt',
+		expand('LesserAlleleFreq/{sampleid}.{sample}.{ped}.LAF.jpeg', sample=SAMPLE, ped=PEDfile, sampleid=SampleID) if config['LAFplot'] == 'TRUE' else 'dummy.txt'
+
 
 localrules: dummy
 rule dummy:
@@ -156,12 +158,14 @@ rule vt_bgzip_and_tabix_vcf:
 		module load {config[samtools_version]}
 		module load {config[vt_version]}
 		zcat {input} \
-			| sed 's/ID=AD,Number=./ID=AD,Number=R/' \
+			| sed -e 's/ID=AD,Number=./ID=AD,Number=R/' -e 's/ID=AC,Number=./ID=AC,Number=R/' - \
 			| vt decompose -s - \
-			| vt normalize -r {config[ref_genome]} - \
+			| vt normalize -m -r {config[ref_genome]} - \
 			| bgzip -c > {output.vcf}
 		tabix -f -p vcf {output.vcf}
 		"""
+# 		| sed 's/ID=AC,Number=./ID=AC,Number=A/' \ 1/20/20 vcf-merge of freebayes had problem for one of the position with 6 variants. GATK combine worked.
+# freebayes vcf fixed by vt immediately after freebayes.
 
 rule annovar_intervar:
 	input:
@@ -221,7 +225,7 @@ rule spliceai_wrapper:
 		index = temp('temp/spliceai.{sample}__{region}.vcf.gz.tbi')
 	shell:
 		"""
-		module load spliceai-wrapper
+		module load {config[spliceai-wrapper_version]}
 		module load {config[samtools_version]}
 		spliceai-wrapper annotate \
 			--input-vcf {input} \
@@ -472,10 +476,13 @@ rule make_gemini_db:
 #	threads: 8
 	shell:
 		"""
+		module unload python
 		module load {config[vcf2db_version]}
 		echo {wildcards.ped}.ped
 		vcf2db.py --info-exclude MLEAF --info-exclude MLEAC {input.vcf} {PEDbase}{wildcards.ped}.ped {output}
 		"""
+
+#
 #		module load {config[gemini_version]}
 #		gemini load -v {input.vcf} -t VEP -p {config[ped]} --skip-gerp-bp --skip-cadd --cores {threads} {output}
 #		--skip-gene-tables --save-info-string needed? the size generated using load is 4x larger than vcf2db.py below, but the db file cannot be queried as before, probably only VEP fields are included.
@@ -485,7 +492,7 @@ rule query_gemini_individual:
 	input:
 		db = '{sample}.PED_{ped}.gemini.db',
 	output:
-		tsv = temp('{sampleid}.{sample}.{ped}.gemini.tsv'),
+		tsv = '{sampleid}.{sample}.{ped}.gemini.tsv',
 		sorted_tsv = '{sampleid}.{sample}.{ped}.gemini.sorted.tsv',
 		filtered_tsv = '{sampleid}.{sample}.{ped}.gemini.filtered.tsv'
 	shell:
@@ -498,20 +505,49 @@ rule query_gemini_individual:
 		Rscript /home/$USER/git/variant_prioritization/src/sortGeminiTSV_v1.R \
 			{output.tsv} {config[OGL_Dx_research_genes]} {output.sorted_tsv} {output.filtered_tsv}
  		"""
-#10/26/19: gt_depths.{wildcards.sampleid} > 2 was replaced with gts.{wildcards.sampleid} != './.' because RPGR ORF15 variants somehow had gt_depths as -1 in freebayes.
+# 10/26/19: gt_depths.{wildcards.sampleid} > 2 was replaced with gts.{wildcards.sampleid} != './.' because RPGR ORF15 variants somehow had gt_depths as -1 in freebayes.
+
 localrules: move_tsv_reports
 rule move_tsv_reports:
 	input:
+		tsv = '{sampleid}.{sample}.{ped}.gemini.tsv',
 		sorted_tsv = '{sampleid}.{sample}.{ped}.gemini.sorted.tsv',
 		filtered_tsv = '{sampleid}.{sample}.{ped}.gemini.filtered.tsv'
 	output:
+		tsv = 'gemini_tsv/{sampleid}.{sample}.{ped}.gemini.tsv',
 		sorted_tsv = 'gemini_tsv/{sampleid}.{sample}.{ped}.gemini.sorted.tsv',
 		filtered_tsv = 'gemini_tsv_filtered/{sampleid}.{sample}.{ped}.gemini.filtered.tsv'
 	shell:
 		"""
+		mv {input.tsv} {output.tsv}
 		mv {input.sorted_tsv} {output.sorted_tsv}
 		mv {input.filtered_tsv} {output.filtered_tsv}
 		"""
+
+rule LesserAlleleFreq:
+	input:
+		'gemini_tsv/{sampleid}.{sample}.{ped}.gemini.sorted.tsv'
+	output:
+		LAFplot = '{sampleid}.{sample}.{ped}.LAF.jpeg'
+	shell:
+		"""
+		module load {config[R_version]}
+		Rscript /home/$USER/git/variant_prioritization/src/LesserAlleleFreq_singleSample.R \
+			{input} {wildcards.sampleid} {output.LAFplot}
+		"""
+#Make a shiny app
+
+localrules: moveLAFplot
+rule moveLAFplot:
+	input:
+		LAFplot = '{sampleid}.{sample}.{ped}.LAF.jpeg'
+	output:
+		LAFplot = 'LesserAlleleFreq/{sampleid}.{sample}.{ped}.LAF.jpeg'
+	shell:
+		"""
+		mv {input.LAFplot} {output.LAFplot}
+		"""
+
 
 # rule query_gemini_individual:
 # 	input:

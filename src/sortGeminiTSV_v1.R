@@ -6,6 +6,7 @@
 ## splice_score = min(8, spliceai etc)
 ## if PVS == 1 or maxaf > 0.02, then splice score is not added to the  priority score.
 ## other_pred_score is not added to priority score if maxaf > 0.02
+## if impact == "missense_variant" & mis_z >= 3.09 & maxaf_postgemini < 0.0005, priority socre += 2
 
 args <- commandArgs(trailingOnly=TRUE)
 #When testing, comment out line above and use the line below.
@@ -18,7 +19,7 @@ gemini_input <- read_tsv(args[1], col_names = TRUE, na = c("NA", "", "None", "."
 
 gemini <-  gemini_input %>% mutate( temp_start_vcf = start + 1 ) %>% 
   unite("chr_variant_id", chrom, temp_start_vcf, ref, alt, sep = "-", remove = FALSE ) %>%
-  replace_na(list(gnomad_exome_all_annovar=0, gnomad_genome_all_annovar=0, popfreqmax_annovar=0, max_af=0, gno_af_popmax=0, max_aaf_all=0)) %>% 
+  replace_na(list(gnomad_exome_all_annovar=0, gnomad_genome_all_annovar=0, popfreqmax_annovar=0, max_af=0, gno_af_popmax=0, max_aaf_all=0, mis_z=0)) %>% 
   mutate(maxaf_postgemini = pmax(gnomad_exome_all_annovar, gnomad_genome_all_annovar, popfreqmax_annovar, max_af, gno_af_popmax, max_aaf_all, na.rm = TRUE)) %>% 
   unite("temp_clinvar", clinvar_sig, clin_sig, clinvar_intervar, sep = "-", remove = FALSE ) %>% 
   mutate(temp_clinvar = gsub("_interpretations_of_pathogenicity", "", temp_clinvar)) %>% 
@@ -50,8 +51,7 @@ gemini <-  gemini_input %>% mutate( temp_start_vcf = start + 1 ) %>%
   mutate(temp_dbscSNV_score = ifelse((maxaf_postgemini < 0.02 & temp_dbscsnv_ada_score>0.8 & temp_dbscsnv_rf_score>0.5), 3, 0)) %>% 
   mutate(splice_score = pmin(8, (spliceai_rank + temp_genesplicer_maxent_score + temp_dpsi_score + temp_dbscSNV_score)) ) %>% 
   mutate(priority_score = priority_score_intervar + clinvar_hgmd_score + ifelse(pvs1 == 1 | maxaf_postgemini >= 0.02, 0, splice_score) + 
-           ifelse(maxaf_postgemini >= 0.02, 0, other_predic_score) )
-
+           ifelse(maxaf_postgemini >= 0.02, 0, other_predic_score) + ifelse(impact == "missense_variant" & mis_z >= 3.09 & maxaf_postgemini < 0.0005, 2, 0))
 
 #http://web.corral.tacc.utexas.edu/WGSAdownload/resources/dbNSFP/dbNSFP4.0b2c.readme.txt
 #CADD: https://cadd.gs.washington.edu/info

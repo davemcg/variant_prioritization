@@ -3,7 +3,7 @@
 # to run snakemake as batch job
 # run in the data folder for this project
 
-module load snakemake || exit 1
+module load snakemake/5.7.4 || exit 1
 mkdir -p 00log
 
 sbcmd="sbatch --cpus-per-task={threads} \
@@ -28,7 +28,7 @@ snakemake -s /home/$USER/git/variant_prioritization/src/Snakefile \
 --configfile $1 \
 --cluster-config $json \
 --cluster "$sbcmd"  --latency-wait 120 --rerun-incomplete \
--k --restart-times 1 --resources res=1 
+-k --restart-times 1 --resources res=1
 
 # --notemp Ignore temp() declaration;
 # --dryrun 
