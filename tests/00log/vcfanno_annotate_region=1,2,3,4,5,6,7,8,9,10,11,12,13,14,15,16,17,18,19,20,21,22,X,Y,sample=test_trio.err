@@ -1,0 +1,88 @@
+Building DAG of jobs...
+Using shell: /usr/bin/bash
+Provided cores: 4
+Rules claiming more threads will be scaled down.
+Job counts:
+	count	jobs
+	1	vcfanno_annotate
+	1
+
+[Thu Jul  4 14:39:29 2019]
+rule vcfanno_annotate:
+    input: temp/spliceai_annovar_intervar_annotation.txt.gz, temp/test_trio__1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,X,Y.SORTED.VT.VEP.vcf.gz
+    output: temp/test_trio__1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,X,Y_vcfanno.conf, temp/test_trio__1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,X,Y.SORTED.VT.VEP.VCFANNO.vcf.gz, temp/test_trio__1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,X,Y.SORTED.VT.VEP.VCFANNO.vcf.gz.tbi
+    jobid: 0
+    wildcards: sample=test_trio, region=1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,X,Y
+    threads: 4
+
+
+		module load samtools/1.9
+		module load vcfanno/0.2.9
+		# copy conf to local dir, then edit to put in the path
+		# to the annovar_intervar this Snakemake creates
+		cp /home/$USER/git/variant_prioritization/src/vcfanno_v4.conf temp/test_trio__1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,X,Y_vcfanno.conf
+		annovar_intervar_path=`echo temp/spliceai_annovar_intervar_annotation.txt.gz | sed 's:/:\\\/:g'`
+		sed -i "s/ANNOVAR_INTERVAR_FILE/$annovar_intervar_path/g" temp/test_trio__1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,X,Y_vcfanno.conf
+		vcfanno -p 4 -lua /home/$USER/git/variant_prioritization/src/vcfanno_custom.lua temp/test_trio__1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,X,Y_vcfanno.conf temp/test_trio__1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,X,Y.SORTED.VT.VEP.vcf.gz | bgzip > temp/test_trio__1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,X,Y.SORTED.VT.VEP.VCFANNO.vcf.gz
+		tabix -f -p vcf temp/test_trio__1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,X,Y.SORTED.VT.VEP.VCFANNO.vcf.gz
+		
+[+] Loading samtools 1.9  ... 
+[+] Loading vcfanno  0.2.9 
+
+=============================================
+vcfanno version 0.2.9 [built with go1.10]
+
+see: https://github.com/brentp/vcfanno
+=============================================
+vcfanno.go:115: found 284 sources from 40 files
+vcfanno.go:187: Info Error: HOM_ASJ not found in header >> this error/warning may occur many times. reporting once here...
+vcfanno.go:187: Info Error: STAR_Hom not found in INFO >> this error/warning may occur many times. reporting once here...
+vcfanno.go:187: Info Error: af_exac_sas not found in INFO >> this error/warning may occur many times. reporting once here...
+vcfanno.go:187: Info Error: max_aaf_all not found in INFO >> this error/warning may occur many times. reporting once here...
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/ccrs.v1.20171112.bed.gz
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/hg19_fitcons_fc-i6-0_V1-01.bed.gz
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/ccrs.v1.20171112.bed.gz
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/hg19_fitcons_fc-i6-0_V1-01.bed.gz
+vcfanno.go:187: Info Error: Hom_Female not found in INFO >> this error/warning may occur many times. reporting once here...
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/ccrs.v1.20171112.bed.gz
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/ccrs.v1.20171112.bed.gz
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/hg19_fitcons_fc-i6-0_V1-01.bed.gz
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/hg19_fitcons_fc-i6-0_V1-01.bed.gz
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/ccrs.v1.20171112.bed.gz
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/ccrs.v1.20171112.bed.gz
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/hg19_fitcons_fc-i6-0_V1-01.bed.gz
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/ccrs.v1.20171112.bed.gz
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/hg19_fitcons_fc-i6-0_V1-01.bed.gz
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/hg19_fitcons_fc-i6-0_V1-01.bed.gz
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/ccrs.v1.20171112.bed.gz
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/ccrs.v1.20171112.bed.gz
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/hg19_fitcons_fc-i6-0_V1-01.bed.gz
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/hg19_fitcons_fc-i6-0_V1-01.bed.gz
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/ccrs.v1.20171112.bed.gz
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/ccrs.v1.20171112.bed.gz
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/hg19_fitcons_fc-i6-0_V1-01.bed.gz
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/hg19_fitcons_fc-i6-0_V1-01.bed.gz
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/ccrs.v1.20171112.bed.gz
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/ccrs.v1.20171112.bed.gz
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/hg19_fitcons_fc-i6-0_V1-01.bed.gz
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/hg19_fitcons_fc-i6-0_V1-01.bed.gz
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/ccrs.v1.20171112.bed.gz
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/ccrs.v1.20171112.bed.gz
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/hg19_fitcons_fc-i6-0_V1-01.bed.gz
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/hg19_fitcons_fc-i6-0_V1-01.bed.gz
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/ccrs.v1.20171112.bed.gz
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/hg19_fitcons_fc-i6-0_V1-01.bed.gz
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/ccrs.v1.20171112.bed.gz
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/hg19_fitcons_fc-i6-0_V1-01.bed.gz
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/ccrs.v1.20171112.bed.gz
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/ccrs.v1.20171112.bed.gz
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/hg19_fitcons_fc-i6-0_V1-01.bed.gz
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/hg19_fitcons_fc-i6-0_V1-01.bed.gz
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/ccrs.v1.20171112.bed.gz
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/ccrs.v1.20171112.bed.gz
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/hg19_fitcons_fc-i6-0_V1-01.bed.gz
+bix.go:221: chromosome X not found in /data/OGVFB/resources/1000G_phase2_GRCh37/gemini_annotation/hg19_fitcons_fc-i6-0_V1-01.bed.gz
+vcfanno.go:241: annotated 999 variants in 181.72 seconds (5.5 / second)
+[Thu Jul  4 14:42:36 2019]
+Finished job 0.
+1 of 1 steps (100%) done

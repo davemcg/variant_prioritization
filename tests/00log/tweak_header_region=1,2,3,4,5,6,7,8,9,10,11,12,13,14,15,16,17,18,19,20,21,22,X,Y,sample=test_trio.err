@@ -1,0 +1,25 @@
+Building DAG of jobs...
+Using shell: /usr/bin/bash
+Provided cores: 2
+Rules claiming more threads will be scaled down.
+Job counts:
+	count	jobs
+	1	tweak_header
+	1
+
+[Thu Jul  4 14:43:21 2019]
+rule tweak_header:
+    input: temp/test_trio__1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,X,Y.SORTED.VT.VEP.VCFANNO.vcf.gz
+    output: temp/test_trio__1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,X,Y.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz, temp/test_trio__1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,X,Y.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz.tbi
+    jobid: 0
+    wildcards: sample=test_trio, region=1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,X,Y
+
+
+		module load samtools/1.9
+		zcat temp/test_trio__1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,X,Y.SORTED.VT.VEP.VCFANNO.vcf.gz | sed 's/Number=A/Number=1/g' | bgzip -c > temp/test_trio__1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,X,Y.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz
+		tabix -f -p vcf temp/test_trio__1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,X,Y.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz
+		
+[+] Loading samtools 1.9  ... 
+[Thu Jul  4 14:43:23 2019]
+Finished job 0.
+1 of 1 steps (100%) done

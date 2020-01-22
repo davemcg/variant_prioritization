@@ -1,0 +1,4 @@
+sample_a,sample_b,shared_hets,hets_a,ibs2,rel,hets_b,ibs0,n,pedigree_parents,pedigree_relatedness,predicted_parents,parent_error,sample_duplication_error,rel_difference
+Father,Mother,2,2,4,1,4,0,6,False,0,True,True,True,-1
+Father,Proband,1,2,4,0.5,2,0,6,True,0.5,True,False,False,0
+Mother,Proband,2,4,4,1,2,0,6,True,0.5,True,False,True,-0.5

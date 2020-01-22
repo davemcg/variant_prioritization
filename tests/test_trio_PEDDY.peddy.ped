@@ -1,0 +1,4 @@
+#family_id	sample_id	paternal_id	maternal_id	sex	phenotype	duplicates	het_call_rate	het_ratio	het_mean_depth	het_idr_baf	ancestry-prediction	PC1	PC2	PC3	sex_het_ratio	sex_fixed
+outside	Proband	Father	Mother	0	2	Mother	1	0.3333	157.5	0.04619	UNKNOWN	-0.9857	0.588	-0.8381	1	True
+outside	Father	0	0	1	1	Mother	1	0.3333	150.3	0.1361	UNKNOWN	-1.161	0.5483	-0.6117	0	False
+outside	Mother	0	0	2	1	Father,Proband	1	0.6667	152	0.04961	UNKNOWN	0.1348	0.4612	-0.9214	0	True
