@@ -11,7 +11,7 @@
 	"spliceai_wrapper" :
   {
     "partition" : "gpu",
-    "extra" : "--gres=gpu:k80:2,lscratch:50 --cpus-per-task=4",
+    "extra" : "--gres=gpu:k80:2,lscratch:100 --cpus-per-task=4",
     "mem" : "32g",
     "time" : "12:00:00"
   },
