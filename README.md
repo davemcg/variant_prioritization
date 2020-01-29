@@ -46,7 +46,10 @@ Install [SeeGEM](https://github.com/davemcg/SeeGEM) in `R` on biowulf2 to produc
 Finally edit the first line of [src/config_variant_prioritization.yaml](https://github.com/davemcg/variant_prioritization/blob/master/src/config_variant_prioritization.yaml) to put your vcf (bgzip'ed and tabix'ed) in. 
 
 # Run (in biowulf2)
-freen to pick gpu p100 (default withouting specifying $2 below), v100 (need to edit cluster.json file), or k80 ($2 below). Currently using 4 gpu thus one node. When gpu node is busy, spliceai could take time to be started.
+freen to pick gpu p100 (default withouting specifying $2 below), v100 (need to edit cluster.json file), or k80 ($2 below). 
+
+Currently using 4 gpu thus one node. When gpu node is busy, spliceai could take time to be started.
+
 sbatch --time=12:00:00 ~/git/variant_prioritization/Snakemake.wrapper.sh COPIED_OVER_YAML_FILE.yaml [optional: ~/git/variant_prioritization/src/k80cluster.json]
 
 # Visualization
