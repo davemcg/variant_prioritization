@@ -39,57 +39,49 @@ writeLines('Starting GEMINI queries')
 GEMINI_list <- list()
 GEMINI_list$ar <- gemini_test_wrapper(gemini_db, 
                                       test = 'autosomal_recessive', 
-                                      min_gq = 5,
                                       "--allow-unaffected",
-                                      filter = paste("aaf < ", aaf_freq, " AND gno_af_all < 0.2 AND af_exac_all < 0.2 AND (priority_score_intervar >= 0 OR priority_score_intervar = -1 OR priority_score_intervar = -2) AND filter IS NULL"),
+                                      filter = paste("aaf < ", aaf_freq, " AND gno_af_all < 0.01 AND af_exac_all < 0.01 AND popfreqmax_annovar < 0.01 AND priority_score_intervar > 2 AND filter IS NULL"),
                                       families = family_name, ... = lenient)
 writeLines('Autosomal Recessive test done')
 GEMINI_list$ad <- gemini_test_wrapper(gemini_db, 
                                       test = 'autosomal_dominant', 
-                                      min_gq = 5,
                                       "--allow-unaffected",
-                                      filter = paste("aaf < ", aaf_freq, " AND gno_af_all < 0.2 AND af_exac_all < 0.2 AND (priority_score_intervar >= 0 OR priority_score_intervar = -1 OR priority_score_intervar = -2) AND filter IS NULL"),
+                                      filter = paste("aaf < ", aaf_freq, " AND gno_af_all < 0.0001 AND af_exac_all < 0.0001 AND popfreqmax_annovar < 0.0001 AND priority_score_intervar > 2 AND filter IS NULL"),
                                       families = family_name, ... = lenient)
 writeLines('Autosomal Dominant test done')
 GEMINI_list$dn <- gemini_test_wrapper(gemini_db, 
                                       test = 'de_novo',
-                                      min_gq = 5,
                                       "--allow-unaffected",
-                                      filter = paste("aaf < ", aaf_freq, " AND gno_af_all < 0.2 AND af_exac_all < 0.2 AND (priority_score_intervar >= 0 OR priority_score_intervar = -1 OR priority_score_intervar = -2) AND filter IS NULL"),
+                                      filter = paste("aaf < ", aaf_freq, " AND gno_af_all < 0.005 AND af_exac_all < 0.005 AND popfreqmax_annovar < 0.005 AND priority_score_intervar > 2 AND filter IS NULL"),
                                       families = family_name, ... = lenient)
 writeLines('De novo test done')
 GEMINI_list$xlr <- gemini_test_wrapper(gemini_db, 
                                        test = 'x_linked_recessive',
-                                       min_gq = 5,
                                        "--allow-unaffected",
-                                       filter = paste("aaf < ", aaf_freq, " AND gno_af_all < 0.2 AND af_exac_all < 0.2 AND (priority_score_intervar >= 0 OR priority_score_intervar = -1 OR priority_score_intervar = -2) AND filter IS NULL"),
+                                       filter = paste("aaf < ", aaf_freq, " AND gno_af_all < 0.01 AND af_exac_all < 0.01 AND popfreqmax_annovar < 0.01 AND priority_score_intervar > 2 AND filter IS NULL"),
                                        families = family_name)
 writeLines('XL Recessive test done')
 GEMINI_list$xld <- gemini_test_wrapper(gemini_db, 
                                        test = 'x_linked_dominant',
-                                       min_gq = 5,
                                        "--allow-unaffected",
-                                       filter = paste("aaf < ", aaf_freq, " AND gno_af_all < 0.2 AND af_exac_all < 0.2 AND (priority_score_intervar >= 0 OR priority_score_intervar = -1 OR priority_score_intervar = -2) AND filter IS NULL"),
+                                       filter = paste("aaf < ", aaf_freq, " AND gno_af_all < 0.005 AND af_exac_all < 0.005 AND popfreqmax_annovar < 0.005 AND priority_score_intervar > 2 AND filter IS NULL"),
                                        families = family_name)
 writeLines('XL Dominant test done')
 GEMINI_list$xldn <- gemini_test_wrapper(gemini_db, 
                                         test = 'x_linked_de_novo',
-                                        min_gq = 5,
                                         "--allow-unaffected",
-                                        filter = paste("aaf < ", aaf_freq, " AND gno_af_all < 0.2 AND af_exac_all < 0.2 AND (priority_score_intervar >= 0 OR priority_score_intervar = -1 OR priority_score_intervar = -2) AND filter IS NULL"),
+                                        filter = paste("aaf < ", aaf_freq, " AND gno_af_all < 0.005 AND af_exac_all < 0.005 AND popfreqmax_annovar < 0.005 AND priority_score_intervar > 2 AND filter IS NULL"),
                                         families = family_name)
 writeLines('XL De Novo test done')
 GEMINI_list$me <- gemini_test_wrapper(gemini_db, 
                                       test = 'mendel_errors', 
-                                      min_gq = 5,
-                                      filter = paste("aaf < ", aaf_freq, " AND gno_af_all < 0.2 AND af_exac_all < 0.2 AND (priority_score_intervar >= 0 OR priority_score_intervar = -1 OR priority_score_intervar = -2) AND filter IS NULL"),
+                                      filter = paste("aaf < ", aaf_freq, " AND gno_af_all < 0.005 AND af_exac_all < 0.005 AND popfreqmax_annovar < 0.005 AND priority_score_intervar > 2 AND filter IS NULL"),
                                       families = family_name, ... = lenient)
 writeLines('Mendelian Errors test done')
 GEMINI_list$ch <- gemini_test_wrapper(gemini_db, 
-                                      test = 'comp_hets', 
-                                      min_gq = 5,
+                                      test = 'comp_hets',
                                       "--allow-unaffected", 
-                                      filter = paste("aaf < ", aaf_freq, " AND gno_af_all < 0.2 AND af_exac_all < 0.2 AND (priority_score_intervar >= 0 OR priority_score_intervar = -1 OR priority_score_intervar = -2) AND filter IS NULL"),
+                                      filter = paste("aaf < ", aaf_freq, "  AND gno_af_all < 0.01 AND af_exac_all < 0.01 AND popfreqmax_annovar < 0.01 AND priority_score_intervar > 2 AND filter IS NULL"),
                                       families = family_name)
 writeLines('Compound Hets test done')
 
@@ -141,7 +133,7 @@ if (output_df != '' & toupper(stringr::str_sub(output_df, -5,-1)) == 'RDATA' ){
 writeLines('Create reactive document!')
 # first decorate
 decorated <- See_GEM_formatter(my_GEMINI_data,
-								extra_columns_to_retain = "^gno|rankscore$|*num*|^clin|*domain*|*codon*|*annov*|*interv*|spliceai*|ClinPred_Score|branchpoint*|omim*|atac*|PrimateDL|GeneSplicer|MaxEntScan*|MPC|Existing_variation")
+								extra_columns_to_retain = "^gno|rankscore$|*num*|^clin|*domain*|*codon*|*annov*|*interv*|spliceai*|clinpred_score|branchpoint*|omim*|atac*|primatedl|genesplicer|maxentscan*|mpc|existing_variation")
 if (toupper(peddy_path) != 'NO'){
 	knit_see_gem(GEMINI_data = decorated, 
     	         output_file = paste0(cur_dir, '/', output_html), 
