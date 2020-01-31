@@ -8,19 +8,19 @@
 		"error" : "00log/{rule}_{wildcards}.err",
 		"extra" : ""
 	},
-  "spliceai_wrapper" :
+	"spliceai_wrapper" :
   {
     "partition" : "gpu",
-    "extra" : "--gres=gpu:p100:2,lscratch:100 --cpus-per-task=4",
+    "extra" : "--gres=gpu:k80:2,lscratch:100 --cpus-per-task=4",
     "mem" : "32g",
     "time" : "12:00:00"
   },
 	"spliceai" :
 	{
 		"partition" : "gpu",
-		"extra" : "--gres=gpu:p100:2",
-		"mem" : "20g",
-		"time" : "24:00:00"
+		"extra" : "--gres=gpu:k80:2,lscratch:200",
+		"mem" : "120g",
+		"time" : "48:00:00"
 	},
 	"VEP_annotate" :
 	{
