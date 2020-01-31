@@ -203,21 +203,7 @@ rule annovar_intervar:
 #		module load {config[annovar_version]}
 #		annovar_out = temp('temp/{sample}__{region}.avinput.hg19_multianno.txt'),
 
-# rule spliceai:
-# 	input:
-# 		'temp/vt.{sample}__{region}.vcf.gz'
-# 	output:
-# 		vcf = temp('temp/spliceai.{sample}__{region}.vcf.gz'),
-# 		index = temp('temp/spliceai.{sample}__{region}.vcf.gz.tbi')
-# 	shell:
-# 		"""
-# 		module load {config[spliceai_version]}
-# 		module load {config[samtools_version]}
-# 		spliceai -I {input} -R {config[ref_genome]} -A grch37 -O {output.vcf}
-# 		tabix -f -p vcf {output.vcf}
-# 		"""
-
-rule spliceai_wrapper:
+rule spliceai:
 	input:
 		'temp/vt.{sample}__{region}.vcf.gz'
 	output:
@@ -225,18 +211,33 @@ rule spliceai_wrapper:
 		index = temp('temp/spliceai.{sample}__{region}.vcf.gz.tbi')
 	shell:
 		"""
-		module load {config[spliceai-wrapper_version]}
+		module load {config[spliceai_version]}
 		module load {config[samtools_version]}
-		spliceai-wrapper annotate \
-			--input-vcf {input} \
-			--output-vcf {output.vcf} \
-			--precomputed-db-path /data/OGVFB/OGL_NGS/variant_prioritization/data/spliceai_wrapper/precomputed.sqlite3 \
-			--cache-db-path /data/OGVFB/OGL_NGS/variant_prioritization/data/spliceai_wrapper/cache.sqlite3 \
-			--release GRCh37 \
-			--path-reference {config[ref_genome]} \
-			--genes-tsv /data/OGVFB/OGL_NGS/variant_prioritization/data/spliceai_wrapper/grch37.txt
+		spliceai -I {input} -R {config[ref_genome]} -A grch37 -O {output.vcf}
 		tabix -f -p vcf {output.vcf}
 		"""
+
+# rule spliceai_wrapper:
+# 	input:
+# 		'temp/vt.{sample}__{region}.vcf.gz'
+# 	output:
+# 		vcf = temp('temp/spliceai.{sample}__{region}.vcf.gz'),
+# 		index = temp('temp/spliceai.{sample}__{region}.vcf.gz.tbi')
+# 	shell:
+# 		"""
+# 		module load {config[spliceai-wrapper_version]}
+# 		module load {config[samtools_version]}
+# 		module load spliceai/1.2.1
+# 		spliceai-wrapper annotate \
+# 			--input-vcf {input} \
+# 			--output-vcf {output.vcf} \
+# 			--precomputed-db-path /data/OGVFB/OGL_NGS/variant_prioritization/data/spliceai_wrapper/precomputed.sqlite3 \
+# 			--cache-db-path /data/OGVFB/OGL_NGS/variant_prioritization/data/spliceai_wrapper/cache.sqlite3 \
+# 			--release GRCh37 \
+# 			--path-reference {config[ref_genome]} \
+# 			--genes-tsv /data/OGVFB/OGL_NGS/variant_prioritization/data/spliceai_wrapper/grch37.txt
+# 		tabix -f -p vcf {output.vcf}
+# 		"""
 
 rule spliceai_edit:
 	input:
