@@ -1,4 +1,5 @@
 input_vcf: 'test_trio.vcf.gz'
+freebayes_vcf: 'FALSE' # TRUE if using freebayes vcf. vt slightly different for freebayes.
 aaf_change: '1.1'
 output_type: ['geminiDB', 'family_query', 'individual_query'] #list, delete the compopnent that is not needed.
 family_name: [] # empty list or One or more family names in the list ['family_1', 'family_2']. If it's blank and output_type includes family_query, then it will take ped file and make a family list.
