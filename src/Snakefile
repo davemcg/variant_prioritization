@@ -146,26 +146,48 @@ rule n_split_vcf:
 		tabix -p vcf {output.vcf}
 		"""
 
-rule vt_bgzip_and_tabix_vcf:
-	input:
-		'temp/{sample}__{region}.vcf.gz'
-	output:
-		vcf = temp('temp/vt.{sample}__{region}.vcf.gz'),
-		index = temp('temp/vt.{sample}__{region}.vcf.gz.tbi')
-	shell:
-		"""
-		export REF_CACHE=/scratch/$SLURM_JOB_ID/
-		module load {config[samtools_version]}
-		module load {config[vt_version]}
-		zcat {input} \
-			| sed -e 's/ID=AD,Number=./ID=AD,Number=R/' -e 's/ID=AC,Number=./ID=AC,Number=R/' - \
-			| vt decompose -s - \
-			| vt normalize -m -r {config[ref_genome]} - \
-			| bgzip -c > {output.vcf}
-		tabix -f -p vcf {output.vcf}
-		"""
+if config['freebayes_vcf'] == 'TRUE':
+	rule vt_bgzip_and_tabix_vcf:
+		input:
+			'temp/{sample}__{region}.vcf.gz'
+		output:
+			vcf = temp('temp/vt.{sample}__{region}.vcf.gz'),
+			index = temp('temp/vt.{sample}__{region}.vcf.gz.tbi')
+		shell:
+			"""
+			export REF_CACHE=/scratch/$SLURM_JOB_ID/
+			module load {config[samtools_version]}
+			module load {config[vt_version]}
+			zcat {input} \
+				| sed -e 's/ID=AD,Number=./ID=AD,Number=R/' -e 's/ID=AC,Number=./ID=AC,Number=R/' - \
+				| vt decompose -s - \
+				| vt normalize -m -r {config[ref_genome]} - \
+				| bgzip -c > {output.vcf}
+			tabix -f -p vcf {output.vcf}
+			"""
+else:
+	rule vt_bgzip_and_tabix_vcf:
+		input:
+			'temp/{sample}__{region}.vcf.gz'
+		output:
+			vcf = temp('temp/vt.{sample}__{region}.vcf.gz'),
+			index = temp('temp/vt.{sample}__{region}.vcf.gz.tbi')
+		shell:
+			"""
+			export REF_CACHE=/scratch/$SLURM_JOB_ID/
+			module load {config[samtools_version]}
+			module load {config[vt_version]}
+			zcat {input} \
+				| sed 's/ID=AD,Number=./ID=AD,Number=R/' \
+				| vt decompose -s - \
+				| vt normalize -r {config[ref_genome]} - \
+				| bgzip -c > {output.vcf}
+			tabix -f -p vcf {output.vcf}
+			"""
+
 # 		| sed 's/ID=AC,Number=./ID=AC,Number=A/' \ 1/20/20 vcf-merge of freebayes had problem for one of the position with 6 variants. GATK combine worked.
 # freebayes vcf fixed by vt immediately after freebayes.
+
 
 rule annovar_intervar:
 	input:
