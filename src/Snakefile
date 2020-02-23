@@ -576,7 +576,7 @@ rule query_gemini_individual:
 		--header --gt-filter "gt_types.{wildcards.sampleid} != HOM_REF AND gts.{wildcards.sampleid} != './.' " {input.db} > {output.tsv}
 		"""
 
-localrules: sortGemini
+#localrules: sortGemini
 rule sortGemini:
 	input:
 		tsv = 'gemini_tsv/{sampleid}.{sample}.{ped}.gemini.tsv'
