@@ -159,9 +159,8 @@ if config['freebayes_vcf'] == 'TRUE':
 			module load {config[samtools_version]}
 			module load {config[vt_version]}
 			zcat {input} \
-				| sed -e 's/ID=AD,Number=./ID=AD,Number=R/' -e 's/ID=AC,Number=./ID=AC,Number=R/' - \
 				| vt decompose -s - \
-				| vt normalize -m -r {config[ref_genome]} - \
+				| vt normalize -n -r {config[ref_genome]} - \
 				| bgzip -c > {output.vcf}
 			tabix -f -p vcf {output.vcf}
 			"""
@@ -184,7 +183,7 @@ else:
 				| bgzip -c > {output.vcf}
 			tabix -f -p vcf {output.vcf}
 			"""
-
+#-e "s|1/.|0/1|" -e "s|./1|0/1|" \ 2/14/2020, removed this for GATK combineVariants
 # 		| sed 's/ID=AC,Number=./ID=AC,Number=A/' \ 1/20/20 vcf-merge of freebayes had problem for one of the position with 6 variants. GATK combine worked.
 # freebayes vcf fixed by vt immediately after freebayes.
 
@@ -305,7 +304,9 @@ rule spliceai_intervar_edit:
 		intervar = 'temp/{sample}__{region}.avinput.hg19_multianno.txt.intervar'
 	output:
 		intermediate = temp('temp/{sample}__{region}.avinput.hg19_multianno.spliceai.txt'),
-		spliceai_intervar = temp('temp/{sample}__{region}.spliceai_annovar_intervar')
+		spliceai_intervar = temp('temp/{sample}__{region}.spliceai_annovar_intervar'),
+		header = temp('temp/{sample}__{region}.annovar_intervar_header'),
+		gz = temp('temp/{sample}__{region}.spliceai_annovar_intervar_annotation.txt.gz')
 	shell:
 		"""
 		module load {config[R_version]}
@@ -314,21 +315,26 @@ rule spliceai_intervar_edit:
 			{input.intervar} \
 			{output.intermediate} \
 			{output.spliceai_intervar}
+		module load {config[samtools_version]}
+		head -n 1 {output.spliceai_intervar} > {output.header}
+		grep -v "^CHROM" {output.spliceai_intervar} | sort -k1,1 -k2,2n | cat {output.header} - | bgzip -f > {output.gz}
+		tabix -b 2 -e 2 -S 1 {output.gz}
 		"""
 
-rule merge_annovar_intervar:
-	input:
-		expand('temp/{sample}__{region}.spliceai_annovar_intervar', sample=SAMPLE, region=REGIONS)
-	output:
-		'temp/spliceai_annovar_intervar_annotation.txt.gz'
-	shell:
-		"""
-		module load {config[samtools_version]}
-		head -n 1 {input} | grep "^CHROM" | uniq > temp/annovar_intervar_header
-		cat {input} | grep -v "^CHROM" | sort -k1,1 -k2,2n > {output}TEMP
-		cat temp/annovar_intervar_header {output}TEMP | bgzip -f > {output}
-		tabix -b 2 -e 2 -S 1 {output}
-		"""
+# rule merge_annovar_intervar:
+# 	input:
+# 		expand('temp/{sample}__{region}.spliceai_annovar_intervar', sample=SAMPLE, region=REGIONS)
+# 	output:
+# 		'temp/spliceai_annovar_intervar_annotation.txt.gz'
+# 	shell:
+# 		"""
+# 		module load {config[samtools_version]}
+# 		head -n 1 {input} | grep "^CHROM" | uniq > temp/annovar_intervar_header
+# 		cat {input} | grep -v "^CHROM" | sort -k1,1 -k2,2n > {output}TEMP
+# 		cat temp/annovar_intervar_header {output}TEMP | bgzip -f > {output}
+# 		tabix -b 2 -e 2 -S 1 {output}
+# 		"""
+
 # in above sort, will it work with alternative alleles?
 
 # annotate with VEP
@@ -391,9 +397,9 @@ rule VEP_annotate:
 # annotate with vcfanno
 rule vcfanno_annotate:
 	input:
-		annovar_intervar = 'temp/spliceai_annovar_intervar_annotation.txt.gz',
+		annovar_intervar = 'temp/{sample}__{region}.spliceai_annovar_intervar_annotation.txt.gz',
 		vcf = 'temp/{sample}__{region}.SORTED.VT.VEP.vcf.gz',
-	#	index = 'temp/{sample}__{region}.SORTED.VT.VEP.vcf.gz'
+		index = 'temp/{sample}__{region}.SORTED.VT.VEP.vcf.gz.tbi'
 	output:
 		new_conf = temp('temp/{sample}__{region}_vcfanno.conf'),
 		vcf = temp('temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.vcf.gz'),
@@ -412,15 +418,59 @@ rule vcfanno_annotate:
 		tabix -f -p vcf {output.vcf}
 		"""
 
+rule priority_scores:
+	input:
+		vcf = 'temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.vcf.gz',
+		index = 'temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.vcf.gz.tbi'
+	output:
+		tsv = temp('temp/{sample}__{region}.tsv'),
+		ps_tsv = temp('temp/{sample}__{region}.ps.tsv'),
+		bgzip = temp('temp/{sample}__{region}.ps.tsv.gz'),
+		index = temp('temp/{sample}__{region}.ps.tsv.gz.tbi')
+	shell:
+		"""
+		module load {config[vt_version]}
+		module load {config[R_version]}
+		module load {config[samtools_version]}
+		vt info2tab -t CSQ,gnomAD_exome_ALL_annovar,gnomAD_genome_ALL_annovar,PopFreqMax_annovar,gno_af_popmax,mis_z,clinvar_sig,Clinvar_intervar,HGMD_Overlap,ClinPred_Score,MetaSVM_pred,MutationAssessor_pred,MutationTaster_pred,PROVEAN_pred,Eigen-PC-raw,Eigen-raw,phyloP_100way,GERP_RS_intervar,dpsi_max_tissue_annovar,dpsi_zscore_annovar,dbscSNV_ADA_SCORE_intervar,dbscSNV_RF_SCORE_intervar,spliceai_rank,Priority_Score_intervar,PVS1,SigmaAF_Missense_0001,PrimateDL {input.vcf} \
+		 	| sed '1 s/^.*$/CHROM\tPOS\tREF\tALT\tN_ALLELE\tCSQ\tgnomAD_exome_ALL_annovar\tgnomAD_genome_ALL_annovar\tPopFreqMax_annovar\tgno_af_popmax\tmis_z\tclinvar_sig\tClinvar_intervar\tHGMD_Overlap\tClinPred_Score\tMetaSVM_pred\tMutationAssessor_pred\tMutationTaster_pred\tPROVEAN_pred\tEigen_PC_raw\tEigen_raw\tphyloP_100way\tGERP_RS_intervar\tdpsi_max_tissue_annovar\tdpsi_zscore_annovar\tdbscSNV_ADA_SCORE_intervar\tdbscSNV_RF_SCORE_intervar\tspliceai_rank\tPriority_Score_intervar\tPVS1\tSigmaAF_Missense_0001\tPrimateDL/' - \
+			> {output.tsv}
+		Rscript /home/$USER/git/variant_prioritization/src/priority_score.R {output.tsv} {output.ps_tsv}
+		bgzip -c {output.ps_tsv} > {output.bgzip}
+		tabix -b 2 -e 2 -S 1 {output.bgzip}
+		"""
+
+# annotate with vcfanno
+rule vcfanno2:
+	input:
+		priority_score = 'temp/{sample}__{region}.ps.tsv.gz',
+		ps_index = 'temp/{sample}__{region}.ps.tsv.gz.tbi',
+		vcf = 'temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.vcf.gz',
+	 	index = 'temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.vcf.gz.tbi'
+	output:
+		new_conf = temp('temp/{sample}__{region}_vcfanno2.conf'),
+		vcf = temp('temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO2.vcf.gz')
+	threads: 4
+	shell:
+		"""
+		module load {config[samtools_version]}
+		module load {config[vcfanno_version]}
+		cp /home/$USER/git/variant_prioritization/src/vcfanno2.conf {output.new_conf}
+		priority_score_path=`echo {input.priority_score} | sed 's:/:\\\\\/:g'`
+		sed -i "s/priority_score_file/$priority_score_path/g" {output.new_conf}
+		vcfanno -p {threads} -lua {config[vcfanno_lua]} {output.new_conf} {input.vcf} | bgzip > {output.vcf}
+		"""
+
+
 # fix number=A issue
 # Since I decompose variants into multiple lines,
 # I can make number=1 so vcf2b will keep
 rule tweak_header:
 	input:
-		'temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.vcf.gz'
+		'temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO2.vcf.gz'
 	output:
-		vcf = 'temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz',
-		index = 'temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz.tbi'
+		vcf = temp('temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz'),
+		index = temp('temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz.tbi')
 	shell:
 		"""
 		module load {config[samtools_version]}
@@ -435,8 +485,8 @@ rule merge_vcf:
 		vcf = expand('temp/{{sample}}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz', region=REGIONS),
 		index = expand('temp/{{sample}}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz.tbi', region=REGIONS)
 	output:
-		vcf = ('{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz'),
-		index = ('{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz.tbi')
+		vcf = '{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz',
+		index = '{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz.tbi'
 	threads: 16
 	shell:
 		"""
@@ -490,7 +540,7 @@ rule peddy_QC:
 		"""
 
 
-# create gemini database
+# create gemini database.
 rule make_gemini_db:
 	input:
 		vcf = '{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz',
@@ -506,6 +556,7 @@ rule make_gemini_db:
 		vcf2db.py --info-exclude MLEAF --info-exclude MLEAC {input.vcf} {PEDbase}{wildcards.ped}.ped {output}
 		"""
 
+
 #
 #		module load {config[gemini_version]}
 #		gemini load -v {input.vcf} -t VEP -p {config[ped]} --skip-gerp-bp --skip-cadd --cores {threads} {output}
@@ -516,43 +567,35 @@ rule query_gemini_individual:
 	input:
 		db = '{sample}.PED_{ped}.gemini.db',
 	output:
-		tsv = '{sampleid}.{sample}.{ped}.gemini.tsv',
-		sorted_tsv = '{sampleid}.{sample}.{ped}.gemini.sorted.tsv',
-		filtered_tsv = '{sampleid}.{sample}.{ped}.gemini.filtered.tsv'
+		tsv = 'gemini_tsv/{sampleid}.{sample}.{ped}.gemini.tsv'
+	shell:
+		"""
+		module load {config[gemini_version]}
+ 		gemini query -q \
+		"SELECT *, gt_types.{wildcards.sampleid}, gts.{wildcards.sampleid}, gt_phases.{wildcards.sampleid}, gt_depths.{wildcards.sampleid}, gt_alt_freqs.{wildcards.sampleid}, gt_quals.{wildcards.sampleid} FROM variants" \
+		--header --gt-filter "gt_types.{wildcards.sampleid} != HOM_REF AND gts.{wildcards.sampleid} != './.' " {input.db} > {output.tsv}
+		"""
+
+localrules: sortGemini
+rule sortGemini:
+	input:
+		tsv = 'gemini_tsv/{sampleid}.{sample}.{ped}.gemini.tsv'
+	output:
+		sorted_tsv = 'gemini_tsv/{sampleid}.{sample}.{ped}.gemini.sorted.tsv',
+		filtered_tsv = 'gemini_tsv_filtered/{sampleid}.{sample}.{ped}.gemini.filtered.tsv',
+		filtered_xlsx = 'gemini_xlsx/{sampleid}.{sample}.{ped}.gemini.filtered.xlsx'
 	shell:
 		"""
 		module load {config[R_version]}
-		module load {config[gemini_version]}
- 		gemini query -q \
-		"SELECT *, gt_types.{wildcards.sampleid}, gts.{wildcards.sampleid}, gt_phases.{wildcards.sampleid}, gt_depths.{wildcards.sampleid}, gt_alt_freqs.{wildcards.sampleid}, gt_quals.{wildcards.sampleid} FROM variants " \
-		--header --gt-filter "gt_types.{wildcards.sampleid} != HOM_REF AND gts.{wildcards.sampleid} != './.' " {input.db} > {output.tsv}
 		Rscript /home/$USER/git/variant_prioritization/src/sortGeminiTSV_v1.R \
-			{output.tsv} {config[OGL_Dx_research_genes]} {output.sorted_tsv} {output.filtered_tsv}
+			{input.tsv} {config[OGL_Dx_research_genes]} {output.sorted_tsv} {output.filtered_tsv} {wildcards.sampleid} {output.filtered_xlsx} {config[aaf_change]}
  		"""
-# 10/26/19: gt_depths.{wildcards.sampleid} > 2 was replaced with gts.{wildcards.sampleid} != './.' because RPGR ORF15 variants somehow had gt_depths as -1 in freebayes.
-
-localrules: move_tsv_reports
-rule move_tsv_reports:
-	input:
-		tsv = '{sampleid}.{sample}.{ped}.gemini.tsv',
-		sorted_tsv = '{sampleid}.{sample}.{ped}.gemini.sorted.tsv',
-		filtered_tsv = '{sampleid}.{sample}.{ped}.gemini.filtered.tsv'
-	output:
-		tsv = 'gemini_tsv/{sampleid}.{sample}.{ped}.gemini.tsv',
-		sorted_tsv = 'gemini_tsv/{sampleid}.{sample}.{ped}.gemini.sorted.tsv',
-		filtered_tsv = 'gemini_tsv_filtered/{sampleid}.{sample}.{ped}.gemini.filtered.tsv'
-	shell:
-		"""
-		mv {input.tsv} {output.tsv}
-		mv {input.sorted_tsv} {output.sorted_tsv}
-		mv {input.filtered_tsv} {output.filtered_tsv}
-		"""
 
 rule LesserAlleleFreq:
 	input:
 		'gemini_tsv/{sampleid}.{sample}.{ped}.gemini.sorted.tsv'
 	output:
-		LAFplot = '{sampleid}.{sample}.{ped}.LAF.jpeg'
+		LAFplot = 'LesserAlleleFreq/{sampleid}.{sample}.{ped}.LAF.jpeg'
 	shell:
 		"""
 		module load {config[R_version]}
@@ -561,16 +604,6 @@ rule LesserAlleleFreq:
 		"""
 #Make a shiny app
 
-localrules: moveLAFplot
-rule moveLAFplot:
-	input:
-		LAFplot = '{sampleid}.{sample}.{ped}.LAF.jpeg'
-	output:
-		LAFplot = 'LesserAlleleFreq/{sampleid}.{sample}.{ped}.LAF.jpeg'
-	shell:
-		"""
-		mv {input.LAFplot} {output.LAFplot}
-		"""
 
 
 # rule query_gemini_individual:
@@ -606,6 +639,8 @@ rule query_gemini:
 		peddy_sex = '{sample}_PEDDY.sex_check.csv'
 	output:
 		report_name = '{sample}.{family_name}.PED_{ped}.lenient{gemini_lenient}.SeeGEM.report.html',
+		tsv =  '{sample}.{family_name}.PED_{ped}.lenient{gemini_lenient}.SeeGEM.report.tsv',
+		folder = directory('{sample}.{family_name}.PED_{ped}.lenient{gemini_lenient}.SeeGEM.report_files'),
 #		report_path = 'sample_reports/{sample}.{family_name}.PED_{ped}.lenient{gemini_lenient}.SeeGEM.report.html'
 	resources: res=1
 	run:
@@ -644,10 +679,16 @@ rule query_gemini:
 localrules: move_reports
 rule move_reports:
 	input:
-		'{sample}.{family_name}.PED_{ped}.lenient{gemini_lenient}.SeeGEM.report.html'
+		html = '{sample}.{family_name}.PED_{ped}.lenient{gemini_lenient}.SeeGEM.report.html',
+		tsv =  '{sample}.{family_name}.PED_{ped}.lenient{gemini_lenient}.SeeGEM.report.tsv',
+		folder = '{sample}.{family_name}.PED_{ped}.lenient{gemini_lenient}.SeeGEM.report_files'
 	output:
-		'sample_reports/{sample}.{family_name}.PED_{ped}.lenient{gemini_lenient}.SeeGEM.report.html'
+		html = 'sample_reports/{sample}.{family_name}.PED_{ped}.lenient{gemini_lenient}.SeeGEM.report.html',
+		tsv =  'sample_reports/{sample}.{family_name}.PED_{ped}.lenient{gemini_lenient}.SeeGEM.report.tsv',
+		folder = directory('sample_reports/{sample}.{family_name}.PED_{ped}.lenient{gemini_lenient}.SeeGEM.report_files')
 	shell:
 		"""
-		mv {input} {output}
+		mv {input.html} {output.html}
+		mv {input.tsv} {output.tsv}
+		mv {input.folder} {output.folder}
 		"""

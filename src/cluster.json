@@ -11,7 +11,7 @@
   "spliceai_wrapper" :
   {
     "partition" : "gpu",
-    "extra" : "--gres=gpu:p100:1,lscratch:100",
+    "extra" : "--gres=gpu:p100:1",
     "mem" : "32g",
     "time" : "12:00:00"
   },
@@ -37,6 +37,20 @@
 	{
 		"mem" : "32g"
 	},
+	"vcfanno_annotate" :
+	{
+		"threads" : "4",
+		"mem" : "16g"
+	},
+	"priority_scores" :
+	{
+		"mem" : "32g"
+	},
+	"vcfanno2" :
+	{
+		"threads" : "4",
+		"mem" : "16g"
+	},
 	"merge_vcf" :
 	{
 		"partition" : "norm",
@@ -53,6 +67,18 @@
 	{
 		"partition" : "norm",
 		"time" : "12:00:00",
+		"mem" : "32g"
+	},
+	"sortGemini" :
+	{
+		"partition" : "quick",
+		"time" : "1:00:00",
+		"mem" : "32g"
+	},
+	"LesserAlleleFreq" :
+	{
+		"partition" : "quick",
+		"time" : "1:00:00",
 		"mem" : "32g"
 	}
 }

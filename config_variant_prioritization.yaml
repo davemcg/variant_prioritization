@@ -1,5 +1,5 @@
 input_vcf: 'test_trio.vcf.gz'
-freebayes_vcf: 'FALSE' # TRUE if using freebayes vcf. vt slightly different for freebayes.
+freebayes_vcf: 'TRUE' # TRUE if using freebayes vcf. vt slightly different for freebayes.
 aaf_change: '1.1'
 output_type: ['geminiDB', 'family_query', 'individual_query'] #list, delete the compopnent that is not needed.
 family_name: [] # empty list or One or more family names in the list ['family_1', 'family_2']. If it's blank and output_type includes family_query, then it will take ped file and make a family list.
@@ -16,8 +16,8 @@ vcf2db_version: 'vcf2db/2018.10.26' #'vcf2db/2017.12.11'
 gemini_version: 'gemini/0.20.1'
 peddy_version: 'peddy/0.3.1'
 python2_version: 'python/2.7'
-R_version: 'R/3.5'
-vt_version: 'vt/0.577'
+R_version: 'R/3.5.2'
+vt_version: 'vt/0.57721'
 spliceai_version: 'spliceai/1.3'
 spliceai_wrapper: 'FALSE' #any value other than TRUE will run spliceai directly
 spliceai-wrapper_version: 'spliceai-wrapper/0.1.0'
@@ -26,7 +26,7 @@ annovar_version: 'annovar/2018-04-16'
 InterVar_version: 'intervar/2.1.2'
 intervar_evidence: '/data/OGVFB/OGL_NGS/OGL.variants.evidence.txt'
 intervar_Rscript_path: '/home/$USER/git/variant_prioritization/src/intervar_v1.7.R'
-OGL_Dx_research_genes: '/data/OGVFB/OGL_NGS/variant_prioritization/data/OGLv1_panel_DxORcandidate.txt'
+OGL_Dx_research_genes: '/data/OGVFB/OGL_NGS/variant_prioritization/data/OGLv1_panel_DxORcandidate.tsv'
 pandoc_version: 'pandoc/2.1.1'
 gemini_lenient: 'Yes'
 output_raw: 'Yes'

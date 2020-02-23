@@ -38,6 +38,6 @@ ggplot(gemini_input, aes(x= variant_no, y = LesserAlleleFreq, color = DepthGroup
 
 #theme(plot.title = element_text(hjust = 0.5))
 
-ggsave(args[3], path = ".", width = 32, height = 18, units = "cm")
+ggsave(args[3], width = 32, height = 18, units = "cm")
 
 #write_tsv(gemini_filtered, file.path('.', args[4]))
