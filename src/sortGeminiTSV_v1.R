@@ -72,7 +72,7 @@ gemini_filtered <- gemini_sorted %>% mutate(temp_group = ifelse(priority_score >
 
 write_tsv(gemini_filtered, path = args[4])
 
-gemini_filtered2 <- gemini_sorted %>% filter(priority_score >= 4, pmaxaf < 0.2, aaf < args[7]) %>% rename_all(funs(str_replace(., args[5], ""))) 
+gemini_filtered2 <- gemini_sorted %>% filter(priority_score >= 3, pmaxaf < 0.2, aaf < args[7]) %>% rename_all(funs(str_replace(., args[5], ""))) 
 
 recessive_count <- select(gemini_filtered2, c(ref_gene_annovar, priority_score, gt_types.)) %>%
   filter(priority_score >= 5) %>% select(-priority_score) %>% 
