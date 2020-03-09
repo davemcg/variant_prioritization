@@ -1,12 +1,13 @@
 #updated 7/28/19
 ## dbscSNV's ada > 0.8 and rf>0.5, Score=+3 (equals weight of PM)
-## |dpsi_max_tissue+dpsi_zscore| > 6, score=+3; > 3, score=+1 make a histogram of dpsi of WGS set and determine the cut-off
+## |dpsi_max_tissue+dpsi_zscore| > 8, score=+3; > 3, score=+1 make a histogram of dpsi of WGS set and determine the cut-off
 ## genesplicer (H|M) or maxentscan_diff > 3, score=+3
 ## spliceai_rank >0.8, score=+8; >0.5, score=+6; >0.2, score=+3; >0.15, score=+1; calculated in snakemake file. make a histogram of splicai score and determine the cut-off
 ## splice_score = min(8, spliceai etc)
 ## if PVS == 1 or maxaf > 0.02, then splice score is not added to the  priority score.
 ## other_pred_score is not added to priority score if maxaf > 0.02
 ## if impact == "missense_variant" & mis_z >= 3.09 & SigmaAF_Missense_0001 < 0.005 & pmaxaf < 0.0005, priority socre += 2
+## inframe indels (including protein_altering in vep impact): priority score += 3 if pmaxaf < 0.01 & Priority_Score_intervar < 5 (PM)
 
 library(tidyverse)
 
@@ -53,12 +54,16 @@ ps_df <-  input_df %>% mutate(truncating_vep = ifelse(grepl("frameshift_variant|
   mutate(temp_dbscsnv_ada_score = dbscSNV_ADA_SCORE_intervar) %>% 
   mutate(temp_dbscsnv_rf_score = dbscSNV_RF_SCORE_intervar) %>% 
   replace_na(list(temp_dpsi_max_tissue = 0, temp_dpsi_zscore = 0, temp_dbscsnv_ada_score = 0, temp_dbscsnv_rf_score = 0 )) %>%
-  mutate(temp_dpsi_score = ifelse(pmaxaf < 0.02 & abs(temp_dpsi_max_tissue + temp_dpsi_zscore) > 6, 3, (ifelse((pmaxaf < 0.02 & abs(temp_dpsi_max_tissue + temp_dpsi_zscore) > 3), 1, 0)))  ) %>%
+  mutate(temp_dpsi_score = case_when(pmaxaf < 0.02 & abs(temp_dpsi_max_tissue + temp_dpsi_zscore) > 10 ~ 3,
+                                     pmaxaf < 0.02 & abs(temp_dpsi_max_tissue + temp_dpsi_zscore) > 5 ~ 1,
+                                     TRUE ~ 0)) %>%
   mutate(temp_dbscSNV_score = ifelse((pmaxaf < 0.02 & temp_dbscsnv_ada_score>0.8 & temp_dbscsnv_rf_score>0.5), 3, 0)) %>% 
   mutate(splice_score = pmin(8, (spliceai_rank + temp_genesplicer + temp_maxentscan_diff + temp_dpsi_score + temp_dbscSNV_score)) ) %>% 
   mutate(priority_score = Priority_Score_intervar + clinvar_hgmd_score + ifelse(PVS1 == 1 | pmaxaf >= 0.02, 0, splice_score) + 
            ifelse(PVS1 == 1 | pmaxaf >= 0.005 | Priority_Score_intervar > 6 | splice_score > 2, 0, truncating_vep*3) +
-           ifelse(pmaxaf >= 0.02, 0, other_predic_score) + ifelse(grepl("missense_variant", CSQ, ignore.case = TRUE) & mis_z >= 3.09 & SigmaAF_Missense_0001 < 0.005 & pmaxaf < 0.0005, 2, 0)) %>% 
+           ifelse(pmaxaf >= 0.02, 0, other_predic_score) + 
+           ifelse(grepl("inframe|protein_altering", CSQ, ignore.case = TRUE) & pmaxaf < 0.01 & Priority_Score_intervar < 5, 3, 0) +
+           ifelse(grepl("missense_variant", CSQ, ignore.case = TRUE) & mis_z >= 3.09 & SigmaAF_Missense_0001 < 0.005 & pmaxaf < 0.0005, 2, 0)) %>% 
   select(CHROM, POS, REF, ALT, priority_score, clinvar_hgmd_score, splice_score, other_predic_score, pmaxaf, truncating_vep)
 
 #http://web.corral.tacc.utexas.edu/WGSAdownload/resources/dbNSFP/dbNSFP4.0b2c.readme.txt
