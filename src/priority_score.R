@@ -1,6 +1,6 @@
 #updated 7/28/19
 ## dbscSNV's ada > 0.8 and rf>0.5, Score=+3 (equals weight of PM)
-## |dpsi_max_tissue+dpsi_zscore| > 8, score=+3; > 3, score=+1 make a histogram of dpsi of WGS set and determine the cut-off
+## |dpsi_max_tissue+dpsi_zscore| > 10, score=+3; > 5, score=+1 make a histogram of dpsi of WGS set and determine the cut-off
 ## genesplicer (H|M) or maxentscan_diff > 3, score=+3
 ## spliceai_rank >0.8, score=+8; >0.5, score=+6; >0.2, score=+3; >0.15, score=+1; calculated in snakemake file. make a histogram of splicai score and determine the cut-off
 ## splice_score = min(8, spliceai etc)
