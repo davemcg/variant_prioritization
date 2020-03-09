@@ -7,7 +7,7 @@
 ## if PVS == 1 or maxaf > 0.02, then splice score is not added to the  priority score.
 ## other_pred_score is not added to priority score if maxaf > 0.02
 ## if impact == "missense_variant" & mis_z >= 3.09 & SigmaAF_Missense_0001 < 0.005 & pmaxaf < 0.0005, priority socre += 2
-## inframe indels (including protein_altering in vep impact): priority score += 3 if pmaxaf < 0.01 & Priority_Score_intervar < 5 (PM)
+## inframe indels are added by intervar (3 pts); (protein_altering in vep impact could include mean "inframe indel" if delins): priority score += 3 if pmaxaf < 0.01 & Priority_Score_intervar < 5 (PM)
 
 library(tidyverse)
 
@@ -62,7 +62,7 @@ ps_df <-  input_df %>% mutate(truncating_vep = ifelse(grepl("frameshift_variant|
   mutate(priority_score = Priority_Score_intervar + clinvar_hgmd_score + ifelse(PVS1 == 1 | pmaxaf >= 0.02, 0, splice_score) + 
            ifelse(PVS1 == 1 | pmaxaf >= 0.005 | Priority_Score_intervar > 6 | splice_score > 2, 0, truncating_vep*3) +
            ifelse(pmaxaf >= 0.02, 0, other_predic_score) + 
-           ifelse(grepl("inframe|protein_altering", CSQ, ignore.case = TRUE) & pmaxaf < 0.01 & Priority_Score_intervar < 5, 3, 0) +
+           ifelse(grepl("protein_altering_variant", CSQ, ignore.case = TRUE) & pmaxaf < 0.01 & Priority_Score_intervar < 5, 3, 0) +
            ifelse(grepl("missense_variant", CSQ, ignore.case = TRUE) & mis_z >= 3.09 & SigmaAF_Missense_0001 < 0.005 & pmaxaf < 0.0005, 2, 0)) %>% 
   select(CHROM, POS, REF, ALT, priority_score, clinvar_hgmd_score, splice_score, other_predic_score, pmaxaf, truncating_vep)
 
