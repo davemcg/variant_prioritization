@@ -72,7 +72,9 @@ gemini_filtered <- gemini_sorted %>% mutate(temp_group = ifelse(priority_score >
 
 write_tsv(gemini_filtered, path = args[4])
 
-gemini_filtered2 <- gemini_sorted %>% filter(priority_score >= 3, pmaxaf < 0.2, aaf < args[7]) %>% rename_all(funs(str_replace(., args[5], ""))) 
+gemini_filtered1 <- gemini_sorted %>% filter(priority_score >= 3, pmaxaf < 0.2, aaf < args[7])
+
+gemini_filtered2 <- gemini_sorted %>% filter(priority_score > 4, pmaxaf < 0.2, aaf < args[7]) %>% rename_all(funs(str_replace(., args[5], ""))) 
 
 recessive_count <- select(gemini_filtered2, c(ref_gene_annovar, priority_score, gt_types.)) %>%
   filter(priority_score >= 5) %>% select(-priority_score) %>% 
@@ -100,7 +102,7 @@ ad <- gemini_filtered3 %>% filter(!chr_annovar %in% c("X", "Y"),
   select(-maxpriorityscore, -recessive_cnt)
 #grepl("AD", omim_inheritance) | is.na(omim_inheritance)
 
-#AD: score > 4 , AR: score > 4, all: score > 3
+#AD: score > 4 , AR: score > 4, all: score >= 3
 
 acmg_genes = c('ACTA2','ACTC1','APC','APOB','ATP7B','BMPR1A','BRCA1','BRCA2',
                'CACNA1S','COL3A1','DSC2','DSG2','DSP','FBN1','GLA','KCNH2','KCNQ1',
@@ -110,5 +112,5 @@ acmg_genes = c('ACTA2','ACTC1','APC','APOB','ATP7B','BMPR1A','BRCA1','BRCA2',
                'SDHD','SMAD3','SMAD4','STK11','TGFBR1','TGFBR2','TMEM43','TNNI3',
                'TNNT2','TP53','TPM1','TSC1','TSC2','VHL','WT1')
 acmg <- gemini_filtered3 %>% filter(gene %in% acmg_genes, priority_score > 4)
-openxlsx::write.xlsx(list("AD" = ad, "AR" = ar, "XR" = xR, "XD" = xD, "ACMG59" = acmg, "all" = gemini_filtered2), file = args[6])
+openxlsx::write.xlsx(list("AD" = ad, "AR" = ar, "XR" = xR, "XD" = xD, "ACMG59" = acmg, "all" = gemini_filtered1), file = args[6])
 
