@@ -187,11 +187,28 @@ else:
 # 		| sed 's/ID=AC,Number=./ID=AC,Number=A/' \ 1/20/20 vcf-merge of freebayes had problem for one of the position with 6 variants. GATK combine worked.
 # freebayes vcf fixed by vt immediately after freebayes.
 
+localrules: intervar_evidence
+rule intervar_evidence:
+	input:
+		vcf = config['input_vcf']
+	output:
+		evidenceInput = temp('temp/evidence.input'),
+		InterVarEvidence = temp('temp/InterVarEvidence.txt')
+	shell:
+		"""
+		module load {config[R_version]}
+		# module load {config[samtools_version]}
+		module load {config[InterVar_version]}
+		Rscript /home/$USER/git/variant_prioritization/src/intervar_evidence.R /data/OGL/resources/OGLvariantsClassification.xlsx {output.evidenceInput}
+		# bcftools norm --check-ref s --fasta-ref {config[ref_genome]} --output-type v evidence.input  # needs true vcf style file for normalizaiton.
+		convert2annovar.pl -format vcf4old {output.evidenceInput} -includeinfo | cut -f 1,2,4,5,8,13 > {output.InterVarEvidence}
+		"""
 
 rule annovar_intervar:
 	input:
 		vcf = 'temp/vt.{sample}__{region}.vcf.gz',
-		index = 'temp/vt.{sample}__{region}.vcf.gz.tbi'
+		index = 'temp/vt.{sample}__{region}.vcf.gz.tbi',
+		InterVarEvidence = 'temp/InterVarEvidence.txt'
 	output:
 		avinput = temp('temp/{sample}__{region}.avinput'),
 		annovar_out = temp('temp/{sample}__{region}.avinput.hg19_multianno.txt'),
@@ -217,7 +234,7 @@ rule annovar_intervar:
 			-i {output.avinput} \
 			--input_type=AVinput \
 			-d $ANNOVAR_DATA/hg19 \
-			--evidence_file={config[intervar_evidence]} \
+			--evidence_file={input.InterVarEvidence} \
 			-o {output.avinput} \
 			--skip_annovar
 		"""
@@ -260,13 +277,13 @@ else:
 			tabix -f -p vcf {output.vcf}
 			"""
 
-
+localrules: spliceai_edit
 rule spliceai_edit:
 	input:
 		'temp/spliceai.{sample}__{region}.vcf.gz'
 	output:
 		tsv = temp('temp/spliceai.{sample}__{region}.tsv'),
-		tsv_cut = temp('temp/spliceai.{sample}__{region}.tsv.cut')
+		tsv_cut = 'temp/spliceai.{sample}__{region}.tsv.cut'
 	#	index = temp('temp/spliceai.vt.{sample}__{region}.tsv.gz.tbi')
 	shell:
 	# use spliceai_vcfanno_v3.sh file for non-split files
@@ -296,7 +313,7 @@ rule spliceai_edit:
 # 		cat temp/spliceai_header {output}TEMP | bgzip -f > {output}
 # 		tabix -b 2 -e 2 -S 1 {output}
 # 		"""
-
+localrules: spliceai_intervar_edit
 rule spliceai_intervar_edit:
 	input:
 		spliceai = 'temp/spliceai.{sample}__{region}.tsv.cut',
@@ -418,6 +435,7 @@ rule vcfanno_annotate:
 		tabix -f -p vcf {output.vcf}
 		"""
 
+localrules: priority_scores
 rule priority_scores:
 	input:
 		vcf = 'temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.vcf.gz',
@@ -432,8 +450,8 @@ rule priority_scores:
 		module load {config[vt_version]}
 		module load {config[R_version]}
 		module load {config[samtools_version]}
-		vt info2tab -t CSQ,gnomAD_exome_ALL_annovar,gnomAD_genome_ALL_annovar,PopFreqMax_annovar,gno_af_popmax,mis_z,clinvar_sig,Clinvar_intervar,HGMD_Overlap,ClinPred_Score,MetaSVM_pred,MutationAssessor_pred,MutationTaster_pred,PROVEAN_pred,Eigen-PC-raw,Eigen-raw,phyloP_100way,GERP_RS_intervar,dpsi_max_tissue_annovar,dpsi_zscore_annovar,dbscSNV_ADA_SCORE_intervar,dbscSNV_RF_SCORE_intervar,spliceai_rank,Priority_Score_intervar,PVS1,SigmaAF_Missense_0001,PrimateDL {input.vcf} \
-		 	| sed '1 s/^.*$/CHROM\tPOS\tREF\tALT\tN_ALLELE\tCSQ\tgnomAD_exome_ALL_annovar\tgnomAD_genome_ALL_annovar\tPopFreqMax_annovar\tgno_af_popmax\tmis_z\tclinvar_sig\tClinvar_intervar\tHGMD_Overlap\tClinPred_Score\tMetaSVM_pred\tMutationAssessor_pred\tMutationTaster_pred\tPROVEAN_pred\tEigen_PC_raw\tEigen_raw\tphyloP_100way\tGERP_RS_intervar\tdpsi_max_tissue_annovar\tdpsi_zscore_annovar\tdbscSNV_ADA_SCORE_intervar\tdbscSNV_RF_SCORE_intervar\tspliceai_rank\tPriority_Score_intervar\tPVS1\tSigmaAF_Missense_0001\tPrimateDL/' - \
+		vt info2tab -t CSQ,Ref_Gene_annovar,gnomAD_exome_ALL_annovar,gnomAD_genome_ALL_annovar,PopFreqMax_annovar,gno_af_popmax,mis_z,clinvar_sig,Clinvar_intervar,HGMD_Overlap,ClinPred_Score,MetaSVM_pred,MutationAssessor_pred,MutationTaster_pred,PROVEAN_pred,Eigen-PC-raw,Eigen-raw,phyloP_100way,GERP_RS_intervar,dpsi_max_tissue_annovar,dpsi_zscore_annovar,dbscSNV_ADA_SCORE_intervar,dbscSNV_RF_SCORE_intervar,spliceai_rank,Priority_Score_intervar,PVS1,SigmaAF_Missense_0001,PrimateDL {input.vcf} \
+		 	| sed '1 s/^.*$/CHROM\tPOS\tREF\tALT\tN_ALLELE\tCSQ\tRef_Gene_annovar\tgnomAD_exome_ALL_annovar\tgnomAD_genome_ALL_annovar\tPopFreqMax_annovar\tgno_af_popmax\tmis_z\tclinvar_sig\tClinvar_intervar\tHGMD_Overlap\tClinPred_Score\tMetaSVM_pred\tMutationAssessor_pred\tMutationTaster_pred\tPROVEAN_pred\tEigen_PC_raw\tEigen_raw\tphyloP_100way\tGERP_RS_intervar\tdpsi_max_tissue_annovar\tdpsi_zscore_annovar\tdbscSNV_ADA_SCORE_intervar\tdbscSNV_RF_SCORE_intervar\tspliceai_rank\tPriority_Score_intervar\tPVS1\tSigmaAF_Missense_0001\tPrimateDL/' - \
 			> {output.tsv}
 		Rscript /home/$USER/git/variant_prioritization/src/priority_score.R {output.tsv} {output.ps_tsv}
 		bgzip -c {output.ps_tsv} > {output.bgzip}
@@ -465,6 +483,7 @@ rule vcfanno2:
 # fix number=A issue
 # Since I decompose variants into multiple lines,
 # I can make number=1 so vcf2b will keep
+localrules: tweak_header
 rule tweak_header:
 	input:
 		'temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO2.vcf.gz'
@@ -581,21 +600,20 @@ rule sortGemini:
 	input:
 		tsv = 'gemini_tsv/{sampleid}.{sample}.{ped}.gemini.tsv'
 	output:
-		sorted_tsv = 'gemini_tsv/{sampleid}.{sample}.{ped}.gemini.sorted.tsv',
+		rearranged_tsv = 'gemini_tsv/{sampleid}.{sample}.{ped}.gemini.rearranged.tsv',
 		filtered_tsv = 'gemini_tsv_filtered/{sampleid}.{sample}.{ped}.gemini.filtered.tsv',
 		filtered_xlsx = 'gemini_xlsx/{sampleid}.{sample}.{ped}.gemini.filtered.xlsx'
 	shell:
 		"""
 		module load {config[R_version]}
 		Rscript /home/$USER/git/variant_prioritization/src/sortGeminiTSV_v1.R \
-			{input.tsv} {config[OGL_Dx_research_genes]} {output.sorted_tsv} {output.filtered_tsv} {wildcards.sampleid} {output.filtered_xlsx} {config[aaf_change]}
+			{input.tsv} {config[OGL_Dx_research_genes]} {output.rearranged_tsv} {output.filtered_tsv} {wildcards.sampleid} {output.filtered_xlsx} {config[aaf_change]}
  		"""
 
-#sbatch needs 32g for wgs or exome
 localrules: LesserAlleleFreq
 rule LesserAlleleFreq:
 	input:
-		'gemini_tsv/{sampleid}.{sample}.{ped}.gemini.sorted.tsv'
+		'gemini_tsv/{sampleid}.{sample}.{ped}.gemini.rearranged.tsv'
 	output:
 		LAFplot = 'LesserAlleleFreq/{sampleid}.{sample}.{ped}.LAF.jpeg'
 	shell:
@@ -604,8 +622,9 @@ rule LesserAlleleFreq:
 		Rscript /home/$USER/git/variant_prioritization/src/LesserAlleleFreq_singleSample.R \
 			{input} {wildcards.sampleid} {output.LAFplot}
 		"""
-#Make a shiny app
 
+#Make a shiny app
+##sbatch needs 32g for wgs or exome
 
 
 # rule query_gemini_individual:

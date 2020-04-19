@@ -22,7 +22,7 @@ ps_df <-  input_df %>% mutate(truncating_vep = ifelse(grepl("frameshift_variant|
   mutate(temp_CSQ = sub(",.*", "", CSQ)) %>%
   separate(temp_CSQ, c('allele','consequence','codons','amino_acids','gene','symbol','feature','exon','hgvsc','hgvsp','max_af','max_af_pops','polyphen','sift','mpc','protein_position','biotype','canonical','domains','existing_variation','clin_sig','pick','pubmed','phenotypes','cadd_raw','cadd_phred','genesplicer','spliceregion','ada_score','rf_score','maxentscan_diff'), sep = "\\|", remove = TRUE, convert = TRUE) %>% 
   replace_na(list(gnomAD_exome_ALL_annovar=0, gnomAD_genome_ALL_annovar=0, PopFreqMax_annovar=0, max_af=0, mpc=0, gno_af_popmax=0, mis_z=0)) %>% 
-  mutate(pmaxaf = pmax(gnomAD_exome_ALL_annovar, gnomAD_genome_ALL_annovar, PopFreqMax_annovar, max_af, gno_af_popmax, na.rm = TRUE)) %>% 
+  mutate(pmaxaf = pmax(gnomAD_exome_ALL_annovar, gnomAD_genome_ALL_annovar, na.rm = TRUE)) %>% #removed PopFreqMax_annovar, max_af, gno_af_popmax, 4/14/2020
   unite("temp_clinvar", clinvar_sig, clin_sig, Clinvar_intervar, sep = "-", remove = FALSE ) %>% 
   mutate(temp_clinvar = gsub("_interpretations_of_pathogenicity", "", temp_clinvar)) %>% 
   mutate(temp_existing_variant = gsub("rs\\d+", "", existing_variation)) %>% 
@@ -32,7 +32,7 @@ ps_df <-  input_df %>% mutate(truncating_vep = ifelse(grepl("frameshift_variant|
            ifelse(grepl("benign", temp_clinvar, ignore.case = TRUE) & grepl("pathogenic", temp_clinvar, ignore.case = TRUE), 3, 0) + 
            ifelse(grepl("[A-Z]", HGMD_Overlap) | grepl("[A-Z]", temp_existing_variant), 3, 0) ) %>% 
   mutate(clinvar_hgmd_score = ifelse(clinvar_hgmd_score > 6, 6, clinvar_hgmd_score)) %>% 
-  mutate(clinvar_hgmd_score = ifelse(pmaxaf < 0.02, clinvar_hgmd_score, 0)) %>% 
+  mutate(clinvar_hgmd_score = ifelse(pmaxaf < 0.03, clinvar_hgmd_score, 0)) %>% # pathogenic USH2A:c.12575G>A:p.R4192H has pmaxaf=0.02, 4/13/20 changed to 0.05 from 0.02
   mutate(other_predic_score = ifelse(is.na(ClinPred_Score), 0, ifelse(ClinPred_Score > 0.5, 0.5, 0)) + ifelse(grepl("deleterious", sift), 0.5, 0) +
            ifelse(grepl("damaging", polyphen), 0.5, 0) + ifelse(grepl("D", MetaSVM_pred), 0.5, 0) + 
            ifelse(is.na(PrimateDL), 0, ifelse(PrimateDL > 0.803, 0.5, 0)) +
@@ -59,13 +59,14 @@ ps_df <-  input_df %>% mutate(truncating_vep = ifelse(grepl("frameshift_variant|
                                      TRUE ~ 0)) %>%
   mutate(temp_dbscSNV_score = ifelse((pmaxaf < 0.02 & temp_dbscsnv_ada_score>0.8 & temp_dbscsnv_rf_score>0.5), 3, 0)) %>% 
   mutate(splice_score = pmin(8, (spliceai_rank + temp_genesplicer + temp_maxentscan_diff + temp_dpsi_score + temp_dbscSNV_score)) ) %>% 
-  mutate(priority_score = Priority_Score_intervar + clinvar_hgmd_score + ifelse(PVS1 == 1 | pmaxaf >= 0.02, 0, splice_score) + 
+  mutate(priority_score = Priority_Score_intervar + clinvar_hgmd_score + ifelse(PVS1 == 1 | pmaxaf >= 0.03, 0, splice_score) + 
            ifelse(PVS1 == 1 | pmaxaf >= 0.005 | Priority_Score_intervar > 6 | splice_score > 2, 0, truncating_vep*3) +
-           ifelse(pmaxaf >= 0.02, 0, other_predic_score) + 
+           ifelse(pmaxaf >= 0.02, 0, other_predic_score) +
            ifelse(grepl("protein_altering_variant", CSQ, ignore.case = TRUE) & pmaxaf < 0.01 & Priority_Score_intervar < 5, 3, 0) +
-           ifelse(grepl("missense_variant", CSQ, ignore.case = TRUE) & mis_z >= 3.09 & SigmaAF_Missense_0001 < 0.005 & pmaxaf < 0.0005, 2, 0)) %>% 
+           ifelse(grepl("missense_variant", CSQ, ignore.case = TRUE) & mis_z >= 3.09 & SigmaAF_Missense_0001 < 0.005 & pmaxaf < 0.005, 2, 0)) %>% 
+  mutate(priority_score = ifelse(priority_score < 5 & Ref_Gene_annovar == "ROM1" & truncating_vep == "1", 5, priority_score)) %>% 
   select(CHROM, POS, REF, ALT, priority_score, clinvar_hgmd_score, splice_score, other_predic_score, pmaxaf, truncating_vep)
-
+#pmaxaf cutoff increased to 0.005 from 0.0005; 4/14/2020
 #http://web.corral.tacc.utexas.edu/WGSAdownload/resources/dbNSFP/dbNSFP4.0b2c.readme.txt
 #CADD: https://cadd.gs.washington.edu/info
 #eigen:

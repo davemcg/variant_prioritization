@@ -21,7 +21,7 @@ gemini_input <- read_tsv(args[1], col_names = TRUE, na = c("NA", "", "None", "."
 
 gemini <-  gemini_input %>% mutate( temp_start_vcf = start + 1 ) %>% 
   unite("chr_variant_id", chrom, temp_start_vcf, ref, alt, sep = "-", remove = FALSE ) %>% 
-  mutate(gene = toupper(gene))
+  mutate(gene = toupper(gene)) 
   
 
 #http://web.corral.tacc.utexas.edu/WGSAdownload/resources/dbNSFP/dbNSFP4.0b2c.readme.txt
@@ -48,54 +48,59 @@ max_priority_score <- select(gemini, c(ref_gene_annovar, priority_score)) %>% gr
 gemini_max_priority_score <- left_join(gemini, max_priority_score, by=c("ref_gene_annovar"))
 
 #VEP hg19 version's gene names are the same as in the IDT ordering design sheets. This is what used for left_join
-gemini_sorted <- left_join(gemini_max_priority_score, OGLv1_gene_class, by = c("gene")) %>% 
-  mutate(note = "NA") %>% 
-  arrange(desc(maxpriorityscore), ref_gene_annovar, desc(priority_score)) %>% 
+gemini_rearrangeCol <- left_join(gemini_max_priority_score, OGLv1_gene_class, by = c("gene")) %>% 
   select(-starts_with('temp_')) %>% 
   mutate(note = "") %>% 
-  select('chr_variant_id','chr_annovar', 'start_annovar', 'ref_annovar', 'alt_annovar', 'qual', 'filter', starts_with('gts'), starts_with('gt_'), 'aaf',
-         'panel_class', 'priority_score', 'priority_score_intervar', 'clinvar_hgmd_score', 'splice_score', 'other_predic_score', 'pmaxaf', 'exac_num_hom_alt', 'gno_hom', 'pvs1', 'truncating_vep', 'gene_refgenewithver_annovar', 'note', 
-         'genedetail_refgenewithver_annovar', 'exonicfunc_refgenewithver_annovar', 'aachange_refgenewithver_annovar', 'hgvsc', 'hgvsp', 'omim_genesymbol', 'omim_inheritance', 'omim_phenotypes', 'gene', 'exon', 'aa_length', 'ref_gene_annovar', 'func_refgene_annovar', 'hgmd_overlap', 'existing_variation', 'clinvar_intervar', 'intervar_and_evidence', 
-         'clinvar_id', 'clinvar_pathogenic', 'clinvar_sig', 'clin_sig', 'gnomad_exome_all_annovar', 'gnomad_genome_all_annovar', 'popfreqmax_annovar', 'max_af', 'max_af_pops',  
+  select('chr_variant_id', 'chrom', 'start', 'qual', 'filter', starts_with('gts'), starts_with('gt_'), 'aaf',
+         'panel_class', 'priority_score', 'priority_score_intervar', 'clinvar_hgmd_score', 'splice_score', 'other_predic_score', 'pmaxaf', 'popfreqmax_annovar', 'max_af', 'max_af_pops', 'exac_num_hom_alt', 'gno_hom', 'gene_refgenewithver_annovar', 'note', 
+         'genedetail_refgenewithver_annovar', 'exonicfunc_refgenewithver_annovar', 'aachange_refgenewithver_annovar', 'hgvsc', 'hgvsp', 'omim_genesymbol', 'omim_inheritance', 'omim_phenotypes', 'pvs1', 'truncating_vep', 'gene', 'exon', 'aa_length', 'ref_gene_annovar', 'func_refgene_annovar', 'hgmd_overlap', 'existing_variation', 'clinvar_intervar', 'intervar_and_evidence', 
+         'clinvar_id', 'clinvar_pathogenic', 'clinvar_sig', 'clin_sig', 
          'spliceai', 'spliceai_maxscore', 'spliceai_filtered', 'dbscsnv_ada_score_intervar', 'dbscsnv_rf_score_intervar', 'dpsi_max_tissue_annovar', 'dpsi_zscore_annovar', 'genesplicer', 'maxentscan_diff', 'branchpoint_u2_binding_energy', 'branchpoint_prob', 'branchpoint_to_3prime', 
          'sift_pred', 'polyphen_pred', 'mutationassessor_pred', 'mutationtaster_pred', 'metasvm_pred','metasvm_score_intervar', 'clinpred_score', 'mpc', 'cadd_raw', 'cadd_phred', 'eigen_pc_raw', 'eigen_raw', 'gerp_rs_intervar', 'phylop46way_placental_intervar', 'phylop_100way', 'primatedl', 'func_refgenewithver_annovar', 'exonicfunc_refgene_intervar', 'avsnp150_annovar', 'interpro_domain_intervar', 
          'pfam_domain', 'tfbs', 'pli', 'lof_z', 'mis_z', 'sigmaaf_lof_0001', 'sigmaaf_lof_01', 'sigmaaf_missense_0001', 'sigmaaf_missense_01', 'atac_rpe_itemrgb', 'atac_rpe_score', 
          'eyeintegration_rnaseq_tpm_rpe_adulttissue', 'eyeintegration_rnaseq_tpm_rpe_cellline', 'eyeintegration_rnaseq_tpm_rpe_fetaltissue', 'eyeintegration_rnaseq_tpm_rpe_stemcellline', 'eyeintegration_rnaseq_tpm_retina_adulttissue', 'eyeintegration_rnaseq_tpm_retina_stemcellline', 'eyeintegration_rnaseq_tpm_wholeblood', 
-         'chrom', 'start', 'end', 'ref', 'alt', 'freq_esp6500siv2_all_annovar', 'freq_1000g2015aug_all_annovar', 'aaf_esp_all', 'aaf_1kg_all', 'af_exac_all', 'pubmed', everything() )
+         'end', 'ref', 'alt','gnomad_exome_all_annovar', 'gnomad_genome_all_annovar', 'freq_esp6500siv2_all_annovar', 'freq_1000g2015aug_all_annovar', 'aaf_esp_all', 'aaf_1kg_all', 'af_exac_all', 'pubmed', everything() )
+#4/12/20: removed 'chr_annovar', 'start_annovar', 'ref_annovar', 'alt_annovar',
+write_tsv(gemini_rearrangeCol, path = args[3])
 
-write_tsv(gemini_sorted, path = args[3])
-
-gemini_filtered <- gemini_sorted %>% mutate(temp_group = ifelse(priority_score >= 3, 3, ifelse(priority_score >= -2, -2, -3))) %>% 
+gemini_filtered <- gemini_rearrangeCol %>% mutate(temp_group = ifelse(priority_score >= 3, 3, ifelse(priority_score >= -2, -2, -3))) %>% 
   filter(temp_group >= -2, pmaxaf < 0.2, aaf < args[7]) %>% arrange(desc(temp_group), desc(maxpriorityscore), ref_gene_annovar, desc(priority_score)) %>% 
   select(-maxpriorityscore, -temp_group)
 
+# consider change to filter(priority_score > 10 | (temp_group >= -2, pmaxaf < 0.05, aaf < args[7]))
 
 write_tsv(gemini_filtered, path = args[4])
 
-gemini_filtered1 <- gemini_sorted %>% filter(priority_score >= 3, pmaxaf < 0.2, aaf < args[7])
+gemini_filtered1 <- gemini_filtered %>% filter(priority_score >= 3)
+  
+gemini_filtered2 <- gemini_filtered %>% filter(priority_score >= 4) %>% 
+  rename_all(funs(str_replace(., args[5], ""))) %>% 
+  mutate(temp_ref_gene_annovar = case_when(ref_gene_annovar %in% c("ROM1", "PRPH2") ~ "PRPH2-ROM1",
+                                           ref_gene_annovar %in% c("PCDH15", "CDH23") ~ "PCDH15-CDH23",
+                                           TRUE ~ ref_gene_annovar)) # digenic recessive
 
-gemini_filtered2 <- gemini_sorted %>% filter(priority_score > 4, pmaxaf < 0.2, aaf < args[7]) %>% rename_all(funs(str_replace(., args[5], ""))) 
-
-recessive_count <- select(gemini_filtered2, c(ref_gene_annovar, priority_score, gt_types.)) %>%
+recessive_count <- select(gemini_filtered2, c(temp_ref_gene_annovar, priority_score, gt_types.)) %>%
   filter(priority_score >= 5) %>% select(-priority_score) %>% 
-  group_by(ref_gene_annovar) %>% summarize(recessive_cnt = sum(gt_types.)) 
+  group_by(temp_ref_gene_annovar) %>% summarize(recessive_cnt = sum(gt_types.)) 
 
-gemini_filtered3 <- left_join(gemini_filtered2, recessive_count, by=c("ref_gene_annovar")) %>% 
+gemini_filtered3 <- left_join(gemini_filtered2, recessive_count, by=c("temp_ref_gene_annovar")) %>% 
   replace_na(list(recessive_cnt=0)) %>% 
-  mutate(recessive_cnt = as.integer(recessive_cnt))
+  mutate(recessive_cnt = as.integer(recessive_cnt)) %>% 
+  select(-temp_ref_gene_annovar)
 
-xR <- gemini_filtered3 %>% filter(chr_annovar == "X", recessive_cnt >= 2) %>% select(-recessive_cnt)
-xD <- gemini_filtered3 %>% filter(chr_annovar == "X", recessive_cnt == 1, pmaxaf < 0.002) %>% select(-recessive_cnt)
+xR <- gemini_filtered3 %>% filter(chrom == "X", recessive_cnt >= 2) %>% select(-recessive_cnt)
+xD <- gemini_filtered3 %>% filter(chrom == "X", recessive_cnt == 1, pmaxaf < 0.002) %>% select(-recessive_cnt)
 
 #ar are those genes with homozygous or compound hets variants of ps >= 5. However, ps = 4 variants were also listed if there are 2 ps>=5.
 #ar gene with 1 hit will not be here.
-ar <- gemini_filtered3 %>% filter(!chr_annovar %in% c("X", "Y"), !omim_inheritance %in% c("AD"), recessive_cnt >= 2) %>% 
+ar <- gemini_filtered3 %>% filter(!chrom %in% c("X", "Y"), !omim_inheritance %in% c("AD"), recessive_cnt >= 2) %>% 
   mutate(knownAR = ifelse(grepl("AR", omim_inheritance), 1, 0)) %>% 
   arrange(desc(knownAR), desc(maxpriorityscore), ref_gene_annovar, desc(priority_score)) %>% 
+  mutate(note = ifelse(ref_gene_annovar == "PRPH2", "Check ROM1", note) ) %>% 
   select(-maxpriorityscore, -knownAR, -recessive_cnt)
 
 #ad are those omim unknown or AD inheritance. 
-ad <- gemini_filtered3 %>% filter(!chr_annovar %in% c("X", "Y"), 
+ad <- gemini_filtered3 %>% filter(!chrom %in% c("X", "Y"), 
                                   recessive_cnt == 1 & !omim_inheritance %in% c("AR") | recessive_cnt >=2 & grepl("AD", omim_inheritance),
                                   pmaxaf < 0.002, priority_score >= 5) %>% 
   arrange(desc(maxpriorityscore), ref_gene_annovar, desc(priority_score)) %>% 
@@ -112,5 +117,5 @@ acmg_genes = c('ACTA2','ACTC1','APC','APOB','ATP7B','BMPR1A','BRCA1','BRCA2',
                'SDHD','SMAD3','SMAD4','STK11','TGFBR1','TGFBR2','TMEM43','TNNI3',
                'TNNT2','TP53','TPM1','TSC1','TSC2','VHL','WT1')
 acmg <- gemini_filtered3 %>% filter(gene %in% acmg_genes, priority_score > 4)
-openxlsx::write.xlsx(list("AD" = ad, "AR" = ar, "XR" = xR, "XD" = xD, "ACMG59" = acmg, "all" = gemini_filtered1), file = args[6])
+openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG59" = acmg, "all" = gemini_filtered1), file = args[6])
 
