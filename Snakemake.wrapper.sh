@@ -4,6 +4,7 @@
 # run in the data folder for this project
 
 module load snakemake/5.7.4 || exit 1
+
 cp /data/OGL/resources/variant_prioritization.git.log .
 mkdir -p 00log
 
