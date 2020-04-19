@@ -42,7 +42,9 @@ Install [SeeGEM](https://github.com/davemcg/SeeGEM) in `R` on biowulf2 to produc
   - `devtools::install_github('davemcg/see_gem', build_vignettes=T)`
 
 Finally edit the first line of [src/config_variant_prioritization.yaml](https://github.com/davemcg/variant_prioritization/blob/master/src/config_variant_prioritization.yaml) to put your vcf (bgzip'ed and tabix'ed) in. 
-
+#log
+After git commit, run git log | head -n 5 > /data/OGL/resources/variant_prioritization.git.log
+This file will be copied to project folder in SnakeWrapper 
 # Run (in biowulf2)
 freen to pick gpu p100 (default without specifying $2 below, works fine), v100 or k80 (need to edit cluster.json file) ($2 below). Currently using 2 gpus per job. When gpu node is busy, spliceai could take time to be started.
 32 g memory is needed to WGS SortGemini (localrules)
