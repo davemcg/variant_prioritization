@@ -273,7 +273,7 @@ else:
 			"""
 			module load {config[spliceai_version]}
 			module load {config[samtools_version]}
-			spliceai -I {input} -R {config[ref_genome]} -A grch37 -O {output.vcf}
+			spliceai -I {input} -R {config[ref_genome]} -A grch37 -D 500 -O {output.vcf}
 			tabix -f -p vcf {output.vcf}
 			"""
 
