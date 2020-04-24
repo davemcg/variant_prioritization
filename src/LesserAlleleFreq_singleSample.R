@@ -9,7 +9,7 @@ library(RColorBrewer)
 
 gemini_input <- read_tsv(args[1], col_names = TRUE, na = c("NA", "", "None", "."), col_types = cols(.default = col_character())) %>%
   select('chrom', 'start', starts_with('gts'), starts_with('gt_'), 
-         'panel_class', 'gene_refgenewithver_annovar') %>% 
+         'panel_class', 'gene_refgenewithver') %>% 
   type_convert() %>% 
   mutate(chrom = as.factor(chrom)) %>% 
   rename_all(funs(str_replace(., args[2], ""))) %>% 

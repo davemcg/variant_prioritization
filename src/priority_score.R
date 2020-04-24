@@ -32,7 +32,6 @@ ps_df <-  input_df %>% mutate(truncating_vep = ifelse(grepl("frameshift_variant|
            ifelse(grepl("benign", temp_clinvar, ignore.case = TRUE) & grepl("pathogenic", temp_clinvar, ignore.case = TRUE), 3, 0) + 
            ifelse(grepl("[A-Z]", HGMD_Overlap) | grepl("[A-Z]", temp_existing_variant), 3, 0) ) %>% 
   mutate(clinvar_hgmd_score = ifelse(clinvar_hgmd_score > 6, 6, clinvar_hgmd_score)) %>% 
-  mutate(clinvar_hgmd_score = ifelse(pmaxaf < 0.03, clinvar_hgmd_score, 0)) %>% # pathogenic USH2A:c.12575G>A:p.R4192H has pmaxaf=0.02, 4/13/20 changed to 0.05 from 0.02
   mutate(other_predic_score = ifelse(is.na(ClinPred_Score), 0, ifelse(ClinPred_Score > 0.5, 0.5, 0)) + ifelse(grepl("deleterious", sift), 0.5, 0) +
            ifelse(grepl("damaging", polyphen), 0.5, 0) + ifelse(grepl("D", MetaSVM_pred), 0.5, 0) + 
            ifelse(is.na(PrimateDL), 0, ifelse(PrimateDL > 0.803, 0.5, 0)) +
@@ -59,7 +58,7 @@ ps_df <-  input_df %>% mutate(truncating_vep = ifelse(grepl("frameshift_variant|
                                      TRUE ~ 0)) %>%
   mutate(temp_dbscSNV_score = ifelse((pmaxaf < 0.02 & temp_dbscsnv_ada_score>0.8 & temp_dbscsnv_rf_score>0.5), 3, 0)) %>% 
   mutate(splice_score = pmin(8, (spliceai_rank + temp_genesplicer + temp_maxentscan_diff + temp_dpsi_score + temp_dbscSNV_score)) ) %>% 
-  mutate(priority_score = Priority_Score_intervar + clinvar_hgmd_score + ifelse(PVS1 == 1 | pmaxaf >= 0.03, 0, splice_score) + 
+  mutate(priority_score = Priority_Score_intervar + ifelse(pmaxaf < 0.03, clinvar_hgmd_score, 0) + ifelse(PVS1 == 1 | pmaxaf >= 0.03, 0, splice_score) + 
            ifelse(PVS1 == 1 | pmaxaf >= 0.005 | Priority_Score_intervar > 6 | splice_score > 2, 0, truncating_vep*3) +
            ifelse(pmaxaf >= 0.02, 0, other_predic_score) +
            ifelse(grepl("protein_altering_variant", CSQ, ignore.case = TRUE) & pmaxaf < 0.01 & Priority_Score_intervar < 5, 3, 0) +

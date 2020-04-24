@@ -113,7 +113,7 @@ rule all:
 			ped=PEDfile, \
 			family_name=Family_Name, \
 			gemini_lenient = config['gemini_lenient']) if ('family_query' in config['output_type']) else 'dummy.txt',
-		expand('gemini_tsv_filtered/{sampleid}.{sample}.{ped}.gemini.filtered.tsv', sample=SAMPLE, ped=PEDfile, sampleid=SampleID) if ('individual_query' in config['output_type']) else 'dummy.txt',
+		expand('gemini_xlsx/{sampleid}.{sample}.{ped}.gemini.filtered.xlsx', sample=SAMPLE, ped=PEDfile, sampleid=SampleID) if ('individual_query' in config['output_type']) else 'dummy.txt',
 		expand('LesserAlleleFreq/{sampleid}.{sample}.{ped}.LAF.jpeg', sample=SAMPLE, ped=PEDfile, sampleid=SampleID) if config['LAFplot'] == 'TRUE' else 'dummy.txt'
 
 
@@ -216,8 +216,7 @@ rule annovar_intervar:
 	threads: 2
 	shell:
 		"""
-		module unload python
-		module load {config[InterVar_version]}
+		module load {config[annovar_version]}
 		convert2annovar.pl -format vcf4old {input.vcf} -includeinfo --outfile {output.avinput}
 		table_annovar.pl {output.avinput} \
 			$ANNOVAR_DATA/hg19 \
@@ -226,10 +225,12 @@ rule annovar_intervar:
 			-out {output.avinput} \
 			--protocol refGene,esp6500siv2_all,1000g2015aug_all,avsnp147,dbnsfp33a,clinvar_20190305,gnomad_genome,dbscsnv11,dbnsfp31a_interpro,rmsk,ensGene,knownGene,refGeneWithVer,popfreq_max_20150413,gnomad_exome,spidex,avsnp150,spliceai_filtered,ljb26_phylop46way_placental \
 			-operation  g,f,f,f,f,f,f,f,f,r,g,g,g,f,f,f,f,f,f \
-			--argument '-hgvs',,,,,,,,,,,,'-splicing 50 -hgvs',,,,,, \
+			--argument '-hgvs',,,,,,,,,,,,'-hgvs -splicing 50',,,,,, \
 			--polish -nastring . \
 			--thread {threads} \
 			--otherinfo
+		module unload {config[annovar_version]}
+		module load {config[InterVar_version]}
 		InterVar \
 			-i {output.avinput} \
 			--input_type=AVinput \
@@ -313,7 +314,7 @@ rule spliceai_edit:
 # 		cat temp/spliceai_header {output}TEMP | bgzip -f > {output}
 # 		tabix -b 2 -e 2 -S 1 {output}
 # 		"""
-localrules: spliceai_intervar_edit
+if config['datatype'] == "panel": localrules: spliceai_intervar_edit
 rule spliceai_intervar_edit:
 	input:
 		spliceai = 'temp/spliceai.{sample}__{region}.tsv.cut',
@@ -327,14 +328,15 @@ rule spliceai_intervar_edit:
 	shell:
 		"""
 		module load {config[R_version]}
-		cut -f -133 {input.annovar} | sed "1 s/"Otherinfo"/"CHROM\\\tPOS\\\tID\\\tREF\\\tALT\\\tQUAL\\\tFILTER"/" - | paste - {input.spliceai} > {output.intermediate}
+		cut -f -133 {input.annovar} | sed "1 s/Otherinfo1\tOtherinfo2\tOtherinfo3\tOtherinfo4\tOtherinfo5\tOtherinfo6\tOtherinfo7/CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER/" - | paste - {input.spliceai} > {output.intermediate}
 		Rscript {config[intervar_Rscript_path]} \
 			{input.intervar} \
 			{output.intermediate} \
+			{config[HGMDtranscript]} \
 			{output.spliceai_intervar}
 		module load {config[samtools_version]}
 		head -n 1 {output.spliceai_intervar} > {output.header}
-		grep -v "^CHROM" {output.spliceai_intervar} | sort -k1,1 -k2,2n | cat {output.header} - | bgzip -f > {output.gz}
+		tail -n +2 {output.spliceai_intervar} | sort -k1,1 -k2,2n | cat {output.header} - | bgzip -f > {output.gz}
 		tabix -b 2 -e 2 -S 1 {output.gz}
 		"""
 
@@ -606,8 +608,16 @@ rule sortGemini:
 	shell:
 		"""
 		module load {config[R_version]}
-		Rscript /home/$USER/git/variant_prioritization/src/sortGeminiTSV_v1.R \
-			{input.tsv} {config[OGL_Dx_research_genes]} {output.rearranged_tsv} {output.filtered_tsv} {wildcards.sampleid} {output.filtered_xlsx} {config[aaf_change]}
+		case "{config[datatype]}" in
+			"panel")
+				Rscript /home/$USER/git/variant_prioritization/src/sortGeminiTSV_v1.R \
+					{input.tsv} {config[OGL_Dx_research_genes]} {output.rearranged_tsv} {output.filtered_tsv} {wildcards.sampleid} {output.filtered_xlsx} {config[aaf_change]} ../CoNVaDING/CNV_hiSens/{wildcards.sampleid}.b37.aligned.only.best.score.shortlist.txt gemini_xlsx/{wildcards.sampleid}.geneLAF.pdf
+				;;
+			"*")
+				Rscript /home/$USER/git/variant_prioritization/src/sortGeminiTSV_v1.R \
+					{input.tsv} {config[OGL_Dx_research_genes]} {output.rearranged_tsv} {output.filtered_tsv} {wildcards.sampleid} {output.filtered_xlsx} {config[aaf_change]}
+				;;
+		esac
  		"""
 
 localrules: LesserAlleleFreq

@@ -8,19 +8,22 @@
 ## other_pred_score is not added to priority score if maxaf > 0.02
 ## if impact == "missense_variant" & mis_z >= 3.09 & sigmaaf_missense_0001 < 0.005 & pmaxaf < 0.0005, priority socre += 2
 
+#When testing, switch comment lines below.
+
 args <- commandArgs(trailingOnly=TRUE)
-#When testing, comment out line above and use the line below.
-# args <- c("Y:/NextSeqAnalysis/trainingRun/freebayesPrioritization/gemini_tsv/G05068.20200215v1.freebayes.training_RPGR_nano.gemini.tsv",
-#           "Z:/OGL_NGS/variant_prioritization/data/OGLv1_panel_DxORcandidate.txt", "sorted.tsv", "filtered.tsv", "G05068", "filtered.xlsx")
+
+# args <- c("W:/ddl_nisc_custom_capture/042020/freebayesPrioritization/gemini_tsv/108976P.20200420.freebayes.nisc100.gemini.tsv",
+#           "Z:/OGL_NGS/variant_prioritization/data/OGLv1_panel_DxORcandidate.tsv", "rearranged.tsv", "filtered.tsv", "108976P", "filtered.xlsx", "0.5", "W:/ddl_nisc_custom_capture/042020/CoNVaDING/CNV_hiSens/108976P.b37.aligned.only.best.score.shortlist.txt")
 
 library(tidyverse)
 library(readxl)
+library(RColorBrewer)
 
 gemini_input <- read_tsv(args[1], col_names = TRUE, na = c("NA", "", "None", "."), col_types = cols(.default = col_character())) %>%
   type_convert() %>% mutate(exon = sub("^", " ", exon))
 
-gemini <-  gemini_input %>% mutate( temp_start_vcf = start + 1 ) %>% 
-  unite("chr_variant_id", chrom, temp_start_vcf, ref, alt, sep = "-", remove = FALSE ) %>% 
+gemini <-  gemini_input %>% mutate( start_vcf = start + 1 ) %>% 
+  unite("chr_variant_id", chrom, start_vcf, ref, alt, sep = "-", remove = FALSE ) %>% 
   mutate(gene = toupper(gene)) 
   
 
@@ -49,29 +52,29 @@ gemini_max_priority_score <- left_join(gemini, max_priority_score, by=c("ref_gen
 
 #VEP hg19 version's gene names are the same as in the IDT ordering design sheets. This is what used for left_join
 gemini_rearrangeCol <- left_join(gemini_max_priority_score, OGLv1_gene_class, by = c("gene")) %>% 
-  select(-starts_with('temp_')) %>% 
   mutate(note = "") %>% 
-  select('chr_variant_id', 'chrom', 'start', 'qual', 'filter', starts_with('gts'), starts_with('gt_'), 'aaf',
-         'panel_class', 'priority_score', 'priority_score_intervar', 'clinvar_hgmd_score', 'splice_score', 'other_predic_score', 'pmaxaf', 'popfreqmax_annovar', 'max_af', 'max_af_pops', 'exac_num_hom_alt', 'gno_hom', 'gene_refgenewithver_annovar', 'note', 
-         'genedetail_refgenewithver_annovar', 'exonicfunc_refgenewithver_annovar', 'aachange_refgenewithver_annovar', 'hgvsc', 'hgvsp', 'omim_genesymbol', 'omim_inheritance', 'omim_phenotypes', 'pvs1', 'truncating_vep', 'gene', 'exon', 'aa_length', 'ref_gene_annovar', 'func_refgene_annovar', 'hgmd_overlap', 'existing_variation', 'clinvar_intervar', 'intervar_and_evidence', 
+  select('chr_variant_id', 'chrom', 'start_vcf', 'qual', 'filter', starts_with('gts'), starts_with('gt_'), 'aaf',
+         'panel_class', 'priority_score', 'priority_score_intervar', 'clinvar_hgmd_score', 'splice_score', 'other_predic_score', 'pmaxaf', 'max_af', 'max_af_pops', 'gno_hom', 'gene_refgenewithver', 'note', 
+         'exonicfunc_ensgene', 'refgenewithver', 'hgvsc', 'hgvsp', 'gene', 'exon', 'aa_length', 'omim_genesymbol', 'omim_inheritance', 'omim_phenotypes', 'pvs1', 'truncating_vep', 'hgmd_overlap', 'existing_variation', 'clinvar_intervar', 'intervar_and_evidence', 
          'clinvar_id', 'clinvar_pathogenic', 'clinvar_sig', 'clin_sig', 
          'spliceai', 'spliceai_maxscore', 'spliceai_filtered', 'dbscsnv_ada_score_intervar', 'dbscsnv_rf_score_intervar', 'dpsi_max_tissue_annovar', 'dpsi_zscore_annovar', 'genesplicer', 'maxentscan_diff', 'branchpoint_u2_binding_energy', 'branchpoint_prob', 'branchpoint_to_3prime', 
-         'sift_pred', 'polyphen_pred', 'mutationassessor_pred', 'mutationtaster_pred', 'metasvm_pred','metasvm_score_intervar', 'clinpred_score', 'mpc', 'cadd_raw', 'cadd_phred', 'eigen_pc_raw', 'eigen_raw', 'gerp_rs_intervar', 'phylop46way_placental_intervar', 'phylop_100way', 'primatedl', 'func_refgenewithver_annovar', 'exonicfunc_refgene_intervar', 'avsnp150_annovar', 'interpro_domain_intervar', 
+         'sift_pred', 'polyphen_pred', 'mutationassessor_pred', 'mutationtaster_pred', 'metasvm_pred','metasvm_score_intervar', 'clinpred_score', 'mpc', 'cadd_raw', 'cadd_phred', 'eigen_pc_raw', 'eigen_raw', 'gerp_rs_intervar', 'phylop46way_placental_intervar', 'phylop_100way', 
+         'primatedl', 'genedetail_ensgene', 'aachange_ensgene', 'ref_gene_annovar', 'func_refgene', 'func_refgenewithver', 'exonicfunc_refgenewithver', 'exonicfunc_refgene', 'avsnp150_annovar', 'interpro_domain_intervar', 
          'pfam_domain', 'tfbs', 'pli', 'lof_z', 'mis_z', 'sigmaaf_lof_0001', 'sigmaaf_lof_01', 'sigmaaf_missense_0001', 'sigmaaf_missense_01', 'atac_rpe_itemrgb', 'atac_rpe_score', 
          'eyeintegration_rnaseq_tpm_rpe_adulttissue', 'eyeintegration_rnaseq_tpm_rpe_cellline', 'eyeintegration_rnaseq_tpm_rpe_fetaltissue', 'eyeintegration_rnaseq_tpm_rpe_stemcellline', 'eyeintegration_rnaseq_tpm_retina_adulttissue', 'eyeintegration_rnaseq_tpm_retina_stemcellline', 'eyeintegration_rnaseq_tpm_wholeblood', 
-         'end', 'ref', 'alt','gnomad_exome_all_annovar', 'gnomad_genome_all_annovar', 'freq_esp6500siv2_all_annovar', 'freq_1000g2015aug_all_annovar', 'aaf_esp_all', 'aaf_1kg_all', 'af_exac_all', 'pubmed', everything() )
+         'start', 'end', 'ref', 'alt', 'exac_num_hom_alt', 'popfreqmax_annovar', 'gnomad_exome_all_annovar', 'gnomad_genome_all_annovar', 'freq_esp6500siv2_all_annovar', 'freq_1000g2015aug_all_annovar', 'aaf_esp_all', 'aaf_1kg_all', 'af_exac_all', 'pubmed', everything() )
 #4/12/20: removed 'chr_annovar', 'start_annovar', 'ref_annovar', 'alt_annovar',
 write_tsv(gemini_rearrangeCol, path = args[3])
 
 gemini_filtered <- gemini_rearrangeCol %>% mutate(temp_group = ifelse(priority_score >= 3, 3, ifelse(priority_score >= -2, -2, -3))) %>% 
   filter(temp_group >= -2, pmaxaf < 0.2, aaf < args[7]) %>% arrange(desc(temp_group), desc(maxpriorityscore), ref_gene_annovar, desc(priority_score)) %>% 
-  select(-maxpriorityscore, -temp_group)
-
+  select(-temp_group)
+gemini_filtered0 <- gemini_filtered %>% select(-maxpriorityscore)
 # consider change to filter(priority_score > 10 | (temp_group >= -2, pmaxaf < 0.05, aaf < args[7]))
 
-write_tsv(gemini_filtered, path = args[4])
+write_tsv(gemini_filtered0, path = args[4])
 
-gemini_filtered1 <- gemini_filtered %>% filter(priority_score >= 3)
+gemini_filtered1 <- gemini_filtered %>% filter(priority_score >= 3) %>% select(-maxpriorityscore)
   
 gemini_filtered2 <- gemini_filtered %>% filter(priority_score >= 4) %>% 
   rename_all(funs(str_replace(., args[5], ""))) %>% 
@@ -88,8 +91,8 @@ gemini_filtered3 <- left_join(gemini_filtered2, recessive_count, by=c("temp_ref_
   mutate(recessive_cnt = as.integer(recessive_cnt)) %>% 
   select(-temp_ref_gene_annovar)
 
-xR <- gemini_filtered3 %>% filter(chrom == "X", recessive_cnt >= 2) %>% select(-recessive_cnt)
-xD <- gemini_filtered3 %>% filter(chrom == "X", recessive_cnt == 1, pmaxaf < 0.002) %>% select(-recessive_cnt)
+xR <- gemini_filtered3 %>% filter(chrom == "X", recessive_cnt >= 2) %>% select(-maxpriorityscore, -recessive_cnt)
+xD <- gemini_filtered3 %>% filter(chrom == "X", recessive_cnt == 1, pmaxaf < 0.002) %>% select(-maxpriorityscore, -recessive_cnt)
 
 #ar are those genes with homozygous or compound hets variants of ps >= 5. However, ps = 4 variants were also listed if there are 2 ps>=5.
 #ar gene with 1 hit will not be here.
@@ -116,6 +119,57 @@ acmg_genes = c('ACTA2','ACTC1','APC','APOB','ATP7B','BMPR1A','BRCA1','BRCA2',
                'PTEN','RB1','RET','RYR1','RYR2','SCN5A','SDHAF2','SDHB','SDHC',
                'SDHD','SMAD3','SMAD4','STK11','TGFBR1','TGFBR2','TMEM43','TNNI3',
                'TNNT2','TP53','TPM1','TSC1','TSC2','VHL','WT1')
-acmg <- gemini_filtered3 %>% filter(gene %in% acmg_genes, priority_score > 4)
-openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG59" = acmg, "all" = gemini_filtered1), file = args[6])
+acmg <- gemini_filtered3 %>% filter(gene %in% acmg_genes, priority_score > 4) %>% select(-maxpriorityscore, -recessive_cnt)
+if (is.na(args[8])) {
+  openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG59" = acmg, "all" = gemini_filtered1), file = args[6], firstRow = TRUE, firstCol = TRUE)
+} else {
+    cnv <- read_tsv(args[8], col_names = TRUE, na = c("NA", "", "None", "."), col_types = cols(.default = col_character())) %>%
+      type_convert()
+    if (dim(cnv)[1] == 0) {
+      openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG59" = acmg, "all" = gemini_filtered1), file = args[6], firstRow = TRUE, firstCol = TRUE)
+    } else {
+      cnv_gene <- as.list(distinct(cnv, GENE)[[1]])
+      #cnv_gene <- dplyr::pull(cnv, GENE) #pull column as a vector
+      cnv_variant <- gemini_rearrangeCol %>% select('chr_variant_id', 'chrom', 'start', 'qual', 'filter', starts_with('gts'), starts_with('gt_'), 'gene', 'exon', 'gene_refgenewithver',  
+                                                    'refgenewithver', 'exonicfunc_refgenewithver', 'hgvsc', 'hgvsp') %>% 
+        rename_all(funs(str_replace(., args[5], ""))) %>% 
+        filter(gene %in% cnv_gene)
+      openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG59" = acmg, "all" = gemini_filtered1, "CoNVaDING" = cnv, "CNV-variant" = cnv_variant), file = args[6], firstRow = TRUE, firstCol = TRUE)
+      cnv_edit <- cnv %>% 
+        gather(START:STOP, key = "datatype", value = "position") %>% 
+        mutate(LAF = 0.54, gt_depths. = ifelse(datatype == "START", 40, 200) ) %>% 
+        rename(chrom = "CHR", gene = "GENE") %>% 
+        select(chrom, gene, datatype, position, LAF, gt_depths.)
+      
+      cnv_variant_edit <- cnv_variant %>% 
+        select(chrom, start, gt_depths.,	gt_alt_freqs., gene) %>% 
+        rename(position = "start") %>% 
+        mutate(datatype="LAF") %>% 
+        mutate(LAF = ifelse(gt_alt_freqs. > 0.5, 1 - gt_alt_freqs., gt_alt_freqs.)) %>% 
+        select(-gt_alt_freqs.)
+      
+      variantForPlot <- rbind(cnv_edit, cnv_variant_edit) %>% mutate(gene = as.factor(gene)) %>% 
+        arrange(chrom, position) %>% 
+        mutate(variant_no = row_number()) %>% 
+        mutate(DepthGroup = case_when(gt_depths. >= 100 ~ "DP>=100",
+                                      gt_depths. >= 30 ~ "DP>=30",
+                                      TRUE ~ "DP<30"))
+      
+      variantForPlot$DepthGroup = factor(variantForPlot$DepthGroup,levels = c("DP>=100", "DP>=30", "DP<30"))
+      
+      plot_pdf <- ggplot(variantForPlot, aes(x= variant_no, y = LAF, color = DepthGroup)) + 
+        scale_color_brewer(palette = "Set1") +
+        coord_cartesian(ylim = c(0, 0.55)) +
+        labs(title = args[5], x= 'Variants', y = 'Lesser allele frequency') +
+        facet_wrap(~ gene, ncol = 1, scales = "free_x") +
+        geom_point(size = 1) +
+        theme_bw() +
+        theme(axis.text.x  = element_text(size=8), axis.text.y  = element_text(size=8)) +
+        theme(axis.title.x = element_text(size=16), axis.title.y = element_text(size=16)) +
+        theme(legend.position = "right") 
+      print(length(cnv_gene))
+      ggsave(args[9], plot = plot_pdf, width = 16, height = 9 * length(cnv_gene), units = "cm") #
+    }
+}
+
 
