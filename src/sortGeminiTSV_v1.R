@@ -24,7 +24,8 @@ gemini_input <- read_tsv(args[1], col_names = TRUE, na = c("NA", "", "None", "."
 
 gemini <-  gemini_input %>% mutate( start_vcf = start + 1 ) %>% 
   unite("chr_variant_id", chrom, start_vcf, ref, alt, sep = "-", remove = FALSE ) %>% 
-  mutate(gene = toupper(gene)) 
+  mutate(gene = toupper(gene)) %>% 
+  mutate(sample = args[5])
   
 
 #http://web.corral.tacc.utexas.edu/WGSAdownload/resources/dbNSFP/dbNSFP4.0b2c.readme.txt
@@ -59,7 +60,7 @@ gemini_rearrangeCol <- left_join(gemini_max_priority_score, OGLv1_gene_class, by
          'clinvar_id', 'clinvar_pathogenic', 'clinvar_sig', 'clin_sig', 
          'spliceai', 'spliceai_maxscore', 'spliceai_filtered', 'dbscsnv_ada_score_intervar', 'dbscsnv_rf_score_intervar', 'dpsi_max_tissue_annovar', 'dpsi_zscore_annovar', 'genesplicer', 'maxentscan_diff', 'branchpoint_u2_binding_energy', 'branchpoint_prob', 'branchpoint_to_3prime', 
          'sift_pred', 'polyphen_pred', 'mutationassessor_pred', 'mutationtaster_pred', 'metasvm_pred','metasvm_score_intervar', 'clinpred_score', 'mpc', 'cadd_raw', 'cadd_phred', 'eigen_pc_raw', 'eigen_raw', 'gerp_rs_intervar', 'phylop46way_placental_intervar', 'phylop_100way', 
-         'primatedl', 'genedetail_ensgene', 'aachange_ensgene', 'ref_gene_annovar', 'func_refgene', 'func_refgenewithver', 'exonicfunc_refgenewithver', 'exonicfunc_refgene', 'avsnp150_annovar', 'interpro_domain_intervar', 
+         'primatedl', 'sample', 'genedetail_ensgene', 'aachange_ensgene', 'ref_gene_annovar', 'func_refgene', 'func_refgenewithver', 'exonicfunc_refgenewithver', 'exonicfunc_refgene', 'avsnp150_annovar', 'interpro_domain_intervar', 
          'pfam_domain', 'tfbs', 'pli', 'lof_z', 'mis_z', 'sigmaaf_lof_0001', 'sigmaaf_lof_01', 'sigmaaf_missense_0001', 'sigmaaf_missense_01', 'atac_rpe_itemrgb', 'atac_rpe_score', 
          'eyeintegration_rnaseq_tpm_rpe_adulttissue', 'eyeintegration_rnaseq_tpm_rpe_cellline', 'eyeintegration_rnaseq_tpm_rpe_fetaltissue', 'eyeintegration_rnaseq_tpm_rpe_stemcellline', 'eyeintegration_rnaseq_tpm_retina_adulttissue', 'eyeintegration_rnaseq_tpm_retina_stemcellline', 'eyeintegration_rnaseq_tpm_wholeblood', 
          'start', 'end', 'ref', 'alt', 'exac_num_hom_alt', 'popfreqmax_annovar', 'gnomad_exome_all_annovar', 'gnomad_genome_all_annovar', 'freq_esp6500siv2_all_annovar', 'freq_1000g2015aug_all_annovar', 'aaf_esp_all', 'aaf_1kg_all', 'af_exac_all', 'pubmed', everything() )
@@ -124,38 +125,41 @@ if (is.na(args[8])) {
   openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG59" = acmg, "all" = gemini_filtered1), file = args[6], firstRow = TRUE, firstCol = TRUE)
 } else {
     cnv <- read_tsv(args[8], col_names = TRUE, na = c("NA", "", "None", "."), col_types = cols(.default = col_character())) %>%
-      type_convert()
+      type_convert() 
     if (dim(cnv)[1] == 0) {
       openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG59" = acmg, "all" = gemini_filtered1), file = args[6], firstRow = TRUE, firstCol = TRUE)
     } else {
       cnv_gene <- as.list(distinct(cnv, GENE)[[1]])
       #cnv_gene <- dplyr::pull(cnv, GENE) #pull column as a vector
-      cnv_variant <- gemini_rearrangeCol %>% select('chr_variant_id', 'chrom', 'start', 'qual', 'filter', starts_with('gts'), starts_with('gt_'), 'gene', 'exon', 'gene_refgenewithver',  
-                                                    'refgenewithver', 'exonicfunc_refgenewithver', 'hgvsc', 'hgvsp') %>% 
+      cnv_variant <- gemini_rearrangeCol %>% 
         rename_all(funs(str_replace(., args[5], ""))) %>% 
-        filter(gene %in% cnv_gene)
+        filter(gene %in% cnv_gene) %>% 
+        mutate(LAF = ifelse(gt_alt_freqs. > 0.5, 1 - gt_alt_freqs., gt_alt_freqs.)) %>% 
+        select(-gt_alt_freqs.) %>% 
+        select('chr_variant_id', 'chrom', 'start', 'qual', 'filter', starts_with('gts'), starts_with('gt_'), 'LAF', 'gene', 'exon', 'gene_refgenewithver',  
+              'refgenewithver', 'exonicfunc_refgenewithver', 'hgvsc', 'hgvsp')
       openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG59" = acmg, "all" = gemini_filtered1, "CoNVaDING" = cnv, "CNV-variant" = cnv_variant), file = args[6], firstRow = TRUE, firstCol = TRUE)
       cnv_edit <- cnv %>% 
+        mutate(START = START - 100, STOP = STOP + 100) %>% #padding of 100 nt
         gather(START:STOP, key = "datatype", value = "position") %>% 
         mutate(LAF = 0.54, gt_depths. = ifelse(datatype == "START", 40, 200) ) %>% 
         rename(chrom = "CHR", gene = "GENE") %>% 
         select(chrom, gene, datatype, position, LAF, gt_depths.)
       
       cnv_variant_edit <- cnv_variant %>% 
-        select(chrom, start, gt_depths.,	gt_alt_freqs., gene) %>% 
+        select(chrom, start, gt_depths.,	LAF, gene) %>% 
         rename(position = "start") %>% 
         mutate(datatype="LAF") %>% 
-        mutate(LAF = ifelse(gt_alt_freqs. > 0.5, 1 - gt_alt_freqs., gt_alt_freqs.)) %>% 
-        select(-gt_alt_freqs.)
+        filter(gt_depths. >= 15)
       
       variantForPlot <- rbind(cnv_edit, cnv_variant_edit) %>% mutate(gene = as.factor(gene)) %>% 
         arrange(chrom, position) %>% 
         mutate(variant_no = row_number()) %>% 
         mutate(DepthGroup = case_when(gt_depths. >= 100 ~ "DP>=100",
-                                      gt_depths. >= 30 ~ "DP>=30",
-                                      TRUE ~ "DP<30"))
+                                      gt_depths. >= 30 ~ "DP30-99",
+                                      TRUE ~ "DP15-29"))
       
-      variantForPlot$DepthGroup = factor(variantForPlot$DepthGroup,levels = c("DP>=100", "DP>=30", "DP<30"))
+      variantForPlot$DepthGroup = factor(variantForPlot$DepthGroup,levels = c("DP>=100", "DP30-99", "DP15-29"))
       
       plot_pdf <- ggplot(variantForPlot, aes(x= variant_no, y = LAF, color = DepthGroup)) + 
         scale_color_brewer(palette = "Set1") +
@@ -163,11 +167,12 @@ if (is.na(args[8])) {
         labs(title = args[5], x= 'Variants', y = 'Lesser allele frequency') +
         facet_wrap(~ gene, ncol = 1, scales = "free_x") +
         geom_point(size = 1) +
+        geom_segment(data = subset(variantForPlot, datatype %in% c('START', 'STOP')), aes(x= variant_no, xend=variant_no, y=0, yend=LAF), linetype="dotted") +
         theme_bw() +
         theme(axis.text.x  = element_text(size=8), axis.text.y  = element_text(size=8)) +
         theme(axis.title.x = element_text(size=16), axis.title.y = element_text(size=16)) +
         theme(legend.position = "right") 
-      print(length(cnv_gene))
+     
       ggsave(args[9], plot = plot_pdf, width = 16, height = 9 * length(cnv_gene), units = "cm") #
     }
 }

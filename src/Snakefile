@@ -108,6 +108,7 @@ wildcard_constraints:
 rule all:
 	input:
 		expand('{sample}.PED_{ped}.gemini.db', sample=SAMPLE, ped=PEDfile) if ('geminiDB' in config['output_type']) else 'dummy.txt',
+		expand('{sample}_PEDDY.ped_check.csv', sample=SAMPLE),
 		expand('sample_reports/{sample}.{family_name}.PED_{ped}.lenient{gemini_lenient}.SeeGEM.report.html', \
 			sample=SAMPLE, \
 			ped=PEDfile, \
@@ -314,31 +315,84 @@ rule spliceai_edit:
 # 		cat temp/spliceai_header {output}TEMP | bgzip -f > {output}
 # 		tabix -b 2 -e 2 -S 1 {output}
 # 		"""
-if config['datatype'] == "panel": localrules: spliceai_intervar_edit
-rule spliceai_intervar_edit:
-	input:
-		spliceai = 'temp/spliceai.{sample}__{region}.tsv.cut',
-		annovar = 'temp/{sample}__{region}.avinput.hg19_multianno.txt',
-		intervar = 'temp/{sample}__{region}.avinput.hg19_multianno.txt.intervar'
-	output:
-		intermediate = temp('temp/{sample}__{region}.avinput.hg19_multianno.spliceai.txt'),
-		spliceai_intervar = temp('temp/{sample}__{region}.spliceai_annovar_intervar'),
-		header = temp('temp/{sample}__{region}.annovar_intervar_header'),
-		gz = temp('temp/{sample}__{region}.spliceai_annovar_intervar_annotation.txt.gz')
-	shell:
-		"""
-		module load {config[R_version]}
-		cut -f -133 {input.annovar} | sed "1 s/Otherinfo1\tOtherinfo2\tOtherinfo3\tOtherinfo4\tOtherinfo5\tOtherinfo6\tOtherinfo7/CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER/" - | paste - {input.spliceai} > {output.intermediate}
-		Rscript {config[intervar_Rscript_path]} \
-			{input.intervar} \
-			{output.intermediate} \
-			{config[HGMDtranscript]} \
-			{output.spliceai_intervar}
-		module load {config[samtools_version]}
-		head -n 1 {output.spliceai_intervar} > {output.header}
-		tail -n +2 {output.spliceai_intervar} | sort -k1,1 -k2,2n | cat {output.header} - | bgzip -f > {output.gz}
-		tabix -b 2 -e 2 -S 1 {output.gz}
-		"""
+
+if config['datatype'] == "panel":
+	localrules: spliceai_intervar_edit
+	rule spliceai_intervar_edit:
+		input:
+			spliceai = 'temp/spliceai.{sample}__{region}.tsv.cut',
+			annovar = 'temp/{sample}__{region}.avinput.hg19_multianno.txt',
+			intervar = 'temp/{sample}__{region}.avinput.hg19_multianno.txt.intervar'
+		output:
+			intermediate = temp('temp/{sample}__{region}.avinput.hg19_multianno.spliceai.txt'),
+			spliceai_intervar = temp('temp/{sample}__{region}.spliceai_annovar_intervar'),
+			header = temp('temp/{sample}__{region}.annovar_intervar_header'),
+			gz = temp('temp/{sample}__{region}.spliceai_annovar_intervar_annotation.txt.gz')
+		shell:
+			"""
+			module load {config[R_version]}
+			cut -f -133 {input.annovar} | sed "1 s/Otherinfo1\tOtherinfo2\tOtherinfo3\tOtherinfo4\tOtherinfo5\tOtherinfo6\tOtherinfo7/CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER/" - | paste - {input.spliceai} > {output.intermediate}
+			Rscript {config[intervar_Rscript_path]} \
+				{input.intervar} \
+				{output.intermediate} \
+				{config[HGMDtranscript]} \
+				{output.spliceai_intervar}
+			module load {config[samtools_version]}
+			head -n 1 {output.spliceai_intervar} > {output.header}
+			tail -n +2 {output.spliceai_intervar} | sort -k1,1 -k2,2n | cat {output.header} - | bgzip -f > {output.gz}
+			tabix -b 2 -e 2 -S 1 {output.gz}
+			"""
+else:
+	rule spliceai_intervar_edit:
+		input:
+			spliceai = 'temp/spliceai.{sample}__{region}.tsv.cut',
+			annovar = 'temp/{sample}__{region}.avinput.hg19_multianno.txt',
+			intervar = 'temp/{sample}__{region}.avinput.hg19_multianno.txt.intervar'
+		output:
+			intermediate = temp('temp/{sample}__{region}.avinput.hg19_multianno.spliceai.txt'),
+			spliceai_intervar = temp('temp/{sample}__{region}.spliceai_annovar_intervar'),
+			header = temp('temp/{sample}__{region}.annovar_intervar_header'),
+			gz = temp('temp/{sample}__{region}.spliceai_annovar_intervar_annotation.txt.gz')
+		shell:
+			"""
+			module load {config[R_version]}
+			cut -f -133 {input.annovar} | sed "1 s/Otherinfo1\tOtherinfo2\tOtherinfo3\tOtherinfo4\tOtherinfo5\tOtherinfo6\tOtherinfo7/CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER/" - | paste - {input.spliceai} > {output.intermediate}
+			Rscript {config[intervar_Rscript_path]} \
+				{input.intervar} \
+				{output.intermediate} \
+				{config[HGMDtranscript]} \
+				{output.spliceai_intervar}
+			module load {config[samtools_version]}
+			head -n 1 {output.spliceai_intervar} > {output.header}
+			tail -n +2 {output.spliceai_intervar} | sort -k1,1 -k2,2n | cat {output.header} - | bgzip -f > {output.gz}
+			tabix -b 2 -e 2 -S 1 {output.gz}
+			"""
+
+
+# rule spliceai_intervar_edit:
+# 	input:
+# 		spliceai = 'temp/spliceai.{sample}__{region}.tsv.cut',
+# 		annovar = 'temp/{sample}__{region}.avinput.hg19_multianno.txt',
+# 		intervar = 'temp/{sample}__{region}.avinput.hg19_multianno.txt.intervar'
+# 	output:
+# 		intermediate = temp('temp/{sample}__{region}.avinput.hg19_multianno.spliceai.txt'),
+# 		spliceai_intervar = temp('temp/{sample}__{region}.spliceai_annovar_intervar'),
+# 		header = temp('temp/{sample}__{region}.annovar_intervar_header'),
+# 		gz = temp('temp/{sample}__{region}.spliceai_annovar_intervar_annotation.txt.gz')
+# 	shell:
+# 		"""
+# 		module load {config[R_version]}
+# 		cut -f -133 {input.annovar} | sed "1 s/Otherinfo1\tOtherinfo2\tOtherinfo3\tOtherinfo4\tOtherinfo5\tOtherinfo6\tOtherinfo7/CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER/" - | paste - {input.spliceai} > {output.intermediate}
+# 		Rscript {config[intervar_Rscript_path]} \
+# 			{input.intervar} \
+# 			{output.intermediate} \
+# 			{config[HGMDtranscript]} \
+# 			{output.spliceai_intervar}
+# 		module load {config[samtools_version]}
+# 		head -n 1 {output.spliceai_intervar} > {output.header}
+# 		tail -n +2 {output.spliceai_intervar} | sort -k1,1 -k2,2n | cat {output.header} - | bgzip -f > {output.gz}
+# 		tabix -b 2 -e 2 -S 1 {output.gz}
+# 		"""
 
 # rule merge_annovar_intervar:
 # 	input:
