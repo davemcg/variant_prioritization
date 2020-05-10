@@ -107,7 +107,7 @@ annovar_inter <- merge(x = annovar, y = intervar_for_sorting,
 		"Freq_esp6500siv2_all", "Freq_1000g2015aug_all","dbscSNV_ADA_SCORE.intervar", "dbscSNV_RF_SCORE.intervar", "dpsi_max_tissue", "dpsi_zscore", "SpliceAI", "spliceai_maxscore",
     "spliceai_filtered", "SIFT_score.intervar", "MetaSVM_score.intervar", "CADD_raw.intervar", "CADD_phred.intervar", "GERP.._RS.intervar", "phyloP46way_placental.annovar", 
 		"Func.refGeneWithVer", "ExonicFunc.refGene.intervar", "avsnp150", "Interpro_domain.intervar", "PVS1", "spliceai_rank", "GeneDetail.ensGene", "ExonicFunc.ensGene", "AAChange.ensGene.intervar")) %>% 
-  replace_na(list(ID = ".")) 
+  replace_na(list(ID = ".", refgenewithver = ".")) 
 
 write_tsv(annovar_inter, file.path('.', args[4]))
 
