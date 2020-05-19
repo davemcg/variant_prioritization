@@ -56,13 +56,13 @@ gemini_max_priority_score <- left_join(gemini, max_priority_score, by=c("ref_gen
 #VEP hg19 version's gene names are the same as in the IDT ordering design sheets. This is what used for left_join
 gemini_rearrangeCol <- left_join(gemini_max_priority_score, OGLv1_gene_class, by = c("ref_gene_annovar")) %>% 
   mutate(note = "") %>% 
-  select('chr_variant_id', 'chrom', 'start_vcf', 'qual', 'filter', starts_with('gts'), starts_with('gt_'), 'aaf',
+  select('sample', 'chr_variant_id', 'chrom', 'start_vcf', 'qual', 'filter', starts_with('gts'), starts_with('gt_'), 'aaf',
          'panel_class', 'priority_score', 'priority_score_intervar', 'clinvar_hgmd_score', 'splice_score', 'other_predic_score', 'pmaxaf', 'max_af', 'max_af_pops', 'gno_hom', 'ref_gene_annovar', 'note', 
          'exonicfunc_ensgene', 'refgenewithver', 'hgvsc', 'hgvsp', 'gene', 'exon', 'aa_length', 'omim_genesymbol', 'omim_inheritance', 'omim_phenotypes', 'pvs1', 'truncating_vep', 'hgmd_overlap', 'existing_variation', 'clinvar_intervar', 'intervar_and_evidence', 
          'clinvar_id', 'clinvar_pathogenic', 'clinvar_sig', 'clin_sig', 
          'spliceai', 'spliceai_maxscore', 'spliceai_filtered', 'dbscsnv_ada_score_intervar', 'dbscsnv_rf_score_intervar', 'dpsi_max_tissue_annovar', 'dpsi_zscore_annovar', 'genesplicer', 'maxentscan_diff', 'branchpoint_u2_binding_energy', 'branchpoint_prob', 'branchpoint_to_3prime', 
-         'sift_pred', 'polyphen_pred', 'mutationassessor_pred', 'mutationtaster_pred', 'metasvm_pred','metasvm_score_intervar', 'clinpred_score', 'mpc', 'cadd_raw', 'cadd_phred', 'eigen_pc_raw', 'eigen_raw', 'gerp_rs_intervar', 'phylop46way_placental_intervar', 'phylop_100way', 
-         'primatedl', 'sample', 'genedetail_ensgene', 'aachange_ensgene', 'gene_refgenewithver', 'func_refgene', 'func_refgenewithver', 'exonicfunc_refgenewithver', 'exonicfunc_refgene', 'avsnp150_annovar', 'interpro_domain_intervar', 
+         'sift_pred', 'polyphen_pred', 'mutationassessor_pred', 'mutationtaster_pred', 'metasvm_pred','metasvm_score_intervar', 'clinpred_score', 'primatedl', 'revel', 'mpc', 'cadd_raw', 'cadd_phred', 'eigen_pc_raw', 'eigen_raw', 'gerp_rs_intervar', 'phylop46way_placental_intervar', 'phylop_100way', 
+           'genedetail_ensgene', 'aachange_ensgene', 'gene_refgenewithver', 'func_refgene', 'func_refgenewithver', 'exonicfunc_refgenewithver', 'exonicfunc_refgene', 'avsnp150_annovar', 'interpro_domain_intervar', 
          'pfam_domain', 'tfbs', 'pli', 'lof_z', 'mis_z', 'sigmaaf_lof_0001', 'sigmaaf_lof_01', 'sigmaaf_missense_0001', 'sigmaaf_missense_01', 'atac_rpe_itemrgb', 'atac_rpe_score', 
          'eyeintegration_rnaseq_tpm_rpe_adulttissue', 'eyeintegration_rnaseq_tpm_rpe_cellline', 'eyeintegration_rnaseq_tpm_rpe_fetaltissue', 'eyeintegration_rnaseq_tpm_rpe_stemcellline', 'eyeintegration_rnaseq_tpm_retina_adulttissue', 'eyeintegration_rnaseq_tpm_retina_stemcellline', 'eyeintegration_rnaseq_tpm_wholeblood', 
          'start', 'end', 'ref', 'alt', 'exac_num_hom_alt', 'popfreqmax_annovar', 'gnomad_exome_all_annovar', 'gnomad_genome_all_annovar', 'freq_esp6500siv2_all_annovar', 'freq_1000g2015aug_all_annovar', 'aaf_esp_all', 'aaf_1kg_all', 'af_exac_all', 'pubmed', everything() )

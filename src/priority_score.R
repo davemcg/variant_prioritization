@@ -32,7 +32,7 @@ ps_df <-  input_df %>% mutate(truncating_vep = ifelse(grepl("frameshift_variant|
            ifelse(grepl("benign", temp_clinvar, ignore.case = TRUE) & grepl("pathogenic", temp_clinvar, ignore.case = TRUE), 3, 0) + 
            ifelse(grepl("[A-Z]", HGMD_Overlap) | grepl("[A-Z]", temp_existing_variant), 3, 0) ) %>% 
   mutate(clinvar_hgmd_score = ifelse(clinvar_hgmd_score > 6, 6, clinvar_hgmd_score)) %>% 
-  mutate(other_predic_score = ifelse(is.na(ClinPred_Score), 0, ifelse(ClinPred_Score > 0.5, 0.5, 0)) + ifelse(grepl("deleterious", sift), 0.5, 0) +
+  mutate(other_predic_score = ifelse(is.na(ClinPred_Score), 0, ifelse(ClinPred_Score > 0.5, 0.5, 0)) + ifelse(is.na(revel), 0, ifelse(revel > 0.55, 0.5, 0)) + ifelse(grepl("deleterious", sift), 0.5, 0) +
            ifelse(grepl("damaging", polyphen), 0.5, 0) + ifelse(grepl("D", MetaSVM_pred), 0.5, 0) + 
            ifelse(is.na(PrimateDL), 0, ifelse(PrimateDL > 0.803, 0.5, 0)) +
            ifelse(is.na(mpc), 0, ifelse(mpc > 1.5 & pmaxaf < 0.02, 0.5, 0)) +
