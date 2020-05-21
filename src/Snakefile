@@ -651,28 +651,36 @@ rule query_gemini_individual:
 		--header --gt-filter "gt_types.{wildcards.sampleid} != HOM_REF AND gts.{wildcards.sampleid} != './.' " {input.db} > {output.tsv}
 		"""
 
-localrules: sortGemini
-rule sortGemini:
-	input:
-		tsv = 'gemini_tsv/{sampleid}.{sample}.{ped}.gemini.tsv'
-	output:
-		rearranged_tsv = 'gemini_tsv/{sampleid}.{sample}.{ped}.gemini.rearranged.tsv',
-		filtered_tsv = 'gemini_tsv_filtered/{sampleid}.{sample}.{ped}.gemini.filtered.tsv',
-		filtered_xlsx = 'gemini_xlsx/{sampleid}.{sample}.{ped}.gemini.filtered.xlsx'
-	shell:
-		"""
-		module load {config[R_version]}
-		case "{config[datatype]}" in
-			"panel")
-				Rscript /home/$USER/git/variant_prioritization/src/sortGeminiTSV_v1.R \
-					{input.tsv} {config[OGL_Dx_research_genes]} {output.rearranged_tsv} {output.filtered_tsv} {wildcards.sampleid} {output.filtered_xlsx} {config[aaf_change]} ../CoNVaDING/CNV_hiSens/{wildcards.sampleid}.b37.aligned.only.best.score.shortlist.txt gemini_xlsx/{wildcards.sampleid}.geneLAF.pdf
-				;;
-			"*")
-				Rscript /home/$USER/git/variant_prioritization/src/sortGeminiTSV_v1.R \
-					{input.tsv} {config[OGL_Dx_research_genes]} {output.rearranged_tsv} {output.filtered_tsv} {wildcards.sampleid} {output.filtered_xlsx} {config[aaf_change]}
-				;;
-		esac
- 		"""
+if config['datatype'] == "panel":
+	localrules: sortGemini
+	rule sortGemini:
+		input:
+			tsv = 'gemini_tsv/{sampleid}.{sample}.{ped}.gemini.tsv'
+		output:
+			rearranged_tsv = 'gemini_tsv/{sampleid}.{sample}.{ped}.gemini.rearranged.tsv',
+			filtered_tsv = 'gemini_tsv_filtered/{sampleid}.{sample}.{ped}.gemini.filtered.tsv',
+			filtered_xlsx = 'gemini_xlsx/{sampleid}.{sample}.{ped}.gemini.filtered.xlsx'
+		shell:
+			"""
+			module load {config[R_version]}
+			Rscript /home/$USER/git/variant_prioritization/src/sortGeminiTSV_v1.R \
+				{input.tsv} {config[OGL_Dx_research_genes]} {output.rearranged_tsv} {output.filtered_tsv} {wildcards.sampleid} {output.filtered_xlsx} {config[aaf_change]} ../CoNVaDING/CNV_hiSens/{wildcards.sampleid}.b37.aligned.only.best.score.shortlist.txt gemini_xlsx/{wildcards.sampleid}.geneLAF.pdf
+	 		"""
+else:
+	rule sortGemini:
+		input:
+			tsv = 'gemini_tsv/{sampleid}.{sample}.{ped}.gemini.tsv'
+		output:
+			rearranged_tsv = 'gemini_tsv/{sampleid}.{sample}.{ped}.gemini.rearranged.tsv',
+			filtered_tsv = 'gemini_tsv_filtered/{sampleid}.{sample}.{ped}.gemini.filtered.tsv',
+			filtered_xlsx = 'gemini_xlsx/{sampleid}.{sample}.{ped}.gemini.filtered.xlsx'
+		shell:
+			"""
+			module load {config[R_version]}
+			Rscript /home/$USER/git/variant_prioritization/src/sortGeminiTSV_v1.R \
+				{input.tsv} {config[OGL_Dx_research_genes]} {output.rearranged_tsv} {output.filtered_tsv} {wildcards.sampleid} {output.filtered_xlsx} {config[aaf_change]}
+			"""
+
 
 localrules: LesserAlleleFreq
 rule LesserAlleleFreq:
@@ -733,7 +741,7 @@ rule query_gemini:
 	#	report_path = output.report_path
 		if config["output_raw"].upper() == 'NO':
 			shell("mkdir -p sample_reports; \
-					module load {config[R_version]}; \
+					module load R/3.5.2; \
 					module load {config[gemini_version]}; \
 					module load {config[pandoc_version]}; \
 					Rscript {config[SeeGEM_script]} \
@@ -748,7 +756,7 @@ rule query_gemini:
 			raw_name = report_name.replace('.html','.tsv')
 			#raw_path = report_path.replace('.html','.tsv')
 			shell("mkdir -p sample_reports; \
-					module load {config[R_version]}; \
+					module load R/3.5.2; \
 					module load {config[gemini_version]}; \
 					module load {config[pandoc_version]}; \
 					Rscript {config[SeeGEM_script]} \

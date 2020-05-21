@@ -26,7 +26,7 @@ ps_df <-  input_df %>% mutate(truncating_vep = ifelse(grepl("frameshift_variant|
   unite("temp_clinvar", clinvar_sig, clin_sig, Clinvar_intervar, sep = "-", remove = FALSE ) %>% 
   mutate(temp_clinvar = gsub("_interpretations_of_pathogenicity", "", temp_clinvar)) %>% 
   mutate(temp_existing_variant = gsub("rs\\d+", "", existing_variation)) %>% 
-  mutate(temp_existing_variant = gsub("COSM\\d+", "", temp_existing_variant)) %>%
+  mutate(temp_existing_variant = gsub("COS\\w\\d+", "", temp_existing_variant)) %>% #VEP100: COSV, #VEP99: COSM
   mutate(temp_existing_variant = gsub("\\w+_\\w+", "", temp_existing_variant)) %>%
   mutate(clinvar_hgmd_score = ifelse(grepl("pathogenic", temp_clinvar, ignore.case = TRUE), 6, 0) - 
            ifelse(grepl("benign", temp_clinvar, ignore.case = TRUE) & grepl("pathogenic", temp_clinvar, ignore.case = TRUE), 3, 0) + 

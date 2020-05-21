@@ -21,7 +21,7 @@ library(RColorBrewer)
 
 gemini_input <- read_tsv(args[1], col_names = TRUE, na = c("NA", "", "None", "."), col_types = cols(.default = col_character())) %>%
   type_convert() %>% mutate(exon = sub("^", " ", exon))
-
+print("###gemini tsv loaded### 10%")
 gemini <-  gemini_input %>% mutate( start_vcf = start + 1 ) %>% 
   unite("chr_variant_id", chrom, start_vcf, ref, alt, sep = "-", remove = FALSE ) %>% 
   mutate(gene = toupper(gene)) %>% 
@@ -49,14 +49,14 @@ OGLv1_gene_class <- read.delim(args[2], sep = "\t", header = T, colClasses = c("
 
 # get max_priority_score for each gene
 max_priority_score <- select(gemini, c(ref_gene_annovar, priority_score)) %>% group_by(ref_gene_annovar) %>% summarize(maxpriorityscore = max(priority_score)) 
-
+print("###max priority score### 20%")
 #arrange by max_priority_score, then by gene, and priority score. None gene region?
 gemini_max_priority_score <- left_join(gemini, max_priority_score, by=c("ref_gene_annovar"))
 
 #VEP hg19 version's gene names are the same as in the IDT ordering design sheets. This is what used for left_join
 gemini_rearrangeCol <- left_join(gemini_max_priority_score, OGLv1_gene_class, by = c("ref_gene_annovar")) %>% 
   mutate(note = "") %>% 
-  select('sample', 'chr_variant_id', 'chrom', 'start_vcf', 'qual', 'filter', starts_with('gts'), starts_with('gt_'), 'aaf',
+  select('chr_variant_id', 'sample', 'chrom', 'start_vcf', 'qual', 'filter', starts_with('gts'), starts_with('gt_'), 'aaf',
          'panel_class', 'priority_score', 'priority_score_intervar', 'clinvar_hgmd_score', 'splice_score', 'other_predic_score', 'pmaxaf', 'max_af', 'max_af_pops', 'gno_hom', 'ref_gene_annovar', 'note', 
          'exonicfunc_ensgene', 'refgenewithver', 'hgvsc', 'hgvsp', 'gene', 'exon', 'aa_length', 'omim_genesymbol', 'omim_inheritance', 'omim_phenotypes', 'pvs1', 'truncating_vep', 'hgmd_overlap', 'existing_variation', 'clinvar_intervar', 'intervar_and_evidence', 
          'clinvar_id', 'clinvar_pathogenic', 'clinvar_sig', 'clin_sig', 
@@ -68,7 +68,7 @@ gemini_rearrangeCol <- left_join(gemini_max_priority_score, OGLv1_gene_class, by
          'start', 'end', 'ref', 'alt', 'exac_num_hom_alt', 'popfreqmax_annovar', 'gnomad_exome_all_annovar', 'gnomad_genome_all_annovar', 'freq_esp6500siv2_all_annovar', 'freq_1000g2015aug_all_annovar', 'aaf_esp_all', 'aaf_1kg_all', 'af_exac_all', 'pubmed', everything() )
 #4/12/20: removed 'chr_annovar', 'start_annovar', 'ref_annovar', 'alt_annovar',
 write_tsv(gemini_rearrangeCol, path = args[3])
-
+print("###rearranged file written### 30%")
 gemini_filtered <- gemini_rearrangeCol %>% mutate(temp_group = ifelse(priority_score >= 3, 3, ifelse(priority_score >= -2, -2, -3))) %>% 
   filter(temp_group >= -2, pmaxaf < 0.2, aaf < args[7]) %>% arrange(desc(temp_group), desc(maxpriorityscore), ref_gene_annovar, desc(priority_score)) %>% 
   select(-temp_group)
@@ -111,6 +111,7 @@ ad <- gemini_filtered3 %>% filter(!chrom %in% c("X", "Y"),
                                   pmaxaf < 0.002, priority_score >= 5) %>% 
   arrange(desc(maxpriorityscore), ref_gene_annovar, desc(priority_score)) %>% 
   select(-maxpriorityscore, -recessive_cnt)
+print("###inheritance search done### 50%")
 #grepl("AD", omim_inheritance) | is.na(omim_inheritance)
 
 #AD: score > 4 , AR: score > 4, all: score >= 3
@@ -123,6 +124,7 @@ acmg_genes = c('ACTA2','ACTC1','APC','APOB','ATP7B','BMPR1A','BRCA1','BRCA2',
                'SDHD','SMAD3','SMAD4','STK11','TGFBR1','TGFBR2','TMEM43','TNNI3',
                'TNNT2','TP53','TPM1','TSC1','TSC2','VHL','WT1')
 acmg <- gemini_filtered3 %>% filter(ref_gene_annovar %in% acmg_genes, priority_score > 4) %>% select(-maxpriorityscore, -recessive_cnt)
+print("###acmg done### 70%")
 summaryInfo <- data.frame("sample" = args[5], "DxOutcome"= NA, "variant" = NA, "reviewer" = NA, "date" = NA)
 if (is.na(args[8])) {
   openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG59" = acmg, "all" = gemini_filtered1, "summary" = summaryInfo), file = args[6], firstRow = TRUE, firstCol = TRUE)
@@ -213,5 +215,5 @@ if (is.na(args[8])) {
        
     }
 }
-
+print("### 100%")
 
