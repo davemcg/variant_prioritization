@@ -443,7 +443,6 @@ rule VEP_annotate:
 			--plugin MaxEntScan,/data/OGVFB/resources/MaxEntScan \
 			--plugin CADD,/fdb/CADD/1.3/prescored/whole_genome_SNVs.tsv.gz,/fdb/CADD/1.3/prescored/InDels.tsv.gz \
 			--plugin MPC,/data/OGVFB/OGL_NGS/variant_prioritization/data/MPC/fordist_constraint_official_mpc_values_v2.txt.gz \
-			--canonical \
 			--ccds \
 			--total_length \
 			--hgvs \
@@ -465,7 +464,7 @@ rule VEP_annotate:
 		# tabix
 		tabix -f -p vcf {output.vcf}
 		"""
-#remove Grantham
+#remove Grantham. 5/21/2020: remove --canonical
 
 # annotate with vcfanno
 rule vcfanno_annotate:
