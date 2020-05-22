@@ -125,7 +125,7 @@ acmg_genes = c('ACTA2','ACTC1','APC','APOB','ATP7B','BMPR1A','BRCA1','BRCA2',
                'TNNT2','TP53','TPM1','TSC1','TSC2','VHL','WT1')
 acmg <- gemini_filtered3 %>% filter(ref_gene_annovar %in% acmg_genes, priority_score > 4) %>% select(-maxpriorityscore, -recessive_cnt)
 print("###acmg done### 70%")
-summaryInfo <- data.frame("sample" = args[5], "DxOutcome"= NA, "variant" = NA, "reviewer" = NA, "date" = NA)
+summaryInfo <- data.frame("sample" = args[5], "DxOutcome"= NA, "variant" = NA, "reviewer" = NA, "date" = NA, "2ndReviewer" = NA, "2ndReviewDate" = NA)
 if (is.na(args[8])) {
   openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG59" = acmg, "all" = gemini_filtered1, "summary" = summaryInfo), file = args[6], firstRow = TRUE, firstCol = TRUE)
 } else {
