@@ -63,7 +63,7 @@ ps_df <-  input_df %>% mutate(truncating_vep = ifelse(grepl("frameshift_variant|
            ifelse(pmaxaf >= 0.02, 0, other_predic_score) +
            ifelse(grepl("protein_altering_variant", CSQ, ignore.case = TRUE) & pmaxaf < 0.01 & Priority_Score_intervar < 5, 3, 0) +
            ifelse(grepl("missense_variant", CSQ, ignore.case = TRUE) & mis_z >= 3.09 & SigmaAF_Missense_0001 < 0.005 & pmaxaf < 0.005, 2, 0)) %>% 
-  mutate(priority_score = ifelse(priority_score < 5 & Ref_Gene_annovar == "ROM1" & truncating_vep == "1", 5, priority_score)) %>% 
+  mutate(priority_score = ifelse(priority_score < 5 & Ref_Gene == "ROM1" & truncating_vep == "1", 5, priority_score)) %>% 
   select(CHROM, POS, REF, ALT, priority_score, clinvar_hgmd_score, splice_score, other_predic_score, pmaxaf, truncating_vep)
 #pmaxaf cutoff increased to 0.005 from 0.0005; 4/14/2020
 #http://web.corral.tacc.utexas.edu/WGSAdownload/resources/dbNSFP/dbNSFP4.0b2c.readme.txt
