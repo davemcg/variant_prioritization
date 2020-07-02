@@ -316,7 +316,7 @@ rule spliceai_edit:
 # 		tabix -b 2 -e 2 -S 1 {output}
 # 		"""
 
-if config['datatype'] == "panel":
+if config['datatype'].upper() == "PANEL":
 	localrules: spliceai_intervar_edit
 	rule spliceai_intervar_edit:
 		input:
@@ -531,7 +531,7 @@ rule vcfanno2:
 		cp /home/$USER/git/variant_prioritization/src/vcfanno2.conf {output.new_conf}
 		priority_score_path=`echo {input.priority_score} | sed 's:/:\\\\\/:g'`
 		sed -i "s/priority_score_file/$priority_score_path/g" {output.new_conf}
-		vcfanno -p {threads} -lua {config[vcfanno_lua]} {output.new_conf} {input.vcf} | bgzip > {output.vcf}
+		vcfanno -p {threads} {output.new_conf} {input.vcf} | bgzip > {output.vcf}
 		"""
 
 
@@ -637,20 +637,34 @@ rule make_gemini_db:
 #		--skip-gene-tables --save-info-string needed? the size generated using load is 4x larger than vcf2db.py below, but the db file cannot be queried as before, probably only VEP fields are included.
 # 8/4/19:  --info-exclude MLEAF --info-exclude MLEAC because EU's exome data has 2 values in these two fields.
 localrules: query_gemini_individual
-rule query_gemini_individual:
-	input:
-		db = '{sample}.PED_{ped}.gemini.db',
-	output:
-		tsv = 'gemini_tsv/{sampleid}.{sample}.{ped}.gemini.tsv'
-	shell:
-		"""
-		module load {config[gemini_version]}
- 		gemini query -q \
-		"SELECT *, gt_types.{wildcards.sampleid}, gts.{wildcards.sampleid}, gt_phases.{wildcards.sampleid}, gt_depths.{wildcards.sampleid}, gt_alt_freqs.{wildcards.sampleid}, gt_quals.{wildcards.sampleid} FROM variants" \
-		--header --gt-filter "gt_types.{wildcards.sampleid} != HOM_REF AND gts.{wildcards.sampleid} != './.' " {input.db} > {output.tsv}
-		"""
+if config['datatype'].upper() == "WGS":
+	rule query_gemini_individual:
+		input:
+			db = '{sample}.PED_{ped}.gemini.db',
+		output:
+			tsv = 'gemini_tsv/{sampleid}.{sample}.{ped}.gemini.tsv'
+		shell:
+			"""
+			module load {config[gemini_version]}
+ 			gemini query -q \
+			"SELECT *, gt_types.{wildcards.sampleid}, gts.{wildcards.sampleid}, gt_phases.{wildcards.sampleid}, gt_depths.{wildcards.sampleid}, gt_alt_freqs.{wildcards.sampleid}, gt_quals.{wildcards.sampleid} FROM variants WHERE priority_score >= 0 OR priority_score = -0.5 OR priority_score = -1 OR priority_score = -1.5" \
+			--header --gt-filter "gt_types.{wildcards.sampleid} != HOM_REF AND gts.{wildcards.sampleid} != './.' " {input.db} > {output.tsv}
+			"""
+else:
+	rule query_gemini_individual:
+		input:
+			db = '{sample}.PED_{ped}.gemini.db',
+		output:
+			tsv = 'gemini_tsv/{sampleid}.{sample}.{ped}.gemini.tsv'
+		shell:
+			"""
+			module load {config[gemini_version]}
+ 			gemini query -q \
+			"SELECT *, gt_types.{wildcards.sampleid}, gts.{wildcards.sampleid}, gt_phases.{wildcards.sampleid}, gt_depths.{wildcards.sampleid}, gt_alt_freqs.{wildcards.sampleid}, gt_quals.{wildcards.sampleid} FROM variants" \
+			--header --gt-filter "gt_types.{wildcards.sampleid} != HOM_REF AND gts.{wildcards.sampleid} != './.' " {input.db} > {output.tsv}
+			"""
 
-if config['datatype'] == "panel":
+if config['datatype'].upper() == "PANEL":
 	localrules: sortGemini
 	rule sortGemini:
 		input:
