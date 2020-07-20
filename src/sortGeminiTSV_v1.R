@@ -44,8 +44,9 @@ gemini <-  gemini_input %>% mutate( start_vcf = start + 1 ) %>%
 # largeData <- read.csv("huge-file.csv", header = TRUE, colClasses = classes)
 
 
-OGLv1_gene_class <- read.delim(args[2], sep = "\t", header = T, colClasses = c("character","character","character") ) %>% 
-  select('gene', 'panel_class') %>% rename(ref_gene = gene)
+#panelGene <- read.delim(args[2], sep = "\t", header = T, colClasses = c("character","character","character") ) %>% 
+#  select('gene', 'panel_class') %>% rename(ref_gene = gene)
+panelGene <- read_xlsx(args[2], sheet = "analysis", na = c("NA", "", "None", ".")) %>% select(gene, panel_class) %>% rename(ref_gene = gene)
 
 # get max_priority_score for each gene
 max_priority_score <- select(gemini, c(ref_gene, priority_score)) %>% group_by(ref_gene) %>% summarize(maxpriorityscore = max(priority_score)) 
@@ -54,8 +55,9 @@ print("###max priority score### 20%")
 gemini_max_priority_score <- left_join(gemini, max_priority_score, by=c("ref_gene"))
 
 #VEP hg19 version's gene names are the same as in the IDT ordering design sheets. This is what used for left_join
-gemini_rearrangeCol <- left_join(gemini_max_priority_score, OGLv1_gene_class, by = c("ref_gene")) %>% 
+gemini_rearrangeCol <- left_join(gemini_max_priority_score, panelGene, by = c("ref_gene")) %>% 
   mutate(note = "") %>% 
+  mutate(eyeGene = ifelse(panel_class %in% c("Dx", "Candidate"), 1, 0)) %>% 
   select('chr_variant_id', 'sample', 'chrom', 'start_vcf', 'qual', 'filter', starts_with('gts'), starts_with('gt_'), 'aaf',
          'panel_class', 'priority_score', 'priority_score_intervar', 'clinvar_hgmd_score', 'splice_score', 'other_predic_score', 'pmaxaf', 'max_af', 'max_af_pops', 'gno_hom', 'ref_gene', 'note', 
          'exonicfunc_ensgene', 'refgenewithver', 'hgvsc', 'hgvsp', 'gene', 'exon', 'aa_length', 'omim_genesymbol', 'omim_inheritance', 'omim_phenotypes', 'pvs1', 'truncating_vep', 'hgmd_overlap', 'existing_variation', 'clinvar_intervar', 'intervar_and_evidence', 
@@ -70,7 +72,7 @@ gemini_rearrangeCol <- left_join(gemini_max_priority_score, OGLv1_gene_class, by
 write_tsv(gemini_rearrangeCol, path = args[3])
 print("###rearranged file written### 30%")
 gemini_filtered <- gemini_rearrangeCol %>% mutate(temp_group = ifelse(priority_score >= 3, 3, ifelse(priority_score >= -2, -2, -3))) %>% 
-  filter(temp_group >= -2, pmaxaf < 0.2, aaf < args[7]) %>% arrange(desc(temp_group), desc(maxpriorityscore), ref_gene, desc(priority_score)) %>% 
+  filter(temp_group >= -2, pmaxaf < 0.2, aaf < args[7]) %>% arrange(desc(eyeGene), desc(temp_group), desc(maxpriorityscore), ref_gene, desc(priority_score)) %>% 
   select(-temp_group)
 gemini_filtered0 <- gemini_filtered %>% select(-maxpriorityscore)
 # consider change to filter(priority_score > 10 | (temp_group >= -2, pmaxaf < 0.05, aaf < args[7]))
@@ -101,7 +103,7 @@ xD <- gemini_filtered3 %>% filter(chrom == "X", recessive_cnt == 1, pmaxaf < 0.0
 #ar gene with 1 hit will not be here.
 ar <- gemini_filtered3 %>% filter(!chrom %in% c("X", "Y"), !omim_inheritance %in% c("AD"), recessive_cnt >= 2) %>% 
   mutate(knownAR = ifelse(grepl("AR", omim_inheritance), 1, 0)) %>% 
-  arrange(desc(knownAR), desc(maxpriorityscore), ref_gene, desc(priority_score)) %>% 
+  arrange(desc(eyeGene), desc(knownAR), desc(maxpriorityscore), ref_gene, desc(priority_score)) %>% 
   mutate(note = ifelse(ref_gene == "PRPH2", "Check ROM1", note) ) %>% 
   select(-maxpriorityscore, -knownAR, -recessive_cnt)
 
@@ -109,7 +111,7 @@ ar <- gemini_filtered3 %>% filter(!chrom %in% c("X", "Y"), !omim_inheritance %in
 ad <- gemini_filtered3 %>% filter(!chrom %in% c("X", "Y"), 
                                   recessive_cnt == 1 & !omim_inheritance %in% c("AR") | recessive_cnt >=2 & grepl("AD", omim_inheritance),
                                   pmaxaf < 0.002, priority_score >= 5) %>% 
-  arrange(desc(maxpriorityscore), ref_gene, desc(priority_score)) %>% 
+  arrange(desc(eyeGene), desc(maxpriorityscore), ref_gene, desc(priority_score)) %>% 
   select(-maxpriorityscore, -recessive_cnt)
 print("###inheritance search done### 50%")
 #grepl("AD", omim_inheritance) | is.na(omim_inheritance)
