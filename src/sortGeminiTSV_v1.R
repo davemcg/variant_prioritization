@@ -26,6 +26,7 @@ gemini <-  gemini_input %>% mutate( start_vcf = start + 1 ) %>%
   unite("chr_variant_id", chrom, start_vcf, ref, alt, sep = "-", remove = FALSE ) %>% 
   mutate(gene = toupper(gene)) %>% 
   mutate(sample = args[5]) 
+rm(gemini_input)
 #  mutate(temp_gene = ifelse(grepl(",", gene_refgenewithver), gene, gene_refgenewithver)) 
 #InterVar seperate multiple genes for a variant to mulitple lines, then InterVar.R picks the gene with higher priority score. thus this might be safer
 #use InterVar gene annotation should be fine, thus remove this line.  ref_gene is from intervar
@@ -53,7 +54,7 @@ max_priority_score <- select(gemini, c(ref_gene, priority_score)) %>% group_by(r
 print("###max priority score### 20%")
 #arrange by max_priority_score, then by gene, and priority score. None gene region?
 gemini_max_priority_score <- left_join(gemini, max_priority_score, by=c("ref_gene"))
-
+rm(gemini)
 #VEP hg19 version's gene names are the same as in the IDT ordering design sheets. This is what used for left_join
 gemini_rearrangeCol <- left_join(gemini_max_priority_score, panelGene, by = c("ref_gene")) %>% 
   mutate(note = "") %>% 
