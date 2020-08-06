@@ -246,7 +246,8 @@ rule annovar_intervar:
 if config['spliceai_wrapper'] == 'TRUE':
 	rule spliceai_wrapper:
 		input:
-			'temp/vt.{sample}__{region}.vcf.gz'
+			vcf = 'temp/vt.{sample}__{region}.vcf.gz',
+			index = 'temp/vt.{sample}__{region}.vcf.gz.tbi'
 		output:
 			vcf = temp('temp/spliceai.{sample}__{region}.vcf.gz'),
 			index = temp('temp/spliceai.{sample}__{region}.vcf.gz.tbi')
@@ -255,7 +256,7 @@ if config['spliceai_wrapper'] == 'TRUE':
 			module load {config[spliceai-wrapper_version]}
 			module load {config[samtools_version]}
 			spliceai-wrapper annotate \
-				--input-vcf {input} \
+				--input-vcf {input.vcf} \
 				--output-vcf {output.vcf} \
 				--precomputed-db-path /data/OGVFB/OGL_NGS/variant_prioritization/data/spliceai_wrapper/precomputed.sqlite3 \
 				--cache-db-path /data/OGVFB/OGL_NGS/variant_prioritization/data/spliceai_wrapper/cache.sqlite3 \
@@ -267,7 +268,8 @@ if config['spliceai_wrapper'] == 'TRUE':
 else:
 	rule spliceai:
 		input:
-			'temp/vt.{sample}__{region}.vcf.gz'
+			vcf = 'temp/vt.{sample}__{region}.vcf.gz',
+			index = 'temp/vt.{sample}__{region}.vcf.gz.tbi'
 		output:
 			vcf = temp('temp/spliceai.{sample}__{region}.vcf.gz'),
 			index = temp('temp/spliceai.{sample}__{region}.vcf.gz.tbi')
@@ -275,7 +277,7 @@ else:
 			"""
 			module load {config[spliceai_version]}
 			module load {config[samtools_version]}
-			spliceai -I {input} -R {config[ref_genome]} -A grch37 -D 500 -M 1 -O {output.vcf}
+			spliceai -I {input.vcf} -R {config[ref_genome]} -A grch37 -D 500 -M 1 -O {output.vcf}
 			tabix -f -p vcf {output.vcf}
 			"""
 ##spliceAI: -M 1: Mask scores representing annotated acceptor/donor gain and unannotated acceptor/donor loss (default: 0). SpliceAI authors recommend using raw files for alternative splicing analysis and masked files for variant interpretation.
@@ -422,7 +424,8 @@ else:
 
 rule VEP_annotate:
 	input:
-		'temp/vt.{sample}__{region}.vcf.gz'
+		vcf = 'temp/vt.{sample}__{region}.vcf.gz',
+		index = 'temp/vt.{sample}__{region}.vcf.gz.tbi'
 	output:
 		vcf = temp('temp/{sample}__{region}.SORTED.VT.VEP.vcf.gz'),
 		index = temp('temp/{sample}__{region}.SORTED.VT.VEP.vcf.gz.tbi')
@@ -432,7 +435,7 @@ rule VEP_annotate:
 		"""
 		module load {config[VEP_version]}
 		module load {config[samtools_version]}
-		vep -i {input} --offline \
+		vep -i {input.vcf} --offline \
 			--cache --dir_cache $VEPCACHEDIR \
 			--fasta $VEPCACHEDIR/GRCh37.fa --species human --assembly GRCh37  \
 			--format vcf \
