@@ -277,10 +277,11 @@ else:
 			"""
 			module load {config[spliceai_version]}
 			module load {config[samtools_version]}
-			spliceai -I {input.vcf} -R {config[ref_genome]} -A grch37 -D 500 -M 1 -O {output.vcf}
+			spliceai -I {input.vcf} -R {config[ref_genome]} -A grch37 -D 500 -M 0 -O {output.vcf}
 			tabix -f -p vcf {output.vcf}
 			"""
 ##spliceAI: -M 1: Mask scores representing annotated acceptor/donor gain and unannotated acceptor/donor loss (default: 0). SpliceAI authors recommend using raw files for alternative splicing analysis and masked files for variant interpretation.
+## changed to -M 0 on 8/7/2020 because of pax6 variant.
 localrules: spliceai_edit
 rule spliceai_edit:
 	input:
