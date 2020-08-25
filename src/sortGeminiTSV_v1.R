@@ -85,8 +85,10 @@ gemini_filtered1 <- gemini_filtered %>% filter(priority_score >= 3) %>% select(-
 gemini_filtered2 <- gemini_filtered %>% filter(priority_score >= 4) %>% 
   rename_all(funs(str_replace(., args[5], ""))) %>% 
   mutate(temp_ref_gene = case_when(ref_gene %in% c("ROM1", "PRPH2") ~ "PRPH2-ROM1",
-                                           ref_gene %in% c("PCDH15", "CDH23") ~ "PCDH15-CDH23",
-                                           TRUE ~ ref_gene)) # digenic recessive
+                                   ref_gene %in% c("PCDH15", "CDH23") ~ "PCDH15-CDH23",
+                                   ref_gene %in% c("CNGA3", "CNGB3") ~ "CNGA3-CNGB3",
+                                   ref_gene %in% c("CNGA1", "CNGB1") ~ "CNGA1-CNGB1",
+                                   TRUE ~ ref_gene)) # digenic recessive
 
 recessive_count <- select(gemini_filtered2, c(temp_ref_gene, priority_score, gt_types.)) %>%
   filter(priority_score >= 5) %>% select(-priority_score) %>% 
