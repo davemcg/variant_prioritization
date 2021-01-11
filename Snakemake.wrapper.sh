@@ -5,7 +5,7 @@
 # $2 - --notemp --dryrun --unlock
 # $3 non-default json file
 
-module load snakemake/5.7.4 || exit 1
+module load snakemake/5.24.1 || exit 1
 
 cp /data/OGL/resources/variant_prioritization.git.log .
 mkdir -p 00log
@@ -32,7 +32,7 @@ snakemake -s /home/$USER/git/variant_prioritization/src/Snakefile \
 --configfile $1 \
 --cluster-config $json \
 --cluster "$sbcmd"  --latency-wait 120 --rerun-incomplete \
--k --restart-times 1 --resources res=1 $2
+-k --restart-times 0 --resources res=1 $2
 
 # --notemp Ignore temp() declaration;
 # --dryrun 

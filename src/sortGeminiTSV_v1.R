@@ -13,7 +13,7 @@
 args <- commandArgs(trailingOnly=TRUE)
 
 # args <- c("W:/ddl_nisc_custom_capture/042020/freebayesPrioritization/gemini_tsv/108976P.20200420.freebayes.nisc100.gemini.tsv",
-#           "Z:/OGL_NGS/variant_prioritization/data/OGLv1_panel_DxORcandidate.tsv", "rearranged.tsv", "filtered.tsv", "108976P", "filtered.xlsx", "0.5", "W:/ddl_nisc_custom_capture/042020/CoNVaDING/CNV_hiSens/108976P.b37.aligned.only.best.score.shortlist.txt")
+#           "Z:/resources/OGLpanelGeneDxORcandidate.xlsx", "rearranged.tsv", "filtered.tsv", "108976P", "filtered.xlsx", "0.5", "W:/ddl_nisc_custom_capture/042020/CoNVaDING/CNV_hiSens/108976P.b37.aligned.only.best.score.shortlist.txt")
 
 library(tidyverse)
 library(readxl)
@@ -58,7 +58,9 @@ rm(gemini)
 #VEP hg19 version's gene names are the same as in the IDT ordering design sheets. This is what used for left_join
 gemini_rearrangeCol <- left_join(gemini_max_priority_score, panelGene, by = c("ref_gene")) %>% 
   mutate(note = "") %>% 
-  mutate(eyeGene = ifelse(panel_class %in% c("Dx", "Candidate"), 1, 0)) %>% 
+  mutate(eyeGene = case_when(panel_class == "Dx" ~ 2,
+                             panel_class == "Candidate" ~ 1,
+                             TRUE ~ 0)) %>% 
   select('chr_variant_id', 'sample', 'chrom', 'start_vcf', 'qual', 'filter', starts_with('gts'), starts_with('gt_'), 'aaf',
          'panel_class', 'priority_score', 'priority_score_intervar', 'clinvar_hgmd_score', 'splice_score', 'other_predic_score', 'pmaxaf', 'max_af', 'max_af_pops', 'gno_hom', 'ref_gene', 'note', 
          'exonicfunc_ensgene', 'refgenewithver', 'hgvsc', 'hgvsp', 'gene', 'exon', 'aa_length', 'omim_genesymbol', 'omim_inheritance', 'omim_phenotypes', 'pvs1', 'truncating_vep', 'hgmd_overlap', 'existing_variation', 'clinvar_intervar', 'intervar_and_evidence', 
@@ -70,7 +72,7 @@ gemini_rearrangeCol <- left_join(gemini_max_priority_score, panelGene, by = c("r
          'eyeintegration_rnaseq_tpm_rpe_adulttissue', 'eyeintegration_rnaseq_tpm_rpe_cellline', 'eyeintegration_rnaseq_tpm_rpe_fetaltissue', 'eyeintegration_rnaseq_tpm_rpe_stemcellline', 'eyeintegration_rnaseq_tpm_retina_adulttissue', 'eyeintegration_rnaseq_tpm_retina_stemcellline', 'eyeintegration_rnaseq_tpm_wholeblood', 
          'start', 'end', 'ref', 'alt', 'exac_num_hom_alt', 'popfreqmax_annovar', 'gnomad_exome_all_annovar', 'gnomad_genome_all_annovar', 'freq_esp6500siv2_all_annovar', 'freq_1000g2015aug_all_annovar', 'aaf_esp_all', 'aaf_1kg_all', 'af_exac_all', 'pubmed', everything() )
 #4/12/20: removed 'chr_annovar', 'start_annovar', 'ref_annovar', 'alt_annovar',
-write_tsv(gemini_rearrangeCol, path = args[3])
+write_tsv(gemini_rearrangeCol, file = args[3])
 print("###rearranged file written### 30%")
 gemini_filtered <- gemini_rearrangeCol %>% mutate(temp_group = ifelse(priority_score >= 3, 3, ifelse(priority_score >= -2, -2, -3))) %>% 
   filter(temp_group >= -2, pmaxaf < 0.2, aaf < args[7]) %>% arrange(desc(eyeGene), desc(temp_group), desc(maxpriorityscore), ref_gene, desc(priority_score)) %>% 
@@ -78,7 +80,23 @@ gemini_filtered <- gemini_rearrangeCol %>% mutate(temp_group = ifelse(priority_s
 gemini_filtered0 <- gemini_filtered %>% select(-maxpriorityscore)
 # consider change to filter(priority_score > 10 | (temp_group >= -2, pmaxaf < 0.05, aaf < args[7]))
 
-write_tsv(gemini_filtered0, path = args[4])
+write_tsv(gemini_filtered0, file = args[4])
+
+#consider adding manta to the main gemini df for sorting/filtering after knowing the specificity of the manta calls. To better sort AR, AD, and ACMG 2nd.
+manta <- read_tsv(args[8], col_names = TRUE, na = c("NA", "", "None", "."), col_types = cols(.default = col_character())) %>%
+  filter(FILTER == 'PASS', `AnnotSV type` == 'split') %>%
+  type_convert() %>% 
+  filter(`AnnotSV ranking` > 2, abs(`SV length`) < 1000000, GD_POPMAX_AF < 0.02, `1000g_AF` < 0.02) %>% 
+  separate(location, c('temp_location1', 'temp_location2'), sep = "-", remove = FALSE, convert = FALSE) %>% 
+  filter(!(grepl("intron", location) & temp_location1 == temp_location2)) %>% 
+  select(-starts_with('temp_')) %>% 
+  rename(ref_gene = `Gene name`)
+manta_sort <- left_join(manta, panelGene, by = c("ref_gene")) %>% 
+  mutate(note = "") %>% 
+  mutate(eyeGene = case_when(panel_class == "Dx" ~ 2,
+                             panel_class == "Candidate" ~ 1,
+                             TRUE ~ 0)) %>% 
+  arrange(desc(eyeGene))
 
 gemini_filtered1 <- gemini_filtered %>% filter(priority_score >= 3) %>% select(-maxpriorityscore)
   
@@ -131,13 +149,13 @@ acmg_genes = c('ACTA2','ACTC1','APC','APOB','ATP7B','BMPR1A','BRCA1','BRCA2',
 acmg <- gemini_filtered3 %>% filter(ref_gene %in% acmg_genes, priority_score > 4) %>% select(-maxpriorityscore, -recessive_cnt)
 print("###acmg done### 70%")
 summaryInfo <- data.frame("sample" = args[5], "DxOutcome"= NA, "variant" = NA, "reviewer" = NA, "date" = NA, "2ndReviewer" = NA, "2ndReviewDate" = NA)
-if (is.na(args[8])) {
-  openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG59" = acmg, "all" = gemini_filtered1, "summary" = summaryInfo), file = args[6], firstRow = TRUE, firstCol = TRUE)
+if (is.na(args[9])) {
+  openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG59" = acmg, "all" = gemini_filtered1, "manta" = manta_sort, "summary" = summaryInfo), file = args[6], firstRow = TRUE, firstCol = TRUE)
 } else {
-    cnv <- read_tsv(args[8], col_names = TRUE, na = c("NA", "", "None", "."), col_types = cols(.default = col_character())) %>%
+    cnv <- read_tsv(args[9], col_names = TRUE, na = c("NA", "", "None", "."), col_types = cols(.default = col_character())) %>%
       type_convert() 
     if (dim(cnv)[1] == 0) {
-      openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG59" = acmg, "all" = gemini_filtered1, "summary" = summaryInfo), file = args[6], firstRow = TRUE, firstCol = TRUE)
+      openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG59" = acmg, "all" = gemini_filtered1, "manta" = manta_sort, "summary" = summaryInfo), file = args[6], firstRow = TRUE, firstCol = TRUE)
     } else {
       cnv_gene <- as.list(distinct(cnv, GENE)[[1]])
       #cnv_gene <- dplyr::pull(cnv, GENE) #pull column as a vector
@@ -149,7 +167,7 @@ if (is.na(args[8])) {
         select('chr_variant_id', 'chrom', 'start', 'qual', 'filter', starts_with('gts'), starts_with('gt_'), 'LAF', 'ref_gene', 'exon', 'ref_gene',  
               'refgenewithver', 'exonicfunc_refgenewithver', 'hgvsc', 'hgvsp', 'type') %>% 
         rename(gene = ref_gene)
-      openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG59" = acmg, "all" = gemini_filtered1, "CoNVaDING" = cnv, "CNV-variant" = cnv_variant, "summary" = summaryInfo), file = args[6], firstRow = TRUE, firstCol = TRUE)
+      openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG59" = acmg, "all" = gemini_filtered1, "CoNVaDING" = cnv, "CNV-variant" = cnv_variant, "manta" = manta_sort, "summary" = summaryInfo), file = args[6], firstRow = TRUE, firstCol = TRUE)
       cnv_edit <- cnv %>% 
         mutate(START = START - 100, STOP = STOP + 100, type = "snp") %>% #padding of 100 nt
         gather(START:STOP, key = "datatype", value = "position") %>% 
@@ -187,7 +205,7 @@ if (is.na(args[8])) {
           theme(axis.text.x  = element_blank(), axis.text.y  = element_text(size=16)) +
           theme(axis.title.x = element_text(size=16), axis.title.y = element_text(size=16)) +
           theme(legend.position = "right") 
-        ggsave(args[9], plot = plot_pdf, width = 16, height = 8 * length(cnv_gene), units = "cm")
+        ggsave(args[10], plot = plot_pdf, width = 16, height = 8 * length(cnv_gene), units = "cm")
       } else if (length(cnv_gene) <= 12) {
         plot_pdf <- ggplot(variantForPlot, aes(x= variant_no, y = LAF, color = DepthGroup, shape = type)) + 
           scale_color_brewer(palette = "Set1") +
@@ -201,7 +219,7 @@ if (is.na(args[8])) {
           theme(axis.text.x  = element_blank(), axis.text.y  = element_text(size=8)) +
           theme(axis.title.x = element_text(size=8), axis.title.y = element_text(size=8)) +
           theme(legend.title = element_blank(), legend.position = 'none') 
-        ggsave(args[9], plot = plot_pdf, width = 32, height = 4 * length(cnv_gene), units = "cm")
+        ggsave(args[10], plot = plot_pdf, width = 32, height = 4 * length(cnv_gene), units = "cm")
       } else {
         plot_pdf <- ggplot(variantForPlot, aes(x= variant_no, y = LAF, color = DepthGroup, shape = type)) + 
           scale_color_brewer(palette = "Set1") +
@@ -215,7 +233,7 @@ if (is.na(args[8])) {
          # theme(axis.text.x  = element_text(size=8), axis.text.y  = element_text(size=8)) +
          # theme(axis.title.x = element_text(size=16), axis.title.y = element_text(size=16)) +
           theme(legend.title = element_blank(), legend.position = 'none') 
-        ggsave(args[9], plot = plot_pdf, width = 48, height = 4/6 * length(cnv_gene), units = "cm", limitsize = FALSE)
+        ggsave(args[10], plot = plot_pdf, width = 48, height = 4/6 * length(cnv_gene), units = "cm", limitsize = FALSE)
       } 
        
     }

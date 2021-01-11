@@ -14,7 +14,7 @@
 ## Intervar - select one gene for each variant
 
 args <- commandArgs(trailingOnly=TRUE)
-#args <- c("temp/20200422.freebayes__1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,X,Y.avinput.hg19_multianno.txt.intervar", "temp/20200422.freebayes__1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,X,Y.avinput.hg19_multianno.spliceai.txt",  "Y:/resources/HGMD/HGMDtranscript.txt", "temp/20200422.freebayes__1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,X,Y.spliceai_annovar_intervar")
+#args <- c("temp/20201206.deepvaraint.WES__1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,X,Y.avinput.hg19_multianno.txt.intervar", "temp/20201206.deepvaraint.WES__1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,X,Y.avinput.hg19_multianno.spliceai.txt", "temp/spliceai.20201206.deepvaraint.WES__1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,X,Y.tsv.cut", "Y:/resources/HGMD/HGMDtranscript.txt", "temp/20200422.freebayes__1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,X,Y.spliceai_annovar_intervar")
 
 library(tidyverse)
 
@@ -40,12 +40,18 @@ annovar <- read.delim(args[2], sep = "\t", header = TRUE, na.strings = c("."),
                                      "character","character","character","character","character","character","character","character","character","character",
                                      "character","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric",
                                      "numeric","numeric","numeric","character","character","numeric","factor","integer","character","character",
-                                     "character","numeric","factor","character","numeric","integer") ) %>% 
+                                     "character","numeric","factor") ) %>% 
   unite("variantkey_annovar", Chr:Alt, sep = "_", remove = FALSE) %>% 
   group_by(variantkey_annovar) %>%
   slice(which.max(QUAL))
 
-HGMD <- read_tsv(args[3], col_names = TRUE, na = c("NA", "", "None", "."), col_types = cols(.default = col_character()))
+spliceai <- read.delim(args[3], sep = "\t", header = TRUE, na.strings = c("."),
+                       colClasses = c("factor","integer","character","character","character","character","numeric","integer") ) %>% 
+  select("CHROM", "POS", "REF", "ALT", "SpliceAI", "spliceai_maxscore", "spliceai_rank")
+
+annovar <- left_join(annovar, spliceai, by = c("CHROM", "POS", "REF", "ALT"))
+rm(spliceai)
+HGMD <- read_tsv(args[4], col_names = TRUE, na = c("NA", "", "None", "."), col_types = cols(.default = col_character()))
 hgmdNM <- dplyr::pull(HGMD, name)
 
 mapHGMD <- function(x){
@@ -110,6 +116,6 @@ annovar_inter <- merge(x = annovar, y = intervar_for_sorting,
   replace_na(list(ID = ".", refgenewithver = ".")) 
 #Ref.Gene is from InterVar, Annovar calls this column as Gene.refGene
 
-write_tsv(annovar_inter, file.path('.', args[4]))
+write_tsv(annovar_inter, file.path('.', args[5]))
 
 #  replace_na(list(GeneDetail.refGeneWithVer = "", AAChange.refGeneWithVer = "")) %>% 

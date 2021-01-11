@@ -8,6 +8,14 @@
 		"error" : "00log/{rule}_{wildcards}.err",
 		"extra" : ""
 	},
+	"n_split_vcf" :
+	{
+		"extra" : "--gres=lscratch:50"
+	},
+	"vt_bgzip_and_tabix_vcf" :
+	{
+		"extra" : "--gres=lscratch:50"
+	},
   "spliceai_wrapper" :
   {
     "partition" : "gpu",
@@ -18,9 +26,10 @@
 	"spliceai" :
 	{
 		"partition" : "gpu",
-		"extra" : "--gres=gpu:p100:1,lscratch:100",
-		"mem" : "20g",
-		"time" : "24:00:00"
+		"extra" : "--constraint='[gpuv100|gpup100|gpuv100x]' --gres=gpu:1,lscratch:100 ",
+		"mem" : "16g",
+		"time" : "8:00:00",
+		"threads" : "8"
 	},
 	"VEP_annotate" :
 	{
@@ -55,7 +64,8 @@
 	{
 		"partition" : "norm",
 		"time" : "8:00:00",
-		"mem" : "164g"
+		"mem" : "164g",
+		"extra" : "--gres=lscratch:200"
 	},
 	"sort_tabix" :
 	{

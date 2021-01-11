@@ -137,7 +137,7 @@ rule n_split_vcf:
 		index = temp('temp/{sample}__{region}.vcf.gz.tbi')
 	shell:
 		"""
-		export REF_CACHE=/scratch/$SLURM_JOB_ID/
+		export REF_CACHE=/lscratch/$SLURM_JOB_ID/
 		module load {config[samtools_version]}
 		if [[ {wildcards.region} != "MT_contigs" ]]; then
 			bcftools view -r {wildcards.region} {input.vcf} | bgzip > {output.vcf}
@@ -156,13 +156,13 @@ if config['freebayes_vcf'] == 'TRUE':
 			index = temp('temp/vt.{sample}__{region}.vcf.gz.tbi')
 		shell:
 			"""
-			export REF_CACHE=/scratch/$SLURM_JOB_ID/
+			export REF_CACHE=/lscratch/$SLURM_JOB_ID/
 			module load {config[samtools_version]}
 			module load {config[vt_version]}
 			zcat {input} \
 				| vt decompose -s - \
 				| vt normalize -n -r {config[ref_genome]} - \
-				| bgzip -c > {output.vcf}
+				| bcftools norm -d none --output-type z -o {output.vcf}
 			tabix -f -p vcf {output.vcf}
 			"""
 else:
@@ -174,7 +174,7 @@ else:
 			index = temp('temp/vt.{sample}__{region}.vcf.gz.tbi')
 		shell:
 			"""
-			export REF_CACHE=/scratch/$SLURM_JOB_ID/
+			export REF_CACHE=/lscratch/$SLURM_JOB_ID/
 			module load {config[samtools_version]}
 			module load {config[vt_version]}
 			zcat {input} \
@@ -230,7 +230,6 @@ rule annovar_intervar:
 			--polish -nastring . \
 			--thread {threads} \
 			--otherinfo
-		module unload {config[annovar_version]}
 		module load {config[InterVar_version]}
 		InterVar \
 			-i {output.avinput} \
@@ -240,8 +239,6 @@ rule annovar_intervar:
 			-o {output.avinput} \
 			--skip_annovar
 		"""
-#		module load {config[annovar_version]}
-#		annovar_out = temp('temp/{sample}__{region}.avinput.hg19_multianno.txt'),
 
 if config['spliceai_wrapper'] == 'TRUE':
 	rule spliceai_wrapper:
@@ -271,15 +268,27 @@ else:
 			vcf = 'temp/vt.{sample}__{region}.vcf.gz',
 			index = 'temp/vt.{sample}__{region}.vcf.gz.tbi'
 		output:
+			barevcf = temp('temp/{sample}__{region}.bare.vcf.gz'),
+			barevcfindex = temp('temp/{sample}__{region}.bare.vcf.gz.tbi'),
+			new_anno_spliceai = temp('temp/{sample}__{region}.new.spliceai.vcf.gz'),
+			new_anno_spliceai_index = temp('temp/{sample}__{region}.new.spliceai.vcf.gz.tbi'),
 			vcf = temp('temp/spliceai.{sample}__{region}.vcf.gz'),
 			index = temp('temp/spliceai.{sample}__{region}.vcf.gz.tbi')
+		threads: 8
 		shell:
 			"""
+			module load {config[samtools_version]} && echo "samtools loaded" || exit 1
+			echo -e "##fileformat=VCFv4.2\n#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO" > /lscratch/$SLURM_JOB_ID/vcf.header && echo "vcf.header" || exit 1
+			( bcftools view --no-header -Ov {input.vcf} | awk -F"\t" 'BEGIN{{OFS="\t"}} {{print $1,$2,".",$4,$5,".",".","."}}' - | cat /lscratch/$SLURM_JOB_ID/vcf.header - | bgzip -c > {output.barevcf} ) && echo "barevcf" || exit 1
+			tabix -f -p vcf {output.barevcf} && echo "index barevcf" || exit 1
+			bcftools isec -Oz -p /lscratch/$SLURM_JOB_ID {output.barevcf} /data/OGL/resources/spliceai/spliceai500.depot.vcf.gz && echo "isec" || exit 1
 			module load {config[spliceai_version]}
-			module load {config[samtools_version]}
-			spliceai -I {input.vcf} -R {config[ref_genome]} -A grch37 -D 500 -M 0 -O {output.vcf}
+			spliceai -I /lscratch/$SLURM_JOB_ID/0000.vcf.gz -R {config[ref_genome]} -A grch37 -D 500 -M 0 -O {output.new_anno_spliceai} && echo "spliceai" || exit 1
+			tabix -f -p vcf {output.new_anno_spliceai}
+			bcftools concat --threads {threads} -a {output.new_anno_spliceai} /lscratch/$SLURM_JOB_ID/0003.vcf.gz | bcftools sort -T /lscratch/$SLURM_JOB_ID/ -m 16G -Oz -o {output.vcf}
 			tabix -f -p vcf {output.vcf}
 			"""
+#| head -n 500 | grep "^#" | awk -F"\t" 'BEGIN{{OFS="\t"}} /^##/ {{print $0; next;}} !/^##/ {{print $1,$2,$3,$4,$5,$6,$7,$8}}' - > /lscratch/$SLURM_JOB_ID/ this line was fine in sinteractive but threw error code in snakemake run
 ##spliceAI: -M 1: Mask scores representing annotated acceptor/donor gain and unannotated acceptor/donor loss (default: 0). SpliceAI authors recommend using raw files for alternative splicing analysis and masked files for variant interpretation.
 ## changed to -M 0 on 8/7/2020 because of pax6 variant.
 localrules: spliceai_edit
@@ -288,7 +297,7 @@ rule spliceai_edit:
 		'temp/spliceai.{sample}__{region}.vcf.gz'
 	output:
 		tsv = temp('temp/spliceai.{sample}__{region}.tsv'),
-		tsv_cut = 'temp/spliceai.{sample}__{region}.tsv.cut'
+		tsv_cut = temp('temp/spliceai.{sample}__{region}.tsv.cut')
 	#	index = temp('temp/spliceai.vt.{sample}__{region}.tsv.gz.tbi')
 	shell:
 	# use spliceai_vcfanno_v3.sh file for non-split files
@@ -297,9 +306,9 @@ rule spliceai_edit:
 		module load {config[VCF-kit_version]}
 		vk vcf2tsv wide --print-header {input} > {output.tsv}
 		cut -f 1-5,$(head -1 {output.tsv} | sed "s/\\t/\\n/g" | grep -n "^SpliceAI$" | cut -f 1 -d:) {output.tsv} \
-		| awk -F"\t" 'BEGIN{{OFS="\t"}} !/,/ {{split($6, splices, "|"); max = splices[3]; for(m = 3; m <=6; m++) {{if(max<splices[m]) max = splices[m]}} print $0,max; next; }} /,/ {{n = split($6,annotation,","); max = 0; for (i = 1; i <=n; i++) {{split(annotation[i],splices,"|"); for(m = 3; m <=6; m++) {{if(max<splices[m]) max = splices[m]}}; }}; print $0,max }}' - \
+		| awk -F"\t" 'BEGIN{{OFS="\t"}} !/,/ {{split($6, splices, "|"); max = splices[3]; for(m = 3; m <=6; m++) {{if(max<splices[m]) max = splices[m]}} print $0,max; next; }} /,/ {{n = split($6,annotation,","); max = 0; anno = annotation[1]; for (i = 1; i <=n; i++) {{split(annotation[i],splices,"|"); for(m = 3; m <=6; m++) {{if(max<splices[m]) {{max = splices[m]; anno = annotation[i]}}}}; }}; print $1,$2,$3,$4,$5,anno,max }}' - \
 		| awk -F"\t" 'BEGIN{{OFS="\t"}} NR==1 {{$7="spliceai_maxscore"; print $0}} NR>1 {{if ($6==".") {{$7="."; print $0}} else {{print $0}} }}' - \
-		| awk -F"\t" 'BEGIN{{OFS="\t"}} NR==1 {{$8="spliceai_rank"; print $6, $7, $8}} NR>1 {{ if ($7==".") {{$8 = 0}} else {{ if ($7 >= 0.8) {{$8 = 8}} else {{if ($7 >= 0.5) {{$8 = 6}} else {{if ($7 >= 0.2) {{$8 = 3}} else {{if ($7 >= 0.15) {{$8 = 1}} else {{$8 = 0}}}}}} }}}}; print $6, $7, $8}}' -  > {output.tsv_cut}
+		| awk -F"\t" 'BEGIN{{OFS="\t"}} NR==1 {{$8="spliceai_rank"; print $0}} NR>1 {{ if ($7==".") {{$8 = 0}} else {{ if ($7 >= 0.8) {{$8 = 8}} else {{if ($7 >= 0.5) {{$8 = 6}} else {{if ($7 >= 0.2) {{$8 = 3}} else {{if ($7 >= 0.15) {{$8 = 1}} else {{$8 = 0}}}}}} }}}}; print $0}}' -  > {output.tsv_cut}
 		"""
 #Snakemake use {} as special wildcard, need to replace with {{}}.
 #Also better use double quotation marks "" instead of ''.
@@ -334,10 +343,11 @@ if config['datatype'].upper() == "PANEL":
 		shell:
 			"""
 			module load {config[R_version]}
-			cut -f -133 {input.annovar} | sed "1 s/Otherinfo1\tOtherinfo2\tOtherinfo3\tOtherinfo4\tOtherinfo5\tOtherinfo6\tOtherinfo7/CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER/" - | paste - {input.spliceai} > {output.intermediate}
+			cut -f -133 {input.annovar} | sed "1 s/Otherinfo1\tOtherinfo2\tOtherinfo3\tOtherinfo4\tOtherinfo5\tOtherinfo6\tOtherinfo7/CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER/" - > {output.intermediate}
 			Rscript {config[intervar_Rscript_path]} \
 				{input.intervar} \
 				{output.intermediate} \
+				{input.spliceai} \
 				{config[HGMDtranscript]} \
 				{output.spliceai_intervar}
 			module load {config[samtools_version]}
@@ -346,6 +356,7 @@ if config['datatype'].upper() == "PANEL":
 			tabix -b 2 -e 2 -S 1 {output.gz}
 			"""
 else:
+	localrules: spliceai_intervar_edit
 	rule spliceai_intervar_edit:
 		input:
 			spliceai = 'temp/spliceai.{sample}__{region}.tsv.cut',
@@ -359,10 +370,11 @@ else:
 		shell:
 			"""
 			module load {config[R_version]}
-			cut -f -133 {input.annovar} | sed "1 s/Otherinfo1\tOtherinfo2\tOtherinfo3\tOtherinfo4\tOtherinfo5\tOtherinfo6\tOtherinfo7/CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER/" - | paste - {input.spliceai} > {output.intermediate}
+			cut -f -133 {input.annovar} | sed "1 s/Otherinfo1\tOtherinfo2\tOtherinfo3\tOtherinfo4\tOtherinfo5\tOtherinfo6\tOtherinfo7/CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER/" - > {output.intermediate}
 			Rscript {config[intervar_Rscript_path]} \
 				{input.intervar} \
 				{output.intermediate} \
+				{input.spliceai} \
 				{config[HGMDtranscript]} \
 				{output.spliceai_intervar}
 			module load {config[samtools_version]}
@@ -558,22 +570,46 @@ rule tweak_header:
 
 
 # merge vcfs into one again
-rule merge_vcf:
-	input:
-		vcf = expand('temp/{{sample}}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz', region=REGIONS),
-		index = expand('temp/{{sample}}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz.tbi', region=REGIONS)
-	output:
-		vcf = '{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz',
-		index = '{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz.tbi'
-	threads: 16
-	shell:
-		"""
-		export REF_CACHE=/scratch/$SLURM_JOB_ID/
-		module load {config[samtools_version]}
-		bcftools concat --threads {threads} {input.vcf} | bcftools sort -T /scratch/$SLURM_JOB_ID/ -m 100G -O z -o {output.vcf}
-		tabix -f -p vcf {output.vcf}
-		"""
-
+if config['spliceai_wrapper'] == 'TRUE':
+	rule merge_vcf:
+		input:
+			vcf = expand('temp/{{sample}}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz', region=REGIONS),
+			index = expand('temp/{{sample}}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz.tbi', region=REGIONS)
+		output:
+			vcf = '{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz',
+			index = '{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz.tbi'
+		threads: 16
+		shell:
+			"""
+			export REF_CACHE=/lscratch/$SLURM_JOB_ID/
+			module load {config[samtools_version]}
+			bcftools concat --threads {threads} {input.vcf} | bcftools sort -T /lscratch/$SLURM_JOB_ID/ -m 100G -O z -o {output.vcf}
+			tabix -f -p vcf {output.vcf}
+			"""
+else:
+	rule merge_vcf:
+		input:
+			vcf = expand('temp/{{sample}}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz', region=REGIONS),
+			index = expand('temp/{{sample}}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz.tbi', region=REGIONS),
+			spliceai_vcf = expand('temp/{{sample}}__{region}.new.spliceai.vcf.gz', region=REGIONS),
+			spliceai_index = expand('temp/{{sample}}__{region}.new.spliceai.vcf.gz.tbi', region=REGIONS)
+		output:
+			vcf = '{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz',
+			index = '{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz.tbi'
+		threads: 16
+		shell:
+			"""
+			export REF_CACHE=/lscratch/$SLURM_JOB_ID/
+			module load {config[samtools_version]}
+			bcftools concat --threads {threads} {input.vcf} | bcftools sort -T /lscratch/$SLURM_JOB_ID/ -m 100G -O z -o {output.vcf}
+			tabix -f -p vcf {output.vcf}
+			( bcftools concat --threads {threads} -a --rm-dups none --no-version \
+				/data/OGL/resources/spliceai/spliceai500.depot.vcf.gz {input.spliceai_vcf} \
+				| bcftools sort -T /lscratch/$SLURM_JOB_ID/ -m 100G -Oz -o /lscratch/$SLURM_JOB_ID/spliceai500.depot.vcf.gz ) || exit 1
+			tabix -f -p vcf /lscratch/$SLURM_JOB_ID/spliceai500.depot.vcf.gz || exit 1
+			cp /lscratch/$SLURM_JOB_ID/spliceai500.depot.vcf.gz* /data/OGL/resources/spliceai
+			"""
+#spliceai file merge step took ~ 1hour for the 4gb first 500 files.
 #if config['re_sort'] == 'TRUE':
 	# ensure that the concat didn't mess up the order
 #	rule sort_tabix:
@@ -681,7 +717,7 @@ if config['datatype'].upper() == "PANEL":
 			"""
 			module load {config[R_version]}
 			Rscript /home/$USER/git/variant_prioritization/src/sortGeminiTSV_v1.R \
-				{input.tsv} {config[OGL_Dx_research_genes]} {output.rearranged_tsv} {output.filtered_tsv} {wildcards.sampleid} {output.filtered_xlsx} {config[aaf_change]} ../CoNVaDING/CNV_hiSens/{wildcards.sampleid}.b37.aligned.only.best.score.shortlist.txt gemini_xlsx/{wildcards.sampleid}.geneLAF.pdf
+				{input.tsv} {config[OGL_Dx_research_genes]} {output.rearranged_tsv} {output.filtered_tsv} {wildcards.sampleid} {output.filtered_xlsx} {config[aaf_change]} ../manta/manta.{wildcards.sampleid}.annotated.tsv ../CoNVaDING/CNV_hiSens/{wildcards.sampleid}.b37.aligned.only.best.score.shortlist.txt gemini_xlsx/{wildcards.sampleid}.geneLAF.pdf
 	 		"""
 else:
 	rule sortGemini:
@@ -695,7 +731,7 @@ else:
 			"""
 			module load {config[R_version]}
 			Rscript /home/$USER/git/variant_prioritization/src/sortGeminiTSV_v1.R \
-				{input.tsv} {config[OGL_Dx_research_genes]} {output.rearranged_tsv} {output.filtered_tsv} {wildcards.sampleid} {output.filtered_xlsx} {config[aaf_change]}
+				{input.tsv} {config[OGL_Dx_research_genes]} {output.rearranged_tsv} {output.filtered_tsv} {wildcards.sampleid} {output.filtered_xlsx} {config[aaf_change]} ../manta/manta.{wildcards.sampleid}.annotated.tsv
 			"""
 
 
