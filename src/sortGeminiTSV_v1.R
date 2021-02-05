@@ -61,7 +61,7 @@ gemini_rearrangeCol <- left_join(gemini_max_priority_score, panelGene, by = c("r
   mutate(eyeGene = case_when(panel_class == "Dx" ~ 2,
                              panel_class == "Candidate" ~ 1,
                              TRUE ~ 0)) %>% 
-  select('chr_variant_id', 'sample', 'chrom', 'start_vcf', 'qual', 'filter', starts_with('gts'), starts_with('gt_'), 'aaf',
+  select('chr_variant_id', 'sample', 'chrom', 'start_vcf', 'qual', 'filter', starts_with('gts'), starts_with('gt_'), 'aaf', 'vcf_id',
          'panel_class', 'priority_score', 'priority_score_intervar', 'clinvar_hgmd_score', 'splice_score', 'other_predic_score', 'pmaxaf', 'max_af', 'max_af_pops', 'gno_hom', 'ref_gene', 'note', 
          'exonicfunc_ensgene', 'refgenewithver', 'hgvsc', 'hgvsp', 'gene', 'exon', 'aa_length', 'omim_genesymbol', 'omim_inheritance', 'omim_phenotypes', 'pvs1', 'truncating_vep', 'hgmd_overlap', 'existing_variation', 'clinvar_intervar', 'intervar_and_evidence', 
          'clinvar_id', 'clinvar_pathogenic', 'clinvar_sig', 'clin_sig', 
@@ -81,12 +81,13 @@ gemini_filtered0 <- gemini_filtered %>% select(-maxpriorityscore)
 # consider change to filter(priority_score > 10 | (temp_group >= -2, pmaxaf < 0.05, aaf < args[7]))
 
 write_tsv(gemini_filtered0, file = args[4])
-
+#found out whether blank is 0 after importing, use 1197 for filtering
 #consider adding manta to the main gemini df for sorting/filtering after knowing the specificity of the manta calls. To better sort AR, AD, and ACMG 2nd.
 manta <- read_tsv(args[8], col_names = TRUE, na = c("NA", "", "None", "."), col_types = cols(.default = col_character())) %>%
-  filter(FILTER == 'PASS', `AnnotSV type` == 'split') %>%
+  filter(FILTER == 'PASS') %>%
+  filter( is.na(`Gene name`) | `AnnotSV type` == 'split' & !is.na('Gene name') ) %>% 
   type_convert() %>% 
-  filter(`AnnotSV ranking` > 2, abs(`SV length`) < 1000000, GD_POPMAX_AF < 0.02, `1000g_AF` < 0.02) %>% 
+  filter(`AnnotSV ranking` > 1, is.na(`SV length`) | abs(`SV length`) < 1000000, GD_POPMAX_AF < 0.02) %>% 
   separate(location, c('temp_location1', 'temp_location2'), sep = "-", remove = FALSE, convert = FALSE) %>% 
   filter(!(grepl("intron", location) & temp_location1 == temp_location2)) %>% 
   select(-starts_with('temp_')) %>% 
@@ -96,8 +97,10 @@ manta_sort <- left_join(manta, panelGene, by = c("ref_gene")) %>%
   mutate(eyeGene = case_when(panel_class == "Dx" ~ 2,
                              panel_class == "Candidate" ~ 1,
                              TRUE ~ 0)) %>% 
-  arrange(desc(eyeGene))
+  arrange(desc(eyeGene)) %>% 
+  select(`AnnotSV ID`,`SV chrom`,`SV start`,`SV end`,`SV length`,`SV type`,ID,REF,ALT,QUAL,FILTER,INFO,FORMAT,args[5],`AnnotSV type`,panel_class,note,everything() )
 
+#args[8] "Z:/NextSeqAnalysis/test2/manta/manta.1197.annotated.tsv"
 gemini_filtered1 <- gemini_filtered %>% filter(priority_score >= 3) %>% select(-maxpriorityscore)
   
 gemini_filtered2 <- gemini_filtered %>% filter(priority_score >= 4) %>% 

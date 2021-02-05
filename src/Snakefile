@@ -115,7 +115,8 @@ rule all:
 			family_name=Family_Name, \
 			gemini_lenient = config['gemini_lenient']) if ('family_query' in config['output_type']) else 'dummy.txt',
 		expand('gemini_xlsx/{sampleid}.{sample}.{ped}.gemini.filtered.xlsx', sample=SAMPLE, ped=PEDfile, sampleid=SampleID) if ('individual_query' in config['output_type']) else 'dummy.txt',
-		expand('LesserAlleleFreq/{sampleid}.{sample}.{ped}.LAF.jpeg', sample=SAMPLE, ped=PEDfile, sampleid=SampleID) if config['LAFplot'] == 'TRUE' else 'dummy.txt'
+		expand('LesserAlleleFreq/{sampleid}.{sample}.{ped}.LAF.jpeg', sample=SAMPLE, ped=PEDfile, sampleid=SampleID) if config['LAFplot'] == 'TRUE' else 'dummy.txt',
+		'spliceai.new.vcf.depot.merged' if config['freebayes_vcf'] != 'TRUE' else 'dummy.txt'
 
 
 localrules: dummy
@@ -571,7 +572,7 @@ rule tweak_header:
 
 # merge vcfs into one again
 if config['spliceai_wrapper'] == 'TRUE':
-	rule merge_vcf:
+	rule merge_sample_vcf:
 		input:
 			vcf = expand('temp/{{sample}}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz', region=REGIONS),
 			index = expand('temp/{{sample}}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz.tbi', region=REGIONS)
@@ -583,16 +584,14 @@ if config['spliceai_wrapper'] == 'TRUE':
 			"""
 			export REF_CACHE=/lscratch/$SLURM_JOB_ID/
 			module load {config[samtools_version]}
-			bcftools concat --threads {threads} {input.vcf} | bcftools sort -T /lscratch/$SLURM_JOB_ID/ -m 100G -O z -o {output.vcf}
+			bcftools concat --threads {threads} {input.vcf} -O z -o {output.vcf}
 			tabix -f -p vcf {output.vcf}
 			"""
 else:
-	rule merge_vcf:
+	rule merge_sample_vcf:
 		input:
 			vcf = expand('temp/{{sample}}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz', region=REGIONS),
-			index = expand('temp/{{sample}}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz.tbi', region=REGIONS),
-			spliceai_vcf = expand('temp/{{sample}}__{region}.new.spliceai.vcf.gz', region=REGIONS),
-			spliceai_index = expand('temp/{{sample}}__{region}.new.spliceai.vcf.gz.tbi', region=REGIONS)
+			index = expand('temp/{{sample}}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz.tbi', region=REGIONS)
 		output:
 			vcf = '{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz',
 			index = '{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz.tbi'
@@ -609,6 +608,68 @@ else:
 			tabix -f -p vcf /lscratch/$SLURM_JOB_ID/spliceai500.depot.vcf.gz || exit 1
 			cp /lscratch/$SLURM_JOB_ID/spliceai500.depot.vcf.gz* /data/OGL/resources/spliceai
 			"""
+	rule merge_spliceai_vcf:
+		input:
+			vcf = expand('temp/{{sample}}__{region}.new.spliceai.vcf.gz', region=REGIONS),
+			index = expand('temp/{{sample}}__{region}.new.spliceai.vcf.gz.tbi', region=REGIONS)
+		output:
+			temp('spliceai.new.vcf.depot.merged')
+		threads: 16
+		shell:
+			"""
+			export REF_CACHE=/lscratch/$SLURM_JOB_ID/
+			module load {config[samtools_version]}
+			bcftools concat --threads {threads} {input.vcf} -Oz -o /lscratch/$SLURM_JOB_ID/new.spliceai.vcf.gz
+			tabix -f -p vcf /lscratch/$SLURM_JOB_ID/new.spliceai.vcf.gz
+			( bcftools concat --threads {threads} -a --rm-dups none --no-version \
+				/data/OGL/resources/spliceai/spliceai500.depot.vcf.gz /lscratch/$SLURM_JOB_ID/new.spliceai.vcf.gz \
+				-Oz -o /lscratch/$SLURM_JOB_ID/spliceai500.depot.vcf.gz ) || exit 1
+			tabix -f -p vcf /lscratch/$SLURM_JOB_ID/spliceai500.depot.vcf.gz || exit 1
+			cp /lscratch/$SLURM_JOB_ID/spliceai500.depot.vcf.gz* /data/OGL/resources/spliceai
+			touch {output}
+			"""
+
+#below with sorting which is time-consuming. Tested no sort on 1/30/21
+# if config['spliceai_wrapper'] == 'TRUE':
+# 	rule merge_vcf:
+# 		input:
+# 			vcf = expand('temp/{{sample}}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz', region=REGIONS),
+# 			index = expand('temp/{{sample}}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz.tbi', region=REGIONS)
+# 		output:
+# 			vcf = '{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz',
+# 			index = '{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz.tbi'
+# 		threads: 16
+# 		shell:
+# 			"""
+# 			export REF_CACHE=/lscratch/$SLURM_JOB_ID/
+# 			module load {config[samtools_version]}
+# 			bcftools concat --threads {threads} {input.vcf} | bcftools sort -T /lscratch/$SLURM_JOB_ID/ -m 100G -O z -o {output.vcf}
+# 			tabix -f -p vcf {output.vcf}
+# 			"""
+# else:
+# 	rule merge_vcf:
+# 		input:
+# 			vcf = expand('temp/{{sample}}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz', region=REGIONS),
+# 			index = expand('temp/{{sample}}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz.tbi', region=REGIONS),
+# 			spliceai_vcf = expand('temp/{{sample}}__{region}.new.spliceai.vcf.gz', region=REGIONS),
+# 			spliceai_index = expand('temp/{{sample}}__{region}.new.spliceai.vcf.gz.tbi', region=REGIONS)
+# 		output:
+# 			vcf = '{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz',
+# 			index = '{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz.tbi'
+# 		threads: 16
+# 		shell:
+# 			"""
+# 			export REF_CACHE=/lscratch/$SLURM_JOB_ID/
+# 			module load {config[samtools_version]}
+# 			bcftools concat --threads {threads} {input.vcf} | bcftools sort -T /lscratch/$SLURM_JOB_ID/ -m 100G -O z -o {output.vcf}
+# 			tabix -f -p vcf {output.vcf}
+# 			( bcftools concat --threads {threads} -a --rm-dups none --no-version \
+# 				/data/OGL/resources/spliceai/spliceai500.depot.vcf.gz {input.spliceai_vcf} \
+# 				| bcftools sort -T /lscratch/$SLURM_JOB_ID/ -m 100G -Oz -o /lscratch/$SLURM_JOB_ID/spliceai500.depot.vcf.gz ) || exit 1
+# 			tabix -f -p vcf /lscratch/$SLURM_JOB_ID/spliceai500.depot.vcf.gz || exit 1
+# 			cp /lscratch/$SLURM_JOB_ID/spliceai500.depot.vcf.gz* /data/OGL/resources/spliceai
+# 			"""
+
 #spliceai file merge step took ~ 1hour for the 4gb first 500 files.
 #if config['re_sort'] == 'TRUE':
 	# ensure that the concat didn't mess up the order
@@ -717,7 +778,7 @@ if config['datatype'].upper() == "PANEL":
 			"""
 			module load {config[R_version]}
 			Rscript /home/$USER/git/variant_prioritization/src/sortGeminiTSV_v1.R \
-				{input.tsv} {config[OGL_Dx_research_genes]} {output.rearranged_tsv} {output.filtered_tsv} {wildcards.sampleid} {output.filtered_xlsx} {config[aaf_change]} ../manta/manta.{wildcards.sampleid}.annotated.tsv ../CoNVaDING/CNV_hiSens/{wildcards.sampleid}.b37.aligned.only.best.score.shortlist.txt gemini_xlsx/{wildcards.sampleid}.geneLAF.pdf
+				{input.tsv} {config[OGL_Dx_research_genes]} {output.rearranged_tsv} {output.filtered_tsv} {wildcards.sampleid} {output.filtered_xlsx} {config[aaf_change]} ../manta/manta.{wildcards.sampleid}.annotated.tsv ../CoNVaDING/CNV_hiSens/{wildcards.sampleid}.markDup.aligned.only.best.score.shortlist.txt gemini_xlsx/{wildcards.sampleid}.geneLAF.pdf
 	 		"""
 else:
 	rule sortGemini:

@@ -1,4 +1,7 @@
 #!/bin/bash
+#SBATCH --gres=lscratch:50
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=32g
 
 # to run snakemake as batch job
 # run in the data folder for this project
