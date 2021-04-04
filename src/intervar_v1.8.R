@@ -39,11 +39,30 @@ annovar <- read.delim(args[2], sep = "\t", header = TRUE, na.strings = c("."),
                                      "numeric","numeric","numeric","numeric","character","character","character","character","character","character",
                                      "character","character","character","character","character","character","character","character","character","character",
                                      "character","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric",
-                                     "numeric","numeric","numeric","character","character","numeric","factor","integer","character","character",
-                                     "character","numeric","factor") ) %>% 
+                                     "numeric","numeric","numeric","character","numeric","factor","integer","character","character",
+                                     "character","numeric","factor") ) %>%  
   unite("variantkey_annovar", Chr:Alt, sep = "_", remove = FALSE) %>% 
   group_by(variantkey_annovar) %>%
   slice(which.max(QUAL))
+
+#annovar <- read_tsv(args[2], col_names = TRUE, na = c("NA", "", "None", "."), col_types = cols(.default = col_character())) %>%
+#  type_convert() %>% 
+  
+# annovar <- read.delim(args[2], sep = "\t", header = TRUE, na.strings = c("."),
+#                       colClasses = c("factor","integer","integer","character","character","character","character","character","character","character",
+#                                      "numeric","numeric","character","numeric","numeric","character","numeric","numeric","character","numeric",
+#                                      "numeric","character","numeric","numeric","character","numeric","numeric","character","numeric","numeric",
+#                                      "character","numeric","numeric","character","numeric","numeric","character","numeric","numeric","numeric",
+#                                      "numeric","character","numeric","numeric","character","numeric","numeric","character","numeric","numeric",
+#                                      "numeric","numeric","numeric","numeric","numeric","character","character","numeric","numeric","numeric",
+#                                      "numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric",
+#                                      "numeric","numeric","numeric","numeric","numeric","numeric","character","character","character","character",
+#                                      "character","character","character","character","numeric","numeric","numeric","numeric","numeric","numeric",
+#                                      "numeric","numeric","numeric","numeric","character","character","character","character","character","character",
+#                                      "character","character","character","character","character","character","character","character","character","character",
+#                                      "character","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric",
+#                                      "numeric","numeric","numeric","character","character","numeric","factor","integer","character","character",
+#                                      "character","numeric","factor") ) %>%
 
 spliceai <- read.delim(args[3], sep = "\t", header = TRUE, na.strings = c("."),
                        colClasses = c("factor","integer","character","character","character","character","numeric","integer") ) %>% 
@@ -111,7 +130,7 @@ annovar_inter <- merge(x = annovar, y = intervar_for_sorting,
 		"Func.refGene.intervar", "Gene.refGeneWithVer", "ExonicFunc.refGeneWithVer", "refgenewithver",
 		"clinvar..Clinvar", "InterVar..InterVar.and.Evidence", "PopFreqMax", "gnomAD_exome_ALL", "gnomAD_genome_ALL", 
 		"Freq_esp6500siv2_all", "Freq_1000g2015aug_all","dbscSNV_ADA_SCORE.intervar", "dbscSNV_RF_SCORE.intervar", "dpsi_max_tissue", "dpsi_zscore", "SpliceAI", "spliceai_maxscore",
-    "spliceai_filtered", "SIFT_score.intervar", "MetaSVM_score.intervar", "CADD_raw.intervar", "CADD_phred.intervar", "GERP.._RS.intervar", "phyloP46way_placental.annovar", 
+    "SIFT_score.intervar", "MetaSVM_score.intervar", "CADD_raw.intervar", "CADD_phred.intervar", "GERP.._RS.intervar", "phyloP46way_placental.annovar", 
 		"Func.refGeneWithVer", "ExonicFunc.refGene.intervar", "avsnp150", "Interpro_domain.intervar", "PVS1", "spliceai_rank", "GeneDetail.ensGene", "ExonicFunc.ensGene", "AAChange.ensGene.intervar")) %>% 
   replace_na(list(ID = ".", refgenewithver = ".")) 
 #Ref.Gene is from InterVar, Annovar calls this column as Gene.refGene

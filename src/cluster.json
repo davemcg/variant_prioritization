@@ -6,7 +6,16 @@
 		"mem" : "8g",
 		"output"  : "00log/{rule}_{wildcards}.out",
 		"error" : "00log/{rule}_{wildcards}.err",
-		"extra" : ""
+		"extra" : "--gres=lscratch:50"
+	},
+	"query_gemini_individual" :
+	{
+		"extra" : "--gres=lscratch:150"
+	},
+	"query_gemini_family" :
+	{
+		"mem" : "32g",
+		"extra" : "--gres=lscratch:150"
 	},
 	"n_split_vcf" :
 	{
@@ -61,6 +70,20 @@
 		"mem" : "16g"
 	},
 	"merge_vcf" :
+	{
+		"partition" : "norm",
+		"time" : "8:00:00",
+		"mem" : "164g",
+		"extra" : "--gres=lscratch:200"
+	},
+	"merge_sample_vcf" :
+	{
+		"partition" : "norm",
+		"time" : "8:00:00",
+		"mem" : "164g",
+		"extra" : "--gres=lscratch:200"
+	},
+	"merge_spliceai_vcf" :
 	{
 		"partition" : "norm",
 		"time" : "8:00:00",

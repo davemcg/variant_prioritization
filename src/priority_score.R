@@ -20,9 +20,9 @@ input_df <- read_tsv(args[1], col_names = TRUE, na = c("NA", "", "None", "."), c
 ##The following line was meant to add 3 to Priority_Score when CSQ fields has truncating and PVS1 == 0 and pmaxaf < 0.01 & Priority_Score_intervar < 6
 ps_df <-  input_df %>% mutate(truncating_vep = ifelse(grepl("frameshift_variant|splice_acceptor_variant|splice_donor_variant|start_lost|stop_gained|stop_lost", CSQ, ignore.case = TRUE), 1, 0)) %>% 
   mutate(temp_CSQ = sub(",.*", "", CSQ)) %>%
-  separate(temp_CSQ, c('allele','consequence','codons','amino_acids','gene','symbol','feature','exon','hgvsc','hgvsp','max_af','max_af_pops','polyphen','sift','mpc','protein_position','biotype','canonical','domains','existing_variation','clin_sig','pick','pubmed','phenotypes','cadd_raw','cadd_phred','genesplicer','spliceregion','ada_score','rf_score','maxentscan_diff'), sep = "\\|", remove = TRUE, convert = TRUE) %>% 
+  separate(temp_CSQ, c('allele','consequence','codons','amino_acids','gene','symbol','feature','exon','hgvsc','hgvsp','max_af','max_af_pops','polyphen','sift','mpc','protein_position','biotype','canonical','domains','existing_variation','clin_sig','pick','pubmed','phenotypes','cadd_raw','cadd_phred','genesplicer','spliceregion','ada_score','rf_score','maxentscan_diff','existing_inframe_oorfs','existing_outofframe_oorfs','existing_uorfs','five_prime_utr_variant_annotation','five_prime_utr_variant_consequence'), sep = "\\|", remove = TRUE, convert = TRUE) %>% 
   replace_na(list(gnomAD_exome_ALL_annovar=0, gnomAD_genome_ALL_annovar=0, PopFreqMax_annovar=0, max_af=0, mpc=0, gno_af_popmax=0, mis_z=0)) %>% 
-  mutate(pmaxaf = pmax(gnomAD_exome_ALL_annovar, gnomAD_genome_ALL_annovar, na.rm = TRUE)) %>% #removed PopFreqMax_annovar, max_af, gno_af_popmax, 4/14/2020
+  mutate(pmaxaf = pmax(gnomAD_exome_ALL_annovar, gnomAD_genome_ALL_annovar, gno_af_popmax, na.rm = TRUE)) %>% #removed PopFreqMax_annovar, max_af 4/14/2020, added gno_af_popmax, which is from gnomAD 2.1.1 exome excluding fin, asj and oth
   unite("temp_clinvar", clinvar_sig, clin_sig, Clinvar_intervar, sep = "-", remove = FALSE ) %>% 
   mutate(temp_clinvar = gsub("_interpretations_of_pathogenicity", "", temp_clinvar)) %>% 
   mutate(temp_existing_variant = gsub("rs\\d+", "", existing_variation)) %>% 
@@ -32,15 +32,25 @@ ps_df <-  input_df %>% mutate(truncating_vep = ifelse(grepl("frameshift_variant|
            ifelse(grepl("benign", temp_clinvar, ignore.case = TRUE) & grepl("pathogenic", temp_clinvar, ignore.case = TRUE), 3, 0) + 
            ifelse(grepl("[A-Z]", HGMD_Overlap) | grepl("[A-Z]", temp_existing_variant), 3, 0) ) %>% 
   mutate(clinvar_hgmd_score = ifelse(clinvar_hgmd_score > 6, 6, clinvar_hgmd_score)) %>% 
-  mutate(other_predic_score = ifelse(is.na(ClinPred_Score), 0, ifelse(ClinPred_Score > 0.5, 0.5, 0)) + ifelse(is.na(revel), 0, ifelse(revel > 0.55, 0.5, 0)) + ifelse(grepl("deleterious", sift), 0.5, 0) +
-           ifelse(grepl("damaging", polyphen), 0.5, 0) + ifelse(grepl("D", MetaSVM_pred), 0.5, 0) + 
+  mutate(other_predic_score = ifelse(is.na(ClinPred_Score), 0, ifelse(ClinPred_Score > 0.5, 0.5, 0)) + 
+           ifelse(is.na(revel), 0, ifelse(revel > 0.55, 0.5, 0)) + 
+           ifelse(grepl("deleterious", sift), 0.5, 0) +
+           ifelse(grepl("damaging", polyphen), 0.5, 0) + 
+           ifelse(grepl("D", MetaSVM_pred), 0.5, 0) + 
            ifelse(is.na(PrimateDL), 0, ifelse(PrimateDL > 0.803, 0.5, 0)) +
            ifelse(is.na(mpc), 0, ifelse(mpc > 1.5 & pmaxaf < 0.02, 0.5, 0)) +
            ifelse(grepl("H|M", MutationAssessor_pred), 0.5, 0) + ifelse(grepl("D", MutationTaster_pred), 0.5, 0) + ifelse(grepl("D", PROVEAN_pred), 0.5, 0) +
            ifelse(is.na(Eigen_PC_raw), 0, ifelse(Eigen_PC_raw > 0 | Eigen_raw > 0, 0.5, 0)) + 
            ifelse(is.na(cadd_phred), 0, ifelse(cadd_phred > 15, 0.5, 0) ) +
            ifelse(is.na(phyloP_100way), 0, ifelse(phyloP_100way > 2, 0.5, 0)) +
-           ifelse(is.na(GERP_RS_intervar), 0, ifelse(GERP_RS_intervar> 1, 0.5, 0))) %>% 
+           ifelse(is.na(GERP_RS_intervar), 0, ifelse(GERP_RS_intervar > 1, 0.5, 0)) +
+           ifelse(is.na(ccr_pct), 0, ifelse(ccr_pct > 0.99 & pmaxaf < 0.02, 1, ifelse(ccr_pct > 0.9 & pmaxaf < 0.02, 0.5, 0))) +
+           ifelse(is.na(remm), 0, ifelse(remm > 0.6 & pmaxaf < 0.02, 0.5, 0)) + 
+           ifelse(is.na(fathmm_xf_coding), 0, ifelse(fathmm_xf_coding > 0.6 & pmaxaf < 0.02, 0.5, 0)) + 
+           ifelse(is.na(fathmm_xf_noncoding), 0, ifelse(fathmm_xf_noncoding > 0.6 & pmaxaf < 0.02, 0.5, 0)) + 
+           ifelse(is.na(five_prime_utr_variant_consequence), 0, ifelse(pmaxaf < 0.02, 1, 0)) +
+           ifelse(grepl("0,255,0|255,0,0", atac_rpe_itemRgb), ifelse(pmaxaf < 0.02, 1, 0), 0) + 
+           ifelse(is.na(ft_ret_rpe_score), 0, ifelse(pmaxaf < 0.02, 0.5, 0)) ) %>% 
   replace_na(list(clinvar_hgmd_score=0, other_predic_score=0)) %>% 
   mutate(temp_genesplicer = case_when(grepl("High", genesplicer) ~ 3,
                                       grepl("Medium", genesplicer) ~ 1,
@@ -79,4 +89,4 @@ ps_df <-  input_df %>% mutate(truncating_vep = ifelse(grepl("frameshift_variant|
 # classes <- sapply(gemini, class)
 # largeData <- read.csv("huge-file.csv", header = TRUE, colClasses = classes)
 #write_tsv(ps_df, path = './test.tsv')
-write_tsv(ps_df, path = args[2])
+write_tsv(ps_df, file = args[2])

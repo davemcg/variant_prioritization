@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --gres=lscratch:50
+#SBATCH --gres=lscratch:100
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=32g
 
@@ -35,7 +35,7 @@ snakemake -s /home/$USER/git/variant_prioritization/src/Snakefile \
 --configfile $1 \
 --cluster-config $json \
 --cluster "$sbcmd"  --latency-wait 120 --rerun-incomplete \
--k --restart-times 0 --resources res=1 $2
+-k --restart-times 1 --resources res=1 $2
 
 # --notemp Ignore temp() declaration;
 # --dryrun 
