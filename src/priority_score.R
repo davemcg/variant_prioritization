@@ -44,7 +44,7 @@ ps_df <-  input_df %>% mutate(truncating_vep = ifelse(grepl("frameshift_variant|
            ifelse(is.na(cadd_phred), 0, ifelse(cadd_phred > 15, 0.5, 0) ) +
            ifelse(is.na(phyloP_100way), 0, ifelse(phyloP_100way > 2, 0.5, 0)) +
            ifelse(is.na(GERP_RS_intervar), 0, ifelse(GERP_RS_intervar > 1, 0.5, 0)) +
-           ifelse(is.na(ccr_pct), 0, ifelse(ccr_pct > 0.99 & pmaxaf < 0.02, 1, ifelse(ccr_pct > 0.9 & pmaxaf < 0.02, 0.5, 0))) +
+           ifelse(is.na(ccr_pct) | is.na(ExonicFunc_refGeneWithVer), 0, ifelse(ccr_pct > 0.99 & grepl("nonframeshift|nonsynonymous", ExonicFunc_refGeneWithVer) & pmaxaf < 0.02, 1, ifelse(ccr_pct > 0.9 & grepl("nonframeshift|nonsynonymous", ExonicFunc_refGeneWithVer) & pmaxaf < 0.02, 0.5, 0))) +
            ifelse(is.na(remm), 0, ifelse(remm > 0.6 & pmaxaf < 0.02, 0.5, 0)) + 
            ifelse(is.na(fathmm_xf_coding), 0, ifelse(fathmm_xf_coding > 0.6 & pmaxaf < 0.02, 0.5, 0)) + 
            ifelse(is.na(fathmm_xf_noncoding), 0, ifelse(fathmm_xf_noncoding > 0.6 & pmaxaf < 0.02, 0.5, 0)) + 

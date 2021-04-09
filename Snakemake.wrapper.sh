@@ -9,6 +9,7 @@
 # $3 non-default json file
 
 module load snakemake/5.24.1 || exit 1
+#previous version 5.7.4/5.24.1, intervar/2.1.3 does not work with snakemake/6.0.5 version.
 
 cp /data/OGL/resources/variant_prioritization.git.log .
 mkdir -p 00log
