@@ -135,7 +135,9 @@ if config['datatype'].upper() in ["PANEL", "EXOME", "WES"]:
 	localrules: vcfanno2
 	localrules: merge_sample_vcf
 	localrules: sortGemini
-
+else:
+	localrules: n_split_vcf
+	localrules: vt_bgzip_and_tabix_vcf
 
 rule n_split_vcf:
 	input:
@@ -294,9 +296,14 @@ else:
 			echo -e "##fileformat=VCFv4.2\n#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO" > /lscratch/$SLURM_JOB_ID/vcf.header && echo "vcf.header" || exit 1
 			( bcftools view --no-header -Ov {input.vcf} | awk -F"\t" 'BEGIN{{OFS="\t"}} {{print $1,$2,".",$4,$5,".",".","."}}' - | cat /lscratch/$SLURM_JOB_ID/vcf.header - | bgzip -c > {output.barevcf} ) && echo "barevcf" || exit 1
 			tabix -f -p vcf {output.barevcf} && echo "index barevcf" || exit 1
-			bcftools isec -Oz -p /lscratch/$SLURM_JOB_ID {output.barevcf} /data/OGL/resources/spliceai/spliceai500.depot.vcf.gz && echo "isec" || exit 1
+			bcftools isec --threads {threads} -Oz -p /lscratch/$SLURM_JOB_ID {output.barevcf} /data/OGL/resources/spliceai/spliceai500.depot.vcf.gz && echo "isec" || exit 1
 			module load {config[spliceai_version]}
-			spliceai -I /lscratch/$SLURM_JOB_ID/0000.vcf.gz -R {config[ref_genome]} -A grch37 -D 500 -M 0 -O {output.new_anno_spliceai} && echo "spliceai" || exit 1
+			if [[ {config[genomeBuild]} == "GRCh38" ]]; then
+				ver=grch38
+			else
+				ver=grch37
+			fi
+			spliceai -I /lscratch/$SLURM_JOB_ID/0000.vcf.gz -R {config[ref_genome]} -A $ver -D 500 -M 0 -O {output.new_anno_spliceai} && echo "spliceai" || exit 1
 			tabix -f -p vcf {output.new_anno_spliceai}
 			bcftools concat --threads {threads} -a {output.new_anno_spliceai} /lscratch/$SLURM_JOB_ID/0003.vcf.gz | bcftools sort -T /lscratch/$SLURM_JOB_ID/ -m 16G -Oz -o {output.vcf}
 			tabix -f -p vcf {output.vcf}
