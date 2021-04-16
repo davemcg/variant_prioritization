@@ -1,7 +1,7 @@
 args = commandArgs(trailingOnly=TRUE)
 
 # argument handling
-panelGene_file <- args[1]
+geneCategory_file <- args[1]
 aaf_freq <- args[2]
 output_xlsx <- args[3]
 family_name <- args[4]
@@ -22,7 +22,7 @@ sortFilterGemini <- function(fileName) {
     type_convert() %>% mutate(exon = sub("^", " ", exon)) %>% mutate( start_vcf = start + 1 ) %>% 
     unite("chr_variant_id", chrom, start_vcf, ref, alt, sep = "-", remove = FALSE ) %>% 
     mutate(gene = toupper(gene)) %>% 
-    filter(pmaxaf < 0.2, aaf < aaf_freq)
+    filter(pmaxaf < 0.2, aaf < aaf_freq, !ref_gene %in% blacklistGene, qual > 10)
   # get max_priority_score for each gene
   InheritanceTest_max_priority_score <- select(InheritanceTest, c(ref_gene, priority_score)) %>% group_by(ref_gene) %>% summarize(maxpriorityscore = max(priority_score)) 
   #arrange by max_priority_score, then by gene, and priority score. None gene region?
@@ -30,13 +30,16 @@ sortFilterGemini <- function(fileName) {
   #VEP hg19 version's gene names are the same as in the IDT ordering design sheets. This is what used for left_join
   InheritanceTest_rearrangeCol <- left_join(InheritanceTest_max_priority_score1, panelGene, by = c("ref_gene")) %>% 
     mutate(note = "") %>% separate(vcf_id, c('caller', 'hg38_id'), sep = "_") %>% 
-    mutate(gnomad_hom = gno_hom + gnog_hom, gnomad_ac = gno_ac_all + gnog_ac_all, gnomad_an = gno_an_all + gno_an_all ) %>% 
+    mutate(hg38_pos = sub("[ACGT]*>[ACGT]*", "", hg38_id)) %>% 
+    mutate(gnomad_hom = ifelse(is.na(gno_hom) & is.na(gnog_hom), NA, ifelse(is.na(gno_hom), 0, gno_hom) + ifelse(is.na(gnog_hom), 0, gnog_hom) ), 
+           gnomad_ac = ifelse(is.na(gno_ac_all) & is.na(gnog_ac_all), NA, ifelse(is.na(gno_ac_all), 0, gno_ac_all) + ifelse(is.na(gnog_ac_all), 0, gnog_ac_all) ), 
+           gnomad_an = ifelse(is.na(gno_an_all) & is.na(gnog_an_all), NA, ifelse(is.na(gno_an_all), 0, gno_an_all) + ifelse(is.na(gnog_an_all), 0, gnog_an_all) )) %>% 
     mutate(gnomad_af = gnomad_ac/gnomad_an) %>% 
     unite("gnomad_acan", gnomad_ac, gnomad_an, sep = "/", remove = TRUE) %>% 
     mutate(eyeGene = case_when(panel_class == "Dx" ~ 2,
                                panel_class == "Candidate" ~ 1,
                                TRUE ~ 0)) %>% 
-    select('chr_variant_id', 'chrom', 'start_vcf', 'qual', 'filter', 'family_id','family_members', 'family_genotypes', 'samples', 'aaf', 'caller', 'hg38_id',
+    select('chr_variant_id', 'chrom', 'start_vcf', 'qual', 'filter', 'family_id','family_members', 'family_genotypes', 'samples', 'aaf', 'caller', 'hg38_pos',
            'panel_class', 'priority_score', 'priority_score_intervar', 'clinvar_hgmd_score', 'splice_score', 'other_predic_score', 'gnomad_af', 'gnomad_acan', 'pmaxaf', 'max_af', 'max_af_pops', 'gnomad_hom', 'ref_gene', 'note', 
            'exonicfunc_ensgene', 'refgenewithver', 'hgvsc', 'hgvsp', 'gene', 'exon', 'aa_length', 'omim_gene', 'omim_inheritance', 'omim_phenotype', 'pvs1', 'truncating_vep', 'hgmd_overlap', 'existing_variation', 'clinvar_intervar', 'intervar_and_evidence', 
            'clinvar_id', 'clinvar_pathogenic', 'clinvar_sig', 'clin_sig', 'existing_inframe_oorfs','existing_outofframe_oorfs','existing_uorfs','five_prime_utr_variant_annotation','five_prime_utr_variant_consequence',
@@ -45,12 +48,15 @@ sortFilterGemini <- function(fileName) {
            'atac_rpe_score','atac_rpe_itemrgb', 'ft_ret_rpe_score', 'genedetail_ensgene', 'aachange_ensgene', 'gene_refgenewithver', 'func_refgene', 'func_refgenewithver', 'exonicfunc_refgenewithver', 'exonicfunc_refgene', 'avsnp150_annovar', 'interpro_domain_intervar', 
            'pfam_domain', 'tfbs', 'pli', 'lof_z', 'mis_z', 'sigmaaf_lof_0001', 'sigmaaf_lof_01', 'sigmaaf_missense_0001', 'sigmaaf_missense_01', 'atac_rpe_itemrgb', 'atac_rpe_score', 
            'eyeintegration_rnaseq_tpm_rpe_adulttissue', 'eyeintegration_rnaseq_tpm_rpe_cellline', 'eyeintegration_rnaseq_tpm_rpe_fetaltissue', 'eyeintegration_rnaseq_tpm_rpe_stemcellline', 'eyeintegration_rnaseq_tpm_retina_adulttissue', 'eyeintegration_rnaseq_tpm_retina_stemcellline', 'eyeintegration_rnaseq_tpm_wholeblood', 
-           'start', 'end', 'ref', 'alt', 'popfreqmax_annovar', 'gnomad_exome_all_annovar', 'gnomad_genome_all_annovar', 'freq_esp6500siv2_all_annovar', 'freq_1000g2015aug_all_annovar', 'aaf_esp_all', 'aaf_1kg_all', 'pubmed', everything() ) %>%
-    arrange(desc(eyeGene), desc(maxpriorityscore), ref_gene, desc(priority_score)) %>% select(-maxpriorityscore)
+           'pubmed', 'polyphen_score', 'sift_score', 'eigen_pc_phred', 'eigen_pc_raw_rankscore', 'eigen_phred',	'eigen_coding_or_noncoding', 'fathmm_converted_rankscore',	'fathmm_pred',	'fathmm_score',	'gerp',	'genocanyon_score',	'genocanyon_score_rankscore',	'linsight', 'lrt_omega', 'lrt_converted_rankscore', 'lrt_pred',	'lrt_score',
+           'm_cap_pred', 'm_cap_rankscore',	'm_cap_score', 'metalr_pred',	'metalr_rankscore',	'metalr_score',	'metasvm_rankscore', 'metasvm_score', 'mutationassessor_uniprotid',	'mutationassessor_score',	'mutationassessor_score_rankscore',	'mutationtaster_converted_rankscore',	'mutationtaster_model',	'mutationtaster_score',	'provean_converted_rankscore',	'provean_pred',	'provean_score', 'vest3_rankscore',	'vest3_score',
+           'cpg_island', 'gno_an_all', 'gno_af_all',	'gno_hom', 'gnog_an_all', 'gnog_af_all',	'gnog_hom', 'gno_af_asj', 'gnog_af_asj', 'gwas_pubmed_trait', 'pnull', 'precessive', 'rmsk', 'syn_z', 'eyeGene', 'maxpriorityscore') %>%
+    arrange(desc(eyeGene), desc(maxpriorityscore), ref_gene, desc(priority_score)) %>% select(-maxpriorityscore, -eyeGene) 
   return(InheritanceTest_rearrangeCol)
 }
 
-panelGene <- read_xlsx(panelGene_file, sheet = "analysis", na = c("NA", "", "None", ".")) %>% select(gene, panel_class) %>% rename(ref_gene = gene)
+panelGene <- read_xlsx(geneCategory_file, sheet = "analysis", na = c("NA", "", "None", ".")) %>% select(gene, panel_class) %>% rename(ref_gene = gene)
+blacklistGene <- read_xlsx(geneCategory_file, sheet = "IVA", na = c("NA", "", "None", "."))  %>% filter(Blacklist == "Excluded") %>% pull(Gene)
 
 if (file.size(denovo_file) == 0) {
   denovo <- data.frame("family_id" = family_name, "note" = "Empty denovo query")
@@ -67,13 +73,13 @@ if (file.size(ad_file) == 0) {
 if (file.size(ar_file) == 0) {
   ar <- data.frame("family_id" = family_name, "note" = "Empty ar query")
 } else {
-  ar <- sortFilterGemini(ar_file)
+  ar <- sortFilterGemini(ar_file) %>% filter(!chrom %in% c("X", "chrX"))
 }
 
 if (file.size(comphets_file) == 0) {
   comphets <- data.frame("family_id" = family_name, "note" = "Empty comphets query")
 } else {
-  comphets <- sortFilterGemini(comphets_file)
+  comphets <- sortFilterGemini(comphets_file) %>% distinct(chr_variant_id, .keep_all = TRUE)
 }
 
 if (file.size(xdenovo_file) == 0) {

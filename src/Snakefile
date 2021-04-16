@@ -690,7 +690,8 @@ rule peddy_QC:
 		"""
 
 
-# create gemini database.
+# create gemini database. 19gb wgs genome --> 104gb in 24 hours.
+localrules: make_gemini_db
 rule make_gemini_db:
 	input:
 		vcf = '{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz',
@@ -703,7 +704,7 @@ rule make_gemini_db:
 		module unload python
 		module load {config[vcf2db_version]}
 		echo {wildcards.ped}.ped
-		vcf2db.py --info-exclude MLEAF --info-exclude MLEAC {input.vcf} {PEDbase}{wildcards.ped}.ped {output}
+		vcf2db.py {input.vcf} {PEDbase}{wildcards.ped}.ped {output}
 		"""
 
 
@@ -712,7 +713,8 @@ rule make_gemini_db:
 #		gemini load -v {input.vcf} -t VEP -p {config[ped]} --skip-gerp-bp --skip-cadd --cores {threads} {output}
 #		--skip-gene-tables --save-info-string needed? the size generated using load is 4x larger than vcf2db.py below, but the db file cannot be queried as before, probably only VEP fields are included.
 # 8/4/19:  --info-exclude MLEAF --info-exclude MLEAC because EU's exome data has 2 values in these two fields.
-if config['datatype'].upper() in ["WGS", "GENOME", "EXOME", "WES"]:
+#took 12 hours for a genome 4/12/21
+if config['datatype'].upper() in ["WGS", "GENOME"]:
 	rule query_gemini_family:
 		input:
 			db = '{sample}.PED_{ped}.gemini.db'
@@ -727,30 +729,69 @@ if config['datatype'].upper() in ["WGS", "GENOME", "EXOME", "WES"]:
 			LENIENT={config[gemini_lenient]}
 			case "${{LENIENT^^}}" in
 				"YES"|"TRUE")
-					time gemini de_novo -d 9 --min-gq 5 --lenient --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/denovo.tsv
-					time gemini autosomal_dominant -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/ad.tsv
-					time gemini autosomal_recessive -d 9 --min-gq 5 --lenient --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/ar.tsv
-					time gemini comp_hets -d 9 --min-gq 5 --gene-where "priority_score >= 4" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/comphets.tsv
-					time gemini x_linked_de_novo -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/xdenovo.tsv
-					time gemini x_linked_dominant -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/xd.tsv
-					time gemini x_linked_recessive -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/xr.tsv
-					time gemini mendel_errors -d 9 --min-gq 5 --lenient --filter "priority_score >= 3" --only-affected --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/mendel_errors.tsv
+					time gemini de_novo -d 9 --min-gq 5 --lenient --filter "priority_score > 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/denovo.tsv
+					time gemini autosomal_dominant -d 9 --min-gq 5 --filter "priority_score > 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/ad.tsv
+					time gemini autosomal_recessive -d 9 --min-gq 5 --lenient --filter "priority_score > 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/ar.tsv
+					time gemini comp_hets -d 9 --min-gq 5 --gene-where "priority_score >= 5" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/comphets.tsv
+					time gemini x_linked_de_novo -d 9 --min-gq 5 --filter "priority_score > 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/xdenovo.tsv
+					time gemini x_linked_dominant -d 9 --min-gq 5 --filter "priority_score > 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/xd.tsv
+					time gemini x_linked_recessive -d 9 --min-gq 5 --filter "priority_score > 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/xr.tsv
+					time gemini mendel_errors -d 9 --min-gq 5 --lenient --filter "priority_score > 3" --only-affected --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/mendel_errors.tsv
 					;;
 				*)
-					time gemini de_novo -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/denovo.tsv
-					time gemini autosomal_dominant -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/ad.tsv
-					time gemini autosomal_recessive -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/ar.tsv
-					time gemini comp_hets -d 9 --min-gq 5 --gene-where "priority_score >= 4" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/comphets.tsv
-					time gemini x_linked_de_novo -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/xdenovo.tsv
-					time gemini x_linked_dominant -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/xd.tsv
-					time gemini x_linked_recessive -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/xr.tsv
-					time gemini mendel_errors -d 9 --min-gq 5 --filter "priority_score >= 3" --only-affected --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/mendel_errors.tsv
+					time gemini de_novo -d 9 --min-gq 5 --filter "priority_score > 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/denovo.tsv
+					time gemini autosomal_dominant -d 9 --min-gq 5 --filter "priority_score > 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/ad.tsv
+					time gemini autosomal_recessive -d 9 --min-gq 5 --filter "priority_score > 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/ar.tsv
+					time gemini comp_hets -d 9 --min-gq 5 --gene-where "priority_score >= 5" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/comphets.tsv
+					time gemini x_linked_de_novo -d 9 --min-gq 5 --filter "priority_score > 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/xdenovo.tsv
+					time gemini x_linked_dominant -d 9 --min-gq 5 --filter "priority_score > 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/xd.tsv
+					time gemini x_linked_recessive -d 9 --min-gq 5 --filter "priority_score > 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/xr.tsv
+					time gemini mendel_errors -d 9 --min-gq 5 --filter "priority_score > 3" --only-affected --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/mendel_errors.tsv
 					;;
 			esac
 			Rscript /home/$USER/git/variant_prioritization/src/sortGeminiFamily.R \
 				{config[OGL_Dx_research_genes]} {config[aaf_change]} {output.xlsx} {wildcards.family_name} \
 				$WKDIR/denovo.tsv $WKDIR/ad.tsv $WKDIR/ar.tsv $WKDIR/comphets.tsv $WKDIR/xdenovo.tsv $WKDIR/xd.tsv $WKDIR/xr.tsv $WKDIR/mendel_errors.tsv
 			"""
+elif config['datatype'].upper() in ["EXOME", "WES"]:
+		rule query_gemini_family:
+			input:
+				db = '{sample}.PED_{ped}.gemini.db'
+			output:
+				xlsx = 'gemini_xlsx/{family_name}.{sample}.{ped}.lenient{gemini_lenient}.xlsx'
+			shell:
+				"""
+				module load {config[gemini_version]} {config[R_version]}
+				cp {input} /lscratch/$SLURM_JOB_ID/.
+				mkdir -p /lscratch/$SLURM_JOB_ID/{wildcards.family_name}
+				WKDIR=/lscratch/$SLURM_JOB_ID/{wildcards.family_name}
+				LENIENT={config[gemini_lenient]}
+				case "${{LENIENT^^}}" in
+					"YES"|"TRUE")
+						time gemini de_novo -d 9 --min-gq 5 --lenient --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/denovo.tsv
+						time gemini autosomal_dominant -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/ad.tsv
+						time gemini autosomal_recessive -d 9 --min-gq 5 --lenient --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/ar.tsv
+						time gemini comp_hets -d 9 --min-gq 5 --gene-where "priority_score >= 4" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/comphets.tsv
+						time gemini x_linked_de_novo -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/xdenovo.tsv
+						time gemini x_linked_dominant -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/xd.tsv
+						time gemini x_linked_recessive -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/xr.tsv
+						time gemini mendel_errors -d 9 --min-gq 5 --lenient --filter "priority_score >= 3" --only-affected --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/mendel_errors.tsv
+						;;
+					*)
+						time gemini de_novo -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/denovo.tsv
+						time gemini autosomal_dominant -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/ad.tsv
+						time gemini autosomal_recessive -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/ar.tsv
+						time gemini comp_hets -d 9 --min-gq 5 --gene-where "priority_score >= 4" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/comphets.tsv
+						time gemini x_linked_de_novo -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/xdenovo.tsv
+						time gemini x_linked_dominant -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/xd.tsv
+						time gemini x_linked_recessive -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/xr.tsv
+						time gemini mendel_errors -d 9 --min-gq 5 --filter "priority_score >= 3" --only-affected --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/mendel_errors.tsv
+						;;
+				esac
+				Rscript /home/$USER/git/variant_prioritization/src/sortGeminiFamily.R \
+					{config[OGL_Dx_research_genes]} {config[aaf_change]} {output.xlsx} {wildcards.family_name} \
+					$WKDIR/denovo.tsv $WKDIR/ad.tsv $WKDIR/ar.tsv $WKDIR/comphets.tsv $WKDIR/xdenovo.tsv $WKDIR/xd.tsv $WKDIR/xr.tsv $WKDIR/mendel_errors.tsv
+				"""
 else:
 	localrules: query_gemini_family
 	rule query_gemini_family:

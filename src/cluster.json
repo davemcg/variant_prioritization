@@ -14,7 +14,9 @@
 	},
 	"query_gemini_family" :
 	{
-		"mem" : "32g",
+		"partition" : "norm",
+		"time" : "16:00:00",
+		"mem" : "16g",
 		"extra" : "--gres=lscratch:150"
 	},
 	"n_split_vcf" :
