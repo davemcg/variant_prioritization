@@ -245,15 +245,25 @@ rule annovar_intervar:
 			--polish -nastring . \
 			--thread {threads} \
 			--otherinfo
-		module load {config[InterVar_version]}
-		InterVar \
+		python /data/OGL/resources/git/InterVar/Intervar.py \
+			-t /data/OGL/resources/git/InterVar/intervardb \
+			-c /data/OGL/resources/git/InterVar/config.ini \
 			-i {output.avinput} \
 			--input_type=AVinput \
-			-d $ANNOVAR_DATA/hg19 \
+			-d $ANNOVAR_DATA/$ver \
 			--evidence_file={input.InterVarEvidence} \
 			-o {output.avinput} \
 			--skip_annovar
 		"""
+
+# module load {config[InterVar_version]}
+# InterVar \
+# 	-i {output.avinput} \
+# 	--input_type=AVinput \
+# 	-d $ANNOVAR_DATA/hg19 \
+# 	--evidence_file={input.InterVarEvidence} \
+# 	-o {output.avinput} \
+# 	--skip_annovar
 
 if config['spliceai_wrapper'] == 'TRUE':
 	rule spliceai_wrapper:
@@ -456,6 +466,7 @@ rule VEP_annotate:
 		# tabix
 		tabix -f -p vcf {output.vcf}
 		"""
+#--mane, output MANE_SELECT, MANE_PLUS_CLINICAL
 #remove Grantham. 5/21/2020: remove --canonical
 #remove --plugin dbscSNV,$VEPCACHEDIR/dbscSNV1.1.txt.gz & ada_score,rf_score, from fields \ because included in annovar and didn't try to find the GRCh38 files
 #SpliceAI plugin was not added because vcf output had fields separated. Used vcfanno instead.

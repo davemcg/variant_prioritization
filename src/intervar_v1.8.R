@@ -105,8 +105,9 @@ intervar_for_sorting <- intervar %>%
   mutate(BP8 = str_sub(BP8, 2, 2)) %>% 
   mutate(BP8 = as.integer(BP8)) %>%
   replace_na(list(Freq_gnomAD_genome_ALL=0, Freq_esp6500siv2_all=0, Freq_1000g2015aug_all=0)) %>% 
-  mutate(maxaf_intervar = pmax(Freq_gnomAD_genome_ALL, Freq_esp6500siv2_all, Freq_1000g2015aug_all, na.rm = TRUE)) %>% 
-  mutate(BS1 = ifelse(Freq_gnomAD_genome_ALL < 0.005 & Freq_esp6500siv2_all < 0.01, 0, BS1)) %>% 
+  mutate(maxaf_intervar = pmax(Freq_gnomAD_genome_ALL, gnomAD_exome_ALL, Freq_esp6500siv2_all, Freq_1000g2015aug_all, na.rm = TRUE)) %>% 
+  mutate(BS1 = ifelse(Freq_gnomAD_genome_ALL < 0.005 & Freq_esp6500siv2_all < 0.01, 0, BS1)) %>% #need this step, partly because intervar 2.1 included asj subpopulation in BS1.
+  mutate(PM2 = ifelse(maxaf_intervar < 0.00005, 1, PM2)) %>% #added 4/29/2021, allowing 1 in 10,001 genomes and 12 in 120,000 exomes
   mutate(Priority.Score = (PVS1*8+(PS1+PS2+PS3+PS4+PS5)*6+(PM1+PM2+PM3+PM4+PM5+PM6+PM7)*3+(PP1+PP2+PP3+PP4+PP5+PP6)-BA1*5-(BS1+BS2+BS3+BS4+BS5)*3-(BP1+BP2+BP3+BP4+BP5+BP6+BP7+BP8))) %>% 
   unite("variantkey", X.Chr:Alt, sep = "_", remove = FALSE ) %>%
   group_by(variantkey) %>%
