@@ -105,9 +105,9 @@ intervar_for_sorting <- intervar %>%
   mutate(BP8 = str_sub(BP8, 2, 2)) %>% 
   mutate(BP8 = as.integer(BP8)) %>%
   replace_na(list(Freq_gnomAD_genome_ALL=0, Freq_esp6500siv2_all=0, Freq_1000g2015aug_all=0)) %>% 
-  mutate(maxaf_intervar = pmax(Freq_gnomAD_genome_ALL, gnomAD_exome_ALL, Freq_esp6500siv2_all, Freq_1000g2015aug_all, na.rm = TRUE)) %>% 
-  mutate(BS1 = ifelse(Freq_gnomAD_genome_ALL < 0.005 & Freq_esp6500siv2_all < 0.01, 0, BS1)) %>% #need this step, partly because intervar 2.1 included asj subpopulation in BS1.
-  mutate(PM2 = ifelse(maxaf_intervar < 0.00005, 1, PM2)) %>% #added 4/29/2021, allowing 1 in 10,001 genomes and 12 in 120,000 exomes
+  mutate(maxaf_intervar = pmax(Freq_gnomAD_genome_ALL, Freq_esp6500siv2_all, Freq_1000g2015aug_all, na.rm = TRUE)) %>% 
+#  mutate(BS1 = ifelse(Freq_gnomAD_genome_ALL < 0.005 & Freq_esp6500siv2_all < 0.01, 0, BS1)) %>% #need this step, partly because intervar 2.1 included asj subpopulation in BS1, removed 5/4/21 since applied in InterVar
+#  mutate(PM2 = ifelse(maxaf_intervar < 0.00005, 1, PM2)) %>% #added 4/29/2021, allowing 1 in 10,001 genomes and 12 in 120,000 exomes, removed 5/4/21 since applied in InterVar
   mutate(Priority.Score = (PVS1*8+(PS1+PS2+PS3+PS4+PS5)*6+(PM1+PM2+PM3+PM4+PM5+PM6+PM7)*3+(PP1+PP2+PP3+PP4+PP5+PP6)-BA1*5-(BS1+BS2+BS3+BS4+BS5)*3-(BP1+BP2+BP3+BP4+BP5+BP6+BP7+BP8))) %>% 
   unite("variantkey", X.Chr:Alt, sep = "_", remove = FALSE ) %>%
   group_by(variantkey) %>%
@@ -120,8 +120,10 @@ annovar_inter <- merge(x = annovar, y = intervar_for_sorting,
                        by.x = c("Chr", "Start", "End", "Ref", "Alt"), by.y = c("X.Chr", "Start", "End", "Ref", "Alt"), all.x = TRUE, 
                        sort = FALSE, suffixes = c(".annovar", ".intervar"), no.dups = TRUE,
                        incomparables = NULL) %>%
-  mutate(truncating = case_when(PVS1 == 0 & grepl("^frameshift|stop|start", ExonicFunc.ensGene, ignore.case = TRUE) & maxaf_intervar < 0.005  ~ 8,
-                                PVS1 == 0 & grepl("^frameshift|stop|start", ExonicFunc.ensGene, ignore.case = TRUE) & maxaf_intervar < 0.02  ~ 3,
+  replace_na(list(gnomAD_exome_ALL=0)) %>% 
+  mutate(maxaf_annnovar_intervar = pmax(maxaf_intervar, gnomAD_exome_ALL, na.rm = TRUE)) %>% 
+  mutate(truncating = case_when(PVS1 == 0 & grepl("^frameshift|stop|start", ExonicFunc.ensGene, ignore.case = TRUE) & maxaf_annnovar_intervar < 0.005  ~ 8,
+                                PVS1 == 0 & grepl("^frameshift|stop|start", ExonicFunc.ensGene, ignore.case = TRUE) & maxaf_annnovar_intervar < 0.02  ~ 3,
                                 TRUE ~ 0)) %>% 
   mutate(Priority.Score = Priority.Score + truncating) %>% 
   mutate(Priority.Score = case_when(grepl("Pathogenic", InterVar..InterVar.and.Evidence, ignore.case = FALSE) ~ pmax(Priority.Score, 12),

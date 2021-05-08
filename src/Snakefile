@@ -131,51 +131,33 @@ rule dummy:
 
 if config['datatype'].upper() in ["PANEL", "EXOME", "WES"]:
 	localrules: n_split_vcf
-	localrules: vt_bgzip_and_tabix_vcf
 	localrules: vcfanno2
 	localrules: merge_sample_vcf
 	localrules: sortGemini
+	localrules: bcftools_norm
 else:
 	localrules: n_split_vcf
-	localrules: vt_bgzip_and_tabix_vcf
 
 rule n_split_vcf:
 	input:
 		vcf = config['input_vcf']
 	output:
 		vcf = temp('temp/{sample}__{region}.vcf.gz'),
-		index = temp('temp/{sample}__{region}.vcf.gz.tbi')
+		#index = temp('temp/{sample}__{region}.vcf.gz.tbi')
 	shell:
 		"""
 		export REF_CACHE=/lscratch/$SLURM_JOB_ID/
 		module load {config[samtools_version]}
 		if [[ {wildcards.region} != "MT_contigs" ]]; then
-			bcftools view -r {wildcards.region} {input.vcf} | bgzip > {output.vcf}
+			bcftools view --threads 8 -Oz -r {wildcards.region} {input.vcf} -o {output.vcf}
 		else
-			bcftools view -r {MT_CONTIGS} {input.vcf} | bgzip > {output.vcf}
+			bcftools view --threads 8 -Oz -r {MT_CONTIGS} {input.vcf} -o {output.vcf}
 		fi
-		tabix -p vcf {output.vcf}
+		#tabix -p vcf {output.vcf}
 		"""
 
-if config['freebayes_vcf'] == 'TRUE':
-	rule vt_bgzip_and_tabix_vcf:
-		input:
-			'temp/{sample}__{region}.vcf.gz'
-		output:
-			vcf = temp('temp/vt.{sample}__{region}.vcf.gz'),
-			index = temp('temp/vt.{sample}__{region}.vcf.gz.tbi')
-		shell:
-			"""
-			export REF_CACHE=/lscratch/$SLURM_JOB_ID/
-			module load {config[samtools_version]}
-			module load {config[vt_version]}
-			zcat {input} \
-				| vt decompose -s - \
-				| vt normalize -n -r {config[ref_genome]} - \
-				| bcftools norm -d none --output-type z -o {output.vcf}
-			tabix -f -p vcf {output.vcf}
-			"""
-else:
+if config['gatk3'] == 'TRUE':
+	localrules: vt_bgzip_and_tabix_vcf
 	rule vt_bgzip_and_tabix_vcf:
 		input:
 			'temp/{sample}__{region}.vcf.gz'
@@ -194,9 +176,28 @@ else:
 				| bgzip -c > {output.vcf}
 			tabix -f -p vcf {output.vcf}
 			"""
+else:
+	localrules: bcftools_norm
+	rule bcftools_norm:
+		input:
+			'temp/{sample}__{region}.vcf.gz'
+		output:
+			vcf = temp('temp/vt.{sample}__{region}.vcf.gz'),
+			index = temp('temp/vt.{sample}__{region}.vcf.gz.tbi')
+		threads: 8
+		shell:
+			"""
+			module load {config[samtools_version]}
+			bcftools norm --multiallelics -any --output-type u --no-version {input} \
+				| bcftools norm --check-ref s --fasta-ref {config[ref_genome]} --output-type u --no-version - \
+				| bcftools norm --threads $(({threads}-2)) -d exact --output-type z -o {output.vcf}
+			tabix -f -p vcf {output.vcf}
+			"""
+
 #-e "s|1/.|0/1|" -e "s|./1|0/1|" \ 2/14/2020, removed this for GATK combineVariants
 # 		| sed 's/ID=AC,Number=./ID=AC,Number=A/' \ 1/20/20 vcf-merge of freebayes had problem for one of the position with 6 variants. GATK combine worked.
 # freebayes vcf fixed by vt immediately after freebayes.
+# vt normalize did not work as well as bcftools norm, which keeps all formats fields and properly decompose AF and AQ in the INFO field.
 
 localrules: intervar_evidence
 rule intervar_evidence:
@@ -304,7 +305,7 @@ else:
 			"""
 			module load {config[samtools_version]} && echo "samtools loaded" || exit 1
 			echo -e "##fileformat=VCFv4.2\n#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO" > /lscratch/$SLURM_JOB_ID/vcf.header && echo "vcf.header" || exit 1
-			( bcftools view --no-header -Ov {input.vcf} | awk -F"\t" 'BEGIN{{OFS="\t"}} {{print $1,$2,".",$4,$5,".",".","."}}' - | cat /lscratch/$SLURM_JOB_ID/vcf.header - | bgzip -c > {output.barevcf} ) && echo "barevcf" || exit 1
+			( bcftools view --no-header -Ov {input.vcf} | awk -F"\t" 'BEGIN{{OFS="\t"}} {{print $1,$2,".",$4,$5,".",".","."}}' - | cat /lscratch/$SLURM_JOB_ID/vcf.header - | bgzip --threads $(({threads}-2))-c > {output.barevcf} ) && echo "barevcf" || exit 1
 			tabix -f -p vcf {output.barevcf} && echo "index barevcf" || exit 1
 			bcftools isec --threads {threads} -Oz -p /lscratch/$SLURM_JOB_ID {output.barevcf} /data/OGL/resources/spliceai/spliceai500.depot.vcf.gz && echo "isec" || exit 1
 			module load {config[spliceai_version]}

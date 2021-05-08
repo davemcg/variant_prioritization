@@ -1,14 +1,14 @@
 input_vcf: 'test_trio.vcf.gz'
-freebayes_vcf: 'TRUE' # TRUE if using freebayes or deepvariant vcf.
+gatk3: 'FALSE' # FALSE if using freebayes or deepvariant vcf.
 aaf_change: '1.1'
 output_type: ['geminiDB', 'family_query', 'individual_query'] #list, delete the compopnent that is not needed.
 family_name: [] # empty list or One or more family names in the list ['family_1', 'family_2']. If it's blank and output_type includes family_query, then it will take ped file and make a family list.
 seeGEM: 'FALSE' #TRUE or FALSE
 ped: 'test_trio.ped' # has to be \t delimited.
 regions: '/home/$USER/git/variant_prioritization/src/vcf_region_split_1_coords.txt'
-#regions, 1 for panel (only 1,2,..,22,x,y)
+#regions, 1 for panel (only 1,2,..,22,X)
 #regions, 25 or 100 for WGS of 50 cases.
-datatype: 'exome' #panel, exome, wgs, blank; currently, only "panel" is meaningful
+datatype: 'exome' #panel, exome, wgs, blank
 genomeBuild: 'GRCh37' # GRCh37 or GRCh38, case sensitive
 pick: 'canonical' #canoical or all
 LAFplot: 'TRUE' #If TRUE then chromosome LesserAlleleFreq plot will be generated. Any other value equals to FALSE
@@ -30,7 +30,7 @@ spliceai-wrapper_version: 'spliceai-wrapper/0.1.0'
 VCF-kit_version: 'VCF-kit/0.1.6'
 annovar_version: 'annovar/2019-10-24'
 InterVar_version: 'intervar/2.1.3'
-intervar_evidence: '/data/OGVFB/OGL_NGS/OGL.variants.evidence.txt'
+#intervar_evidence: '/data/OGVFB/OGL_NGS/OGL.variants.evidence.txt'
 intervar_Rscript_path: '/home/$USER/git/variant_prioritization/src/intervar_v1.8.R'
 OGL_Dx_research_genes: '/data/OGL/resources/OGLpanelGeneDxORcandidate.xlsx'
 pandoc_version: 'pandoc/2.1.1'
