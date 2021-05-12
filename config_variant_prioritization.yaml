@@ -1,4 +1,4 @@
-input_vcf: 'test_trio.vcf.gz'
+input_vcf: 'test_trio.vcf.gz' #bcf also accepted.
 gatk3: 'FALSE' # FALSE if using freebayes or deepvariant vcf.
 aaf_change: '1.1'
 output_type: ['geminiDB', 'family_query', 'individual_query'] #list, delete the compopnent that is not needed.

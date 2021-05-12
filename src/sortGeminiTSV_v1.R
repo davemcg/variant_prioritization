@@ -97,7 +97,7 @@ gemini_rearrangeCol <- left_join(gemini_max_priority_score, panelGene, by = c("r
 write_tsv(gemini_rearrangeCol, file = rearrangedGemini_file)
 print("###rearranged file written### 30%")
 gemini_filtered <- gemini_rearrangeCol %>% mutate(temp_group = ifelse(priority_score >= 3, 3, ifelse(priority_score >= -2, -2, -3))) %>% 
-  filter(temp_group >= -2, pmaxaf < 0.2, aaf < aafCutoff, !ref_gene %in% blacklistGene ) %>%
+  filter(!ref_gene %in% blacklistGene, temp_group >= -2 & pmaxaf < 0.2 & aaf < aafCutoff | priority_score >= 10 ) %>%
   arrange(desc(eyeGene), desc(temp_group), desc(maxpriorityscore), ref_gene, desc(priority_score)) %>% 
   select('chr_variant_id', 'sample', 'chrom', 'start_vcf', 'qual', 'filter', starts_with('gts'), starts_with('gt_'), 'aaf', 'caller', 'hg38_pos',
          'panel_class', 'priority_score', 'priority_score_intervar', 'clinvar_hgmd_score', 'splice_score', 'other_predic_score', 'gnomad_af', 'gnomad_acan', 'pmaxaf', 'max_af', 'max_af_pops', 'gnomad_hom', 'ref_gene', 'note', 
