@@ -96,8 +96,8 @@ gemini_rearrangeCol <- left_join(gemini_max_priority_score, panelGene, by = c("r
 #4/12/20: removed 'chr_annovar', 'start_annovar', 'ref_annovar', 'alt_annovar',
 write_tsv(gemini_rearrangeCol, file = rearrangedGemini_file)
 print("###rearranged file written### 30%")
-gemini_filtered <- gemini_rearrangeCol %>% mutate(temp_group = ifelse(priority_score >= 3, 3, ifelse(priority_score >= -2, -2, -3))) %>% 
-  filter(!ref_gene %in% blacklistGene, temp_group >= -2 & pmaxaf < 0.2 & aaf < aafCutoff | priority_score >= 10 ) %>%
+gemini_filtered <- gemini_rearrangeCol %>% mutate(temp_group = ifelse(priority_score >= 3, 3, ifelse(priority_score >= -3, -3, -4))) %>% # checked OPA1 non-coding regions, the AF for some of variants with score -3 are around 0.01.
+  filter(!ref_gene %in% blacklistGene, temp_group >= -3 & pmaxaf < 0.2 & aaf < aafCutoff | priority_score >= 10 ) %>%
   arrange(desc(eyeGene), desc(temp_group), desc(maxpriorityscore), ref_gene, desc(priority_score)) %>% 
   select('chr_variant_id', 'sample', 'chrom', 'start_vcf', 'qual', 'filter', starts_with('gts'), starts_with('gt_'), 'aaf', 'caller', 'hg38_pos',
          'panel_class', 'priority_score', 'priority_score_intervar', 'clinvar_hgmd_score', 'splice_score', 'other_predic_score', 'gnomad_af', 'gnomad_acan', 'pmaxaf', 'max_af', 'max_af_pops', 'gnomad_hom', 'ref_gene', 'note', 
@@ -113,7 +113,6 @@ gemini_filtered <- gemini_rearrangeCol %>% mutate(temp_group = ifelse(priority_s
          'cpg_island', 'gno_an_all', 'gno_af_all',	'gno_hom', 'gnog_an_all', 'gnog_af_all',	'gnog_hom', 'gno_af_asj', 'gnog_af_asj', 'gwas_pubmed_trait', 'pnull', 'precessive', 'rmsk', 'syn_z', 'eyeGene', 'maxpriorityscore') 
 
 gemini_filtered0 <- gemini_filtered %>% select(-maxpriorityscore)
-# consider change to filter(priority_score > 10 | (temp_group >= -2, pmaxaf < 0.05, aaf < aafCutoff))
 
 #AnnotSV does not have GD_POPMAX_AF column as of 3/2/2021, if GD_POPMAX_AF in columnames, then use it in the next version.
 write_tsv(gemini_filtered0, file = filteredGemini_tsv_file)
