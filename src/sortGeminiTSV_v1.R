@@ -220,25 +220,27 @@ print("###inheritance search done### 50%")
 
 #AD: score > 4 , AR: score > 4, all: score >= 3
 
-acmg_genes = c('ACTA2','ACTC1','APC','APOB','ATP7B','BMPR1A','BRCA1','BRCA2',
-               'CACNA1S','COL3A1','DSC2','DSG2','DSP','FBN1','GLA','KCNH2','KCNQ1',
-               'LDLR','LMNA','MEN1','MLH1','MSH2','MSH6','MUTYH','MYBPC3','MYH11',
-               'MYH7','MYL2','MYL3','NF2','OTC','PCSK9','PKP2','PMS2','PRKAG2',
-               'PTEN','RB1','RET','RYR1','RYR2','SCN5A','SDHAF2','SDHB','SDHC',
-               'SDHD','SMAD3','SMAD4','STK11','TGFBR1','TGFBR2','TMEM43','TNNI3',
-               'TNNT2','TP53','TPM1','TSC1','TSC2','VHL','WT1')
+acmg_genes <- read_xlsx(geneCategory_file, sheet = "ACMG3", na = c("NA", "", "None", ".")) %>% pull(Gene) %>% unique()
+
+# acmg_genes = c('ACTA2','ACTC1','APC','APOB','ATP7B','BMPR1A','BRCA1','BRCA2',
+#                'CACNA1S','COL3A1','DSC2','DSG2','DSP','FBN1','GLA','KCNH2','KCNQ1',
+#                'LDLR','LMNA','MEN1','MLH1','MSH2','MSH6','MUTYH','MYBPC3','MYH11',
+#                'MYH7','MYL2','MYL3','NF2','OTC','PALB2','PCSK9','PKP2','PMS2','PRKAG2',
+#                'PTEN','RB1','RET','RYR1','RYR2','SCN5A','SDHAF2','SDHB','SDHC',
+#                'SDHD','SMAD3','SMAD4','STK11','TGFBR1','TGFBR2','TMEM43','TNNI3',
+#                'TNNT2','TP53','TPM1','TSC1','TSC2','VHL','WT1')
 acmg <- gemini_filtered3 %>% filter(ref_gene %in% acmg_genes, priority_score > 4) %>% select(-maxpriorityscore, -recessive_cnt)
 print("###acmg done### 70%")
 summaryInfo <- data.frame("sample" = sampleName, "DxOutcome"= NA, "variant" = NA, "reviewer" = NA, "date" = NA, "2ndReviewer" = NA, "2ndReviewDate" = NA)
 if (is.na(scramble_del_file)) {
-  openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG59" = acmg, "all" = gemini_filtered1, "manta" = manta_sort, "scramble_mei" = scramble_mei, "summary" = summaryInfo), file = gemini_xlsx_file, firstRow = TRUE, firstCol = TRUE)
+  openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG3" = acmg, "all" = gemini_filtered1, "manta" = manta_sort, "scramble_mei" = scramble_mei, "summary" = summaryInfo), file = gemini_xlsx_file, firstRow = TRUE, firstCol = TRUE)
 } else if (is.na(convading_file)) {
-  openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG59" = acmg, "all" = gemini_filtered1, "manta" = manta_sort, "scramble_mei" = scramble_mei, "scramble_del" = scramble_del_sort, "summary" = summaryInfo), file = gemini_xlsx_file, firstRow = TRUE, firstCol = TRUE)
+  openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG3" = acmg, "all" = gemini_filtered1, "manta" = manta_sort, "scramble_mei" = scramble_mei, "scramble_del" = scramble_del_sort, "summary" = summaryInfo), file = gemini_xlsx_file, firstRow = TRUE, firstCol = TRUE)
 } else {
     cnv <- read_tsv(convading_file, col_names = TRUE, na = c("NA", "", "None", "."), col_types = cols(.default = col_character())) %>%
       type_convert() 
     if (dim(cnv)[1] == 0) {
-      openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG59" = acmg, "all" = gemini_filtered1, "manta" = manta_sort, "scramble_mei" = scramble_mei, "scramble_del" = scramble_del_sort, "summary" = summaryInfo), file = gemini_xlsx_file, firstRow = TRUE, firstCol = TRUE)
+      openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG3" = acmg, "all" = gemini_filtered1, "manta" = manta_sort, "scramble_mei" = scramble_mei, "scramble_del" = scramble_del_sort, "summary" = summaryInfo), file = gemini_xlsx_file, firstRow = TRUE, firstCol = TRUE)
     } else {
       cnv_gene <- as.list(distinct(cnv, GENE)[[1]])
       #cnv_gene <- dplyr::pull(cnv, GENE) #pull column as a vector
@@ -250,7 +252,7 @@ if (is.na(scramble_del_file)) {
         select('chr_variant_id', 'chrom', 'start', 'qual', 'filter', starts_with('gts'), starts_with('gt_'), 'LAF', 'ref_gene', 'exon', 'ref_gene',  
               'refgenewithver', 'exonicfunc_refgenewithver', 'hgvsc', 'hgvsp', 'type') %>% 
         rename(gene = ref_gene)
-      openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG59" = acmg, "all" = gemini_filtered1, "CoNVaDING" = cnv, "CNV-variant" = cnv_variant, "manta" = manta_sort, "scramble_mei" = scramble_mei, "scramble_del" = scramble_del_sort, "summary" = summaryInfo), file = gemini_xlsx_file, firstRow = TRUE, firstCol = TRUE)
+      openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG3" = acmg, "all" = gemini_filtered1, "CoNVaDING" = cnv, "CNV-variant" = cnv_variant, "manta" = manta_sort, "scramble_mei" = scramble_mei, "scramble_del" = scramble_del_sort, "summary" = summaryInfo), file = gemini_xlsx_file, firstRow = TRUE, firstCol = TRUE)
       cnv_edit <- cnv %>% 
         mutate(START = START - 100, STOP = STOP + 100, type = "snp") %>% #padding of 100 nt
         gather(START:STOP, key = "datatype", value = "position") %>% 

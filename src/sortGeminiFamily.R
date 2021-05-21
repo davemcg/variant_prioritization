@@ -58,55 +58,70 @@ sortFilterGemini <- function(fileName) {
 panelGene <- read_xlsx(geneCategory_file, sheet = "analysis", na = c("NA", "", "None", ".")) %>% select(gene, panel_class) %>% rename(ref_gene = gene)
 blacklistGene <- read_xlsx(geneCategory_file, sheet = "IVA", na = c("NA", "", "None", "."))  %>% filter(Blacklist == "Excluded") %>% pull(Gene)
 
+all <- data.frame()
 if (file.size(denovo_file) == 0) {
   denovo <- data.frame("family_id" = family_name, "note" = "Empty denovo query")
 } else {
   denovo <- sortFilterGemini(denovo_file)
+  all <- rbind(all, denovo)
 }
 
 if (file.size(ad_file) == 0) {
   ad <- data.frame("family_id" = family_name, "note" = "Empty ad query")
 } else {
-  ad <- sortFilterGemini(ad_file)
+  ad <- sortFilterGemini(ad_file) %>% filter(!chrom %in% c("X", "chrX"))
+  all <- rbind(all, ad)
 }
 
 if (file.size(ar_file) == 0) {
   ar <- data.frame("family_id" = family_name, "note" = "Empty ar query")
 } else {
   ar <- sortFilterGemini(ar_file) %>% filter(!chrom %in% c("X", "chrX"))
+  all <- rbind(all, ar)
 }
 
 if (file.size(comphets_file) == 0) {
   comphets <- data.frame("family_id" = family_name, "note" = "Empty comphets query")
 } else {
-  comphets <- sortFilterGemini(comphets_file) %>% distinct(chr_variant_id, .keep_all = TRUE)
+  comphets <- sortFilterGemini(comphets_file) %>% 
+    filter(!is.na(gene)) %>% 
+    distinct(chr_variant_id, .keep_all = TRUE)
+  all <- rbind(all, comphets)
 }
 
 if (file.size(xdenovo_file) == 0) {
   xdenovo <- data.frame("family_id" = family_name, "note" = "Empty xdenovo query")
 } else {
   xdenovo <- sortFilterGemini(xdenovo_file)
+  all <- rbind(all, xdenovo)
 }
 
 if (file.size(xd_file) == 0) {
   xd <- data.frame("family_id" = family_name, "note" = "Empty xd query")
 } else {
   xd <- sortFilterGemini(xd_file)
+  all <- rbind(all, xd)
 }
 
 if (file.size(xr_file) == 0) {
   xr <- data.frame("family_id" = family_name, "note" = "Empty xr query")
 } else {
   xr <- sortFilterGemini(xr_file)
+  all <- rbind(all, xr)
 }
 
 if (file.size(mendel_errors_file) == 0) {
   mendel_errors <- data.frame("family_id" = family_name, "note" = "Empty mendel_errors query")
 } else {
   mendel_errors <- sortFilterGemini(mendel_errors_file)
+  all <- rbind(all, mendel_errors)
 }
 
 summaryInfo <- data.frame("family_id" = family_name, "DxOutcome"= NA, "variant" = NA, "reviewer" = NA, "date" = NA, "SecondReviewer" = NA, "SecondReviewDate" = NA)
+
+acmg_genes <- read_xlsx(geneCategory_file, sheet = "ACMG3", na = c("NA", "", "None", ".")) %>% pull(Gene) %>% unique()
+acmg <- all %>% filter(ref_gene %in% acmg_genes, priority_score > 4) %>% distinct(chr_variant_id, .keep_all = TRUE)
+#in the next version, consider TTN truncating, HFE C..Y hmz etc.
 
 openxlsx::write.xlsx(list( "de_novo" = denovo, 
                            "AD" = ad, 
@@ -116,5 +131,6 @@ openxlsx::write.xlsx(list( "de_novo" = denovo,
                            "XD" = xd, 
                            "XR" = xr, 
                            "mendel_errors" = mendel_errors, 
+                           "ACMG3" = acmg,
                            "summary" = summaryInfo), 
                      file = output_xlsx, firstRow = TRUE, firstCol = TRUE)
