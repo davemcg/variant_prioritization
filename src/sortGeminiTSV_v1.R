@@ -126,7 +126,7 @@ if (file.size(manta_file) == 0) {
     filter(FILTER == 'PASS') %>%
     filter( is.na(Gene_name) | Annotation_mode == 'split' & !is.na(Gene_name) ) %>% 
     mutate(ACMG_class = sub("full=", "", ACMG_class)) %>% 
-    mutate(ACMG_class = as.numeric(ACMG_class), SV_length = as.numeric(SV_length)) %>% 
+    type_convert() %>% 
     mutate(ACMG_class = case_when(SV_type == "DEL" & !is.na(B_loss_source) ~ ACMG_class - 2,
                                    SV_type == "DUP" & !is.na(B_gain_source) ~ ACMG_class - 1,
                                    TRUE ~ ACMG_class )) %>% 
@@ -157,7 +157,7 @@ if (!is.na(scramble_del_file)) {
     scramble_del <- read_tsv(scramble_del_file, col_names = TRUE, na = c("NA", "", "None", "."), col_types = cols(.default = col_character())) %>%
       filter( is.na(Gene_name) | Annotation_mode == 'split' & !is.na(Gene_name) ) %>%
       mutate(ACMG_class = sub("full=", "", ACMG_class)) %>% 
-      mutate(ACMG_class = numeric(ACMG_class), SV_length = as.numeric(SV_length)) %>% 
+      type_convert() %>% 
       mutate(ACMG_class = case_when(SV_type == "DEL" & !is.na(B_loss_source) ~ ACMG_class - 2,
                                     SV_type == "DUP" & !is.na(B_gain_source) ~ ACMG_class - 1,
                                     TRUE ~ ACMG_class )) %>% 
