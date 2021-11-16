@@ -13,11 +13,11 @@ genomeBuild: 'GRCh37' # GRCh37 or GRCh38, case sensitive
 pick: 'canonical' #canoical or all
 LAFplot: 'TRUE' #If TRUE then chromosome LesserAlleleFreq plot will be generated. Any other value equals to FALSE
 samtools_version: 'samtools/1.11'
-ref_genome: '/data/OGVFB/resources/1000G_phase2_GRCh37/human_g1k_v37_decoy.fasta'
+ref_genome: '/data/OGVFB/resources/1000G_phase2_GRCh37/human_g1k_v37_decoy.fasta' #hard-coded in snakemake file
 VEP_version: 'VEP/103'
 vcfanno_version: 'vcfanno/0.3.2'
 vcfanno_lua: '/home/$USER/git/variant_prioritization/src/vcfanno_custom.lua'
-vcfanno_conf: '/home/$USER/git/variant_prioritization/src/vcfanno_v4.conf'
+vcfanno_conf: '/home/$USER/git/variant_prioritization/src/vcfanno_v4.conf' #hard-coded in snakemake file
 vcf2db_version: 'vcf2db/2018.10.26' #'vcf2db/2020.09.14'
 gemini_version: 'gemini/0.20.1' #0.30.2
 peddy_version: 'peddy/0.3.1'

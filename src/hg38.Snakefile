@@ -37,7 +37,7 @@ if '/home/$USER' in REGIONS_file:
 	REGIONS_file = os.environ['HOME'] + REGIONS_file.split('$USER')[-1]
 REGIONS = open(REGIONS_file).readlines()
 REGIONS = [r.strip() for r in REGIONS]
-MT_CONTIGS="MT,GL000207.1,GL000226.1,GL000229.1,GL000231.1,GL000210.1,GL000239.1,GL000235.1,GL000201.1,GL000247.1,GL000245.1,GL000197.1,GL000203.1,GL000246.1,GL000249.1,GL000196.1,GL000248.1,GL000244.1,GL000238.1,GL000202.1,GL000234.1,GL000232.1,GL000206.1,GL000240.1,GL000236.1,GL000241.1,GL000243.1,GL000242.1,GL000230.1,GL000237.1,GL000233.1,GL000204.1,GL000198.1,GL000208.1,GL000191.1,GL000227.1,GL000228.1,GL000214.1,GL000221.1,GL000209.1,GL000218.1,GL000220.1,GL000213.1,GL000211.1,GL000199.1,GL000217.1,GL000216.1,GL000215.1,GL000205.1,GL000219.1,GL000224.1,GL000223.1,GL000195.1,GL000212.1,GL000222.1,GL000200.1,GL000193.1,GL000194.1,GL000225.1,GL000192.1,NC_007605"
+MT_CONTIGS = "chrM chr1_KI270706v1_random chr1_KI270707v1_random chr1_KI270708v1_random chr1_KI270709v1_random chr1_KI270710v1_random chr1_KI270711v1_random chr1_KI270712v1_random chr1_KI270713v1_random chr1_KI270714v1_random chr2_KI270715v1_random chr2_KI270716v1_random chr3_GL000221v1_random chr4_GL000008v2_random chr5_GL000208v1_random chr9_KI270717v1_random chr9_KI270718v1_random chr9_KI270719v1_random chr9_KI270720v1_random chr11_KI270721v1_random chr14_GL000009v2_random chr14_GL000225v1_random chr14_KI270722v1_random chr14_GL000194v1_random chr14_KI270723v1_random chr14_KI270724v1_random chr14_KI270725v1_random chr14_KI270726v1_random chr15_KI270727v1_random chr16_KI270728v1_random chr17_GL000205v2_random chr17_KI270729v1_random chr17_KI270730v1_random chr22_KI270731v1_random chr22_KI270732v1_random chr22_KI270733v1_random chr22_KI270734v1_random chr22_KI270735v1_random chr22_KI270736v1_random chr22_KI270737v1_random chr22_KI270738v1_random chr22_KI270739v1_random chrY_KI270740v1_random chrUn_KI270302v1 chrUn_KI270304v1 chrUn_KI270303v1 chrUn_KI270305v1 chrUn_KI270322v1 chrUn_KI270320v1 chrUn_KI270310v1 chrUn_KI270316v1 chrUn_KI270315v1 chrUn_KI270312v1 chrUn_KI270311v1 chrUn_KI270317v1 chrUn_KI270412v1 chrUn_KI270411v1 chrUn_KI270414v1 chrUn_KI270419v1 chrUn_KI270418v1 chrUn_KI270420v1 chrUn_KI270424v1 chrUn_KI270417v1 chrUn_KI270422v1 chrUn_KI270423v1 chrUn_KI270425v1 chrUn_KI270429v1 chrUn_KI270442v1 chrUn_KI270466v1 chrUn_KI270465v1 chrUn_KI270467v1 chrUn_KI270435v1 chrUn_KI270438v1 chrUn_KI270468v1 chrUn_KI270510v1 chrUn_KI270509v1 chrUn_KI270518v1 chrUn_KI270508v1 chrUn_KI270516v1 chrUn_KI270512v1 chrUn_KI270519v1 chrUn_KI270522v1 chrUn_KI270511v1 chrUn_KI270515v1 chrUn_KI270507v1 chrUn_KI270517v1 chrUn_KI270529v1 chrUn_KI270528v1 chrUn_KI270530v1 chrUn_KI270539v1 chrUn_KI270538v1 chrUn_KI270544v1 chrUn_KI270548v1 chrUn_KI270583v1 chrUn_KI270587v1 chrUn_KI270580v1 chrUn_KI270581v1 chrUn_KI270579v1 chrUn_KI270589v1 chrUn_KI270590v1 chrUn_KI270584v1 chrUn_KI270582v1 chrUn_KI270588v1 chrUn_KI270593v1 chrUn_KI270591v1 chrUn_KI270330v1 chrUn_KI270329v1 chrUn_KI270334v1 chrUn_KI270333v1 chrUn_KI270335v1 chrUn_KI270338v1 chrUn_KI270340v1 chrUn_KI270336v1 chrUn_KI270337v1 chrUn_KI270363v1 chrUn_KI270364v1 chrUn_KI270362v1 chrUn_KI270366v1 chrUn_KI270378v1 chrUn_KI270379v1 chrUn_KI270389v1 chrUn_KI270390v1 chrUn_KI270387v1 chrUn_KI270395v1 chrUn_KI270396v1 chrUn_KI270388v1 chrUn_KI270394v1 chrUn_KI270386v1 chrUn_KI270391v1 chrUn_KI270383v1 chrUn_KI270393v1 chrUn_KI270384v1 chrUn_KI270392v1 chrUn_KI270381v1 chrUn_KI270385v1 chrUn_KI270382v1 chrUn_KI270376v1 chrUn_KI270374v1 chrUn_KI270372v1 chrUn_KI270373v1 chrUn_KI270375v1 chrUn_KI270371v1 chrUn_KI270448v1 chrUn_KI270521v1 chrUn_GL000195v1 chrUn_GL000219v1 chrUn_GL000220v1 chrUn_GL000224v1 chrUn_KI270741v1 chrUn_GL000226v1 chrUn_GL000213v1 chrUn_KI270743v1 chrUn_KI270744v1 chrUn_KI270745v1 chrUn_KI270746v1 chrUn_KI270747v1 chrUn_KI270748v1 chrUn_KI270749v1 chrUn_KI270750v1 chrUn_KI270751v1 chrUn_KI270752v1 chrUn_KI270753v1 chrUn_KI270754v1 chrUn_KI270755v1 chrUn_KI270756v1 chrUn_KI270757v1 chrUn_GL000214v1 chrUn_KI270742v1 chrUn_GL000216v2 chrUn_GL000218v1 chrEBV"
 
 def list_duplicates(seq):
   seen = set()
@@ -93,7 +93,7 @@ if config['genomeBuild'].upper() in ['GRCH37', 'HG19']:
 	config['ref_genome'] = '/data/OGL/resources/1000G_phase2_GRCh37/human_g1k_v37_decoy.fasta'
 	config['vcfanno_conf'] = '/home/$USER/git/variant_prioritization/src/vcfanno_v4.conf'
 elif config['genomeBuild'].upper() in ['GRCH38', 'HG38']:
-	config['ref_genome'] = '/data/OGL/resources/genomes/NCBI/GRCh38Decoy/genome.fa'
+	config['ref_genome'] = '/data/OGL/resources/genomes/GRCh38/GRCh38Decoy2.fa'
 	config['vcfanno_conf'] = '/home/$USER/git/variant_prioritization/src/vcfanno_v4.GRCh38.conf'
 else:
 	print("ref_genome is ", config['ref_genome'])
@@ -266,24 +266,6 @@ rule annovar_intervar:
 # 	-o {output.avinput} \
 # 	--skip_annovar
 
-rule squirls:
-	input:
-		vcf = 'temp/vt.{sample}__{region}.vcf.gz',
-		index = 'temp/vt.{sample}__{region}.vcf.gz.tbi'
-	output:
-		barevcf = temp('temp/{sample}__{region}.bare.csv'),
-		csv = temp('temp/squirls.{sample}__{region}.csv')
-	shell:
-		"""
-		module load {config[samtools_version]}
-		bcftools view --no-header -Ov {input.vcf} | awk -F"\t" 'BEGIN{{OFS=","}} NR==1 {{print "CHROM,POS,REF,ALT"}} NR>1 {{print $1,$2,$4,$5}}' - > {output.barevcf}
-		module load java
-		java -jar /data/OGL/resources/squirls-cli-1.0.0/squirls-cli-1.0.0.jar \
-			annotate-csv \
-			/data/OGL/resources/squirls/squirls-config_hg19.yml \
-			{output.barevcf} {output.csv}
-		"""
-#annotate-csv does not allow html output. Only annotate-vcf has html output.
 if config['spliceai_wrapper'] == 'TRUE':
 	rule spliceai_wrapper:
 		input:
@@ -519,8 +501,7 @@ localrules: priority_scores
 rule priority_scores:
 	input:
 		vcf = 'temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.vcf.gz',
-		index = 'temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.vcf.gz.tbi',
-		csv = 'temp/squirls.{sample}__{region}.csv'
+		index = 'temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.vcf.gz.tbi'
 	output:
 		tsv = temp('temp/{sample}__{region}.tsv'),
 		ps_tsv = temp('temp/{sample}__{region}.ps.tsv'),
@@ -534,7 +515,7 @@ rule priority_scores:
 		vt info2tab -t CSQ,Ref_Gene,ExonicFunc_refGeneWithVer,gnomAD_exome_ALL_annovar,gnomAD_genome_ALL_annovar,PopFreqMax_annovar,gno_af_popmax,mis_z,clinvar_sig,Clinvar_intervar,HGMD_Overlap,ClinPred_Score,MetaSVM_pred,revel,MutationAssessor_pred,MutationTaster_pred,PROVEAN_pred,Eigen-PC-raw,Eigen-raw,phyloP_100way,GERP_RS_intervar,dpsi_max_tissue_annovar,dpsi_zscore_annovar,dbscSNV_ADA_SCORE_intervar,dbscSNV_RF_SCORE_intervar,spliceai_rank,Priority_Score_intervar,PVS1,SigmaAF_Missense_0001,PrimateDL,ccr_pct,remm,fathmm_xf_coding,fathmm_xf_noncoding,atac_rpe_itemRgb,ft_ret_rpe_score {input.vcf} \
 		 	| sed '1 s/^.*$/CHROM\tPOS\tREF\tALT\tN_ALLELE\tCSQ\tRef_Gene\tExonicFunc_refGeneWithVer\tgnomAD_exome_ALL_annovar\tgnomAD_genome_ALL_annovar\tPopFreqMax_annovar\tgno_af_popmax\tmis_z\tclinvar_sig\tClinvar_intervar\tHGMD_Overlap\tClinPred_Score\tMetaSVM_pred\trevel\tMutationAssessor_pred\tMutationTaster_pred\tPROVEAN_pred\tEigen_PC_raw\tEigen_raw\tphyloP_100way\tGERP_RS_intervar\tdpsi_max_tissue_annovar\tdpsi_zscore_annovar\tdbscSNV_ADA_SCORE_intervar\tdbscSNV_RF_SCORE_intervar\tspliceai_rank\tPriority_Score_intervar\tPVS1\tSigmaAF_Missense_0001\tPrimateDL\tccr_pct\tremm\tfathmm_xf_coding\tfathmm_xf_noncoding\tatac_rpe_itemRgb\tft_ret_rpe_score/' - \
 			> {output.tsv}
-		Rscript /home/$USER/git/variant_prioritization/src/priority_score.R {output.tsv} {input.csv} {output.ps_tsv}
+		Rscript /home/$USER/git/variant_prioritization/src/priority_score.R {output.tsv} {output.ps_tsv}
 		bgzip -c {output.ps_tsv} > {output.bgzip}
 		tabix -b 2 -e 2 -S 1 {output.bgzip}
 		"""

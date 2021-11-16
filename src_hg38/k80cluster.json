@@ -1,0 +1,58 @@
+{
+	"__default__" :
+	{
+		"partition" : "quick",
+		"time" : "4:00:00",
+		"mem" : "8g",
+		"output"  : "00log/{rule}_{wildcards}.out",
+		"error" : "00log/{rule}_{wildcards}.err",
+		"extra" : ""
+	},
+	"spliceai_wrapper" :
+  {
+    "partition" : "gpu",
+    "extra" : "--gres=gpu:k80:2,lscratch:100 --cpus-per-task=4",
+    "mem" : "32g",
+    "time" : "12:00:00"
+  },
+	"spliceai" :
+	{
+		"partition" : "gpu",
+		"extra" : "--gres=gpu:k80:2,lscratch:200",
+		"mem" : "120g",
+		"time" : "48:00:00"
+	},
+	"VEP_annotate" :
+	{
+		"partition" : "norm",
+		"time" : "24:00:00"
+	},
+	"annovar_intervar" :
+	{
+		"partition" : "norm",
+		"time" : "24:00:00",
+		"mem" : "16g"
+	},
+	"spliceai_intervar_edit" :
+	{
+		"mem" : "32g"
+	},
+	"merge_vcf" :
+	{
+		"partition" : "norm",
+		"time" : "8:00:00",
+		"mem" : "164g"
+	},
+	"sort_tabix" :
+	{
+		"partition" : "norm",
+		"time" : "24:00:00",
+		"mem" : "64g"
+	},
+	"make_gemini_db" :
+	{
+		"partition" : "norm",
+		"time" : "12:00:00",
+		"mem" : "32g"
+	}
+}
