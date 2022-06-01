@@ -147,7 +147,7 @@ rule n_split_vcf:
 	shell:
 		"""
 		export REF_CACHE=/lscratch/$SLURM_JOB_ID/
-		module load {config[samtools_version]}
+		if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
 		if [[ {wildcards.region} != "MT_contigs" ]]; then
 			bcftools view --threads 8 -Oz -r {wildcards.region} {input.vcf} -o {output.vcf}
 		else
@@ -187,7 +187,7 @@ else:
 		threads: 8
 		shell:
 			"""
-			module load {config[samtools_version]}
+			if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
 			bcftools norm --multiallelics -any --output-type u --no-version {input} \
 				| bcftools norm --check-ref s --fasta-ref {config[ref_genome]} --output-type u --no-version - \
 				| bcftools norm --threads $(({threads}-2)) -d exact --output-type z -o {output.vcf}
@@ -208,7 +208,7 @@ rule intervar_evidence:
 		InterVarEvidence = temp('temp/InterVarEvidence.txt')
 	shell:
 		"""
-		module load {config[R_version]}
+		if [[ $(module list 2>&1 | grep "R/" | wc -l) < 1 ]]; then module load {config[R_version]}; fi
 		# module load {config[samtools_version]}
 		module load {config[InterVar_version]}
 		Rscript /home/$USER/git/variant_prioritization/src/intervar_evidence.R /data/OGL/resources/OGLvariantsClassification.xlsx {output.evidenceInput}

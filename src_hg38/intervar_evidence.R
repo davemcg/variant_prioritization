@@ -9,8 +9,8 @@ library(tidyverse)
 library(readxl)
 
 evidence_vcf <-  read_xlsx(args[1], sheet = "OGLvariants", na =c("", ".", "NA", " ")) %>% 
-  filter(!is.na(chr_variant_id)) %>% 
-  separate(chr_variant_id, c("#CHROM", "POS", "REF", "ALT"), remove = TRUE, convert = TRUE) %>% 
+  filter(!is.na(hg38_variant_id)) %>% 
+  separate(hg38_variant_id, c("#CHROM", "POS", "REF", "ALT"), remove = TRUE, convert = TRUE) %>% 
   mutate(QUAL = NA, FILTER = NA) %>% # these are just names, Convert2annova does not care the contents or names
   select("#CHROM", "POS", "InterVar_evidence", "REF", "ALT", "QUAL", "FILTER", "annovarAnnotation")
-write_tsv(evidence_vcf, path = args[2])
+write_tsv(evidence_vcf, file = args[2])

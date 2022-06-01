@@ -5,6 +5,7 @@
 
 # to run snakemake as batch job
 # run in the data folder for this project
+# $1 - configfile
 # $2 - --notemp --dryrun --unlock
 # $3 non-default json file
 
@@ -22,22 +23,29 @@ sbcmd="sbatch --cpus-per-task={threads} \
 --error={cluster.error} \
 {cluster.extra}"
 
-
-# if json given, then use it
-if [ ! -z "$3" ]; then
-	json="$3"
-# otherwise use the default
-else
+if [[ $(grep "^genomeBuild" $1 | grep -i "GRCh38" | wc -l) < 1 ]]; then
 	json="/home/$USER/git/variant_prioritization/src/cluster.json"
+	snakefile="/home/$USER/git/variant_prioritization/src/Snakefile"
+else
+	json="/home/$USER/git/variant_prioritization/src_hg38/cluster.json"
+	snakefile="/home/$USER/git/variant_prioritization/src_hg38/Snakefile"
 fi
 
-snakemake -s /home/$USER/git/variant_prioritization/src/Snakefile \
+# add json file to config file if needed.
+#if [ ! -z "$3" ]; then
+#	json="$3"
+# otherwise use the default
+#else
+#	json="/home/$USER/git/variant_prioritization/src_hg38/cluster.json"
+#fi
+
+snakemake -s $snakefile \
 -pr --local-cores 2 --jobs 1999 \
 --configfile $1 \
 --cluster-config $json \
 --cluster "$sbcmd"  --latency-wait 120 --rerun-incomplete \
--k --restart-times 1 --resources res=1 $2
+-k --restart-times 0 --resources res=1 $2
 
 # --notemp Ignore temp() declaration;
-# --dryrun 
+# --dryrun
 # --unlock

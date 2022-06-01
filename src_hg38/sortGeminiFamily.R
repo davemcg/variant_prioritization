@@ -20,7 +20,8 @@ library(readxl)
 sortFilterGemini <- function(fileName) {
   InheritanceTest <- read_tsv(fileName, col_names = TRUE, na = c("NA", "", "None", "."), col_types = cols(.default = col_character())) %>%
     mutate(atac_rpe_score = sub(",", "_", atac_rpe_score)) %>% 
-    type_convert() %>% mutate(exon = sub("^", " ", exon)) %>% mutate( start_vcf = start + 1 ) %>% 
+    type_convert() %>% mutate(exon = sub("^", " ", exon), intron = sub("^", " ", intron)) %>%
+    mutate( start_vcf = start + 1 ) %>% 
     unite("chr_variant_id", chrom, start_vcf, ref, alt, sep = "-", remove = FALSE ) %>% 
     mutate(gene = toupper(gene)) %>% 
     filter(pmaxaf < 0.2, aaf < aaf_freq, !ref_gene %in% blacklistGene, qual > 10)
@@ -31,27 +32,40 @@ sortFilterGemini <- function(fileName) {
   #VEP hg19 version's gene names are the same as in the IDT ordering design sheets. This is what used for left_join
   InheritanceTest_rearrangeCol <- left_join(InheritanceTest_max_priority_score1, panelGene, by = c("ref_gene")) %>% 
     mutate(note = "") %>% separate(vcf_id, c('caller', 'hg38_id'), sep = "_") %>% 
-    mutate(hg38_pos = sub("[ACGT]*>[ACGT]*", "", hg38_id)) %>% 
-    mutate(gnomad_hom = ifelse(is.na(gno_hom) & is.na(gnog_hom), NA, ifelse(is.na(gno_hom), 0, gno_hom) + ifelse(is.na(gnog_hom), 0, gnog_hom) ), 
-           gnomad_ac = ifelse(is.na(gno_ac_all) & is.na(gnog_ac_all), NA, ifelse(is.na(gno_ac_all), 0, gno_ac_all) + ifelse(is.na(gnog_ac_all), 0, gnog_ac_all) ), 
-           gnomad_an = ifelse(is.na(gno_an_all) & is.na(gnog_an_all), NA, ifelse(is.na(gno_an_all), 0, gno_an_all) + ifelse(is.na(gnog_an_all), 0, gnog_an_all) )) %>% 
-    mutate(gnomad_af = gnomad_ac/gnomad_an) %>% 
-    unite("gnomad_acan", gnomad_ac, gnomad_an, sep = "/", remove = TRUE) %>% 
+    mutate(hg38_pos = sub("[ACGT]*>[ACGT]*", "", hg38_id)) %>%
+    mutate(temp_genes_bed = pmap_chr(list(eyeintegration_gene, gene_gnomad, omim_gene, gene, gene_refgenewithver), ~toString(unique(na.omit(c(...)))) )) %>%
+    mutate(temp_genes_bed = na_if(temp_genes_bed, "") ) %>% 
+    mutate(ref_gene = ifelse(is.na(ref_gene), temp_genes_bed, ref_gene)) %>%
+    mutate(priority_score = ifelse(is.na(ref_gene) & !is.na(temp_genes_bed) & pmaxaf < 0.005, priority_score + 2, priority_score)) %>% 
+    select(-temp_genes_bed) %>% 
+    mutate(gno2e3g_hom = ifelse(is.na(gno2x_hom) & is.na(gno3_nhomalt), NA, ifelse(is.na(gno2x_hom), 0, gno2x_hom) + ifelse(is.na(gno3_nhomalt), 0, gno3_nhomalt) ), 
+           gno2e3g_ac = ifelse(is.na(gno2x_ac_all) & is.na(gno3_ac_all), NA, ifelse(is.na(gno2x_ac_all), 0, gno2x_ac_all) + ifelse(is.na(gno3_ac_all), 0, gno3_ac_all) ), 
+           gno2e3g_an = ifelse(is.na(gno2x_an_all) & is.na(gno3_an_all), NA, ifelse(is.na(gno2x_an_all), 0, gno2x_an_all) + ifelse(is.na(gno3_an_all), 0, gno3_an_all) )) %>% 
+    mutate(gno2e3g_af = gno2e3g_ac/gno2e3g_an) %>% 
+    unite("gno2e3g_acan", gno2e3g_ac, gno2e3g_an, sep = "/", remove = TRUE) %>% 
+    mutate(gno2x_expected_an = case_when(chrom %in% c("X", "chrX") & gno2x_nonpar == "1" ~ 183653,
+                                         chrom %in% c("Y", "chrY") & gno2x_nonpar == "1" ~ 67843,
+                                         TRUE ~ 251496)) %>%
+    mutate(gno3_expected_an = case_when(chrom %in% c("X", "chrX") & gno3_nonpar == "1" ~ 116830,
+                                        chrom %in% c("Y", "chrY") & gno3_nonpar == "1" ~ 35482,
+                                        TRUE ~ 152312)) %>%
+    mutate(gno2x_filter = ifelse(gno2x_an_all > 0 & is.na(gno2x_filter) & gno2x_an_all < gno2x_expected_an/2, "lessHalfAN", gno2x_filter),
+           gno3_filter = ifelse(gno3_an_all > 0 & is.na(gno3_filter) & gno3_an_all < gno3_expected_an/2, "lessHalfAN", gno3_filter) ) %>%
     mutate(eyeGene = case_when(panel_class == "Dx" ~ 2,
                                panel_class == "Candidate" ~ 1,
                                TRUE ~ 0)) %>% 
-    select('chr_variant_id', 'chrom', 'start_vcf', 'qual', 'filter', 'family_id','family_members', 'family_genotypes', 'samples', 'aaf', 'caller', 'hg38_pos',
-           'panel_class', 'priority_score', 'priority_score_intervar', 'clinvar_hgmd_score', 'splice_score', 'other_predic_score', 'gnomad_af', 'gnomad_acan', 'pmaxaf', 'max_af', 'max_af_pops', 'gnomad_hom', 'ref_gene', 'note', 
-           'exonicfunc_ensgene', 'refgenewithver', 'hgvsc', 'hgvsp', 'gene', 'exon', 'aa_length', 'omim_gene', 'omim_inheritance', 'omim_phenotype', 'pvs1', 'truncating_vep', 'hgmd_overlap', 'existing_variation', 'clinvar_intervar', 'intervar_and_evidence', 
-           'clinvar_id', 'clinvar_pathogenic', 'clinvar_sig', 'clin_sig', 'existing_inframe_oorfs','existing_outofframe_oorfs','existing_uorfs','five_prime_utr_variant_annotation','five_prime_utr_variant_consequence',
-           'spliceai', 'spliceai_maxscore', 'spliceaimasked50', 'spliceaimasked50max', 'squirls_interpretation', 'squirls_maxscore', 'squirls_score', 'dbscsnv_ada_score_intervar', 'dbscsnv_rf_score_intervar', 'dpsi_max_tissue_annovar', 'dpsi_zscore_annovar', 'genesplicer', 'maxentscan_diff', 'branchpoint_u2_binding_energy', 'branchpoint_prob', 'branchpoint_to_3prime', 
-           'sift_pred', 'polyphen_pred', 'mutationassessor_pred', 'mutationtaster_pred', 'metasvm_pred','metasvm_score_intervar', 'clinpred_score', 'primatedl', 'revel', 'ccr_pct','mpc', 'cadd_raw', 'cadd_phred','remm', 'fathmm_xf_coding','fathmm_xf_noncoding','eigen_pc_raw', 'eigen_raw', 'gerp_rs_intervar', 'phylop46way_placental_intervar', 'phylop_100way', 
-           'atac_rpe_score','atac_rpe_itemrgb', 'ft_ret_rpe_score', 'genedetail_ensgene', 'aachange_ensgene', 'gene_refgenewithver', 'func_refgene', 'func_refgenewithver', 'exonicfunc_refgenewithver', 'exonicfunc_refgene', 'avsnp150_annovar', 'interpro_domain_intervar', 
-           'pfam_domain', 'tfbs', 'pli', 'lof_z', 'mis_z', 'sigmaaf_lof_0001', 'sigmaaf_lof_01', 'sigmaaf_missense_0001', 'sigmaaf_missense_01', 'atac_rpe_itemrgb', 'atac_rpe_score', 
-           'eyeintegration_rnaseq_tpm_rpe_adulttissue', 'eyeintegration_rnaseq_tpm_rpe_cellline', 'eyeintegration_rnaseq_tpm_rpe_fetaltissue', 'eyeintegration_rnaseq_tpm_rpe_stemcellline', 'eyeintegration_rnaseq_tpm_retina_adulttissue', 'eyeintegration_rnaseq_tpm_retina_stemcellline', 'eyeintegration_rnaseq_tpm_wholeblood', 
-           'pubmed', 'polyphen_score', 'sift_score', 'eigen_pc_phred', 'eigen_pc_raw_rankscore', 'eigen_phred',	'eigen_coding_or_noncoding', 'fathmm_converted_rankscore',	'fathmm_pred',	'fathmm_score',	'gerp',	'genocanyon_score',	'genocanyon_score_rankscore',	'linsight', 'lrt_omega', 'lrt_converted_rankscore', 'lrt_pred',	'lrt_score',
-           'm_cap_pred', 'm_cap_rankscore',	'm_cap_score', 'metalr_pred',	'metalr_rankscore',	'metalr_score',	'metasvm_rankscore', 'metasvm_score', 'mutationassessor_uniprotid',	'mutationassessor_score',	'mutationassessor_score_rankscore',	'mutationtaster_converted_rankscore',	'mutationtaster_model',	'mutationtaster_score',	'provean_converted_rankscore',	'provean_pred',	'provean_score', 'vest3_rankscore',	'vest3_score',
-           'cpg_island', 'gno_an_all', 'gno_af_all',	'gno_hom', 'gnog_an_all', 'gnog_af_all',	'gnog_hom', 'gno_af_asj', 'gnog_af_asj', 'gwas_pubmed_trait', 'pnull', 'precessive', 'rmsk', 'syn_z', 'eyeGene', 'maxpriorityscore') %>%
+    select('chr_variant_id', 'sample', 'chrom', 'start_vcf', 'qual', 'filter', starts_with('gts'), starts_with('gt_'), 'aaf', 'caller', 'hg38_pos','grch37variant_id',
+           'panel_class', 'priority_score', 'prscore_intervar', 'clinvar_hgmd_score', 'splice_score', 'other_predic_score', 'gno2e3g_af', 'gno2e3g_acan', 'pmaxaf',gno2x_filter,gno3_filter,'max_af', 'max_af_pops', 'gno2e3g_hom', gno2x_filter, gno3_filter, 'ref_gene', 'note', 
+           'refgenewithver', 'hgvsc', 'hgvsp', 'gene', 'exon', 'intron', 'aa_length', 'omim_gene', 'omim_inheritance', 'omim_phen', 'pvs1', 'truncating_vep', 'hgmd_id', 'hgmd_class', 'hgmd_phen', 'existing_variation', clnalleleid,clnsig,'clin_sig', clnrevstat, clndn, clndisdb, intervar_and_evidence,
+           'existing_inframe_oorfs','existing_outofframe_oorfs','existing_uorfs','five_prime_utr_variant_annotation','five_prime_utr_variant_consequence',
+           'spliceai', 'spliceai_maxscore', 'spliceaimasked50', 'spliceaimasked50max', 'squirls_interpretation', 'squirls_maxscore', 'squirls_score', 'dbscsnv_ada_score', 'dbscsnv_rf_score', 'regsnp_fpr','regsnp_disease','regsnp_splicing_site','dpsi_max_tissue', 'dpsi_zscore', 'genesplicer', 'maxentscan_diff', 'branchpoint_prob', 'regsnp_fpr','regsnp_disease','regsnp_splicing_site',  
+           'sift_pred', 'polyphen_pred', 'mutscore', 'mutationassessor_pred', 'mutationtaster_pred', 'metasvm_pred','metasvm_score', 'clinpred_score', 'primateai_rankscore', 'revel_score', 'ccr_pct','mpc_score', 'mtr_score', 'mtr_fdr', 'mtr_pct', 'cadd_raw', 'cadd_phred','remm', 'fathmm_xf_coding_score','fathmm_xf_noncoding','eigen_pc_raw_coding', 'eigen_raw_coding', 'gerpplus_rs', 'phylop100way_vertebrate', 
+           'atac_rpe_score','atac_rpe_itemrgb', 'ft_ret_rpe_score', 'gene_refgenewithver', 'func_refgenewithver', 'exonicfunc_refgenewithver', 'avsnp150', 'interpro_domain', 
+           'pfam_domain', 'tfbs', 'pli','pnull', 'prec', 'mis_z', 'sigmaaf_lof_0001', 'sigmaaf_lof_01', 'sigmaaf_missense_0001', 'sigmaaf_missense_01', 'atac_rpe_itemrgb', 'atac_rpe_score', 
+           'eyeintegration_rpe_adulttissue', 'eyeintegration_rpe_cellline', 'eyeintegration_rpe_fetaltissue', 'eyeintegration_rpe_stemcellline', 'eyeintegration_retina_adulttissue', 'eyeintegration_retina_stemcellline', 'eyeintegration_wholeblood', 
+           'pubmed', 'polyphen_score', 'sift_score', 'fathmm_converted_rankscore',	'fathmm_pred',	'fathmm_score',	'genocanyon_score',	'genocanyon_rankscore',	'linsight',
+           'm_cap_pred', 'm_cap_rankscore',	'm_cap_score',	'metalr_pred',	'metalr_rankscore',	'metalr_score',	'metasvm_rankscore', 'metasvm_score', 'provean_converted_rankscore',	'provean_pred',	'provean_score', 
+           'f1000g2015aug_all','esp6500siv2_all',gno2_xg_ratio:gno3_popmax, 'rmsk', 'syn_z', everything() ) %>%
     arrange(desc(eyeGene), desc(maxpriorityscore), ref_gene, desc(priority_score)) %>% select(-maxpriorityscore, -eyeGene) 
   return(InheritanceTest_rearrangeCol)
 }

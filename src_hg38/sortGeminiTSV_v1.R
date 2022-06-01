@@ -16,31 +16,39 @@ args <- commandArgs(trailingOnly=TRUE)
 #           "Z:/resources/OGLpanelGeneDxORcandidate.xlsx", "rearranged.tsv", "filtered.tsv", "108976P", "filtered.xlsx", "0.5", "W:/ddl_nisc_custom_capture/042020/CoNVaDING/CNV_hiSens/108976P.b37.aligned.only.best.score.shortlist.txt")
 
 gemini_file <- args[1]
-geneCategory_file <- args[2]
-rearrangedGemini_file <- args[3]
-filteredGemini_tsv_file <- args[4]
-sampleName <- args[5]
-gemini_xlsx_file <- args[6]
-aafCutoff <- args[7]
-manta_file <- args[8]
-scramble_mei_file <- args[9]
-scramble_del_file <- args[10]
-convading_file <- args[11]
-convading_LAF <- args[12]
+gemini_ref_var_file <- args[2]
+geneCategory_file <- args[3]
+rearrangedGemini_file <- args[4]
+filteredGemini_tsv_file <- args[5]
+sampleName <- args[6]
+gemini_xlsx_file <- args[7]
+aafCutoff <- args[8]
+manta_file <- args[9]
+roh_file <- args[10]
+scramble_mei_file <- args[11]
+scramble_del_file <- args[12]
+convading_file <- args[13]
+convading_LAF <- args[14]
 
 library(tidyverse)
 library(readxl)
 library(RColorBrewer)
 
-gemini_input <- read_tsv(gemini_file, col_names = TRUE, na = c("NA", "", "None", "."), col_types = cols(.default = col_character())) %>%
+gemini_input <- read_tsv(gemini_file, col_names = TRUE, na = c("NA", "", "None", ".", "FALSE", "False"), col_types = cols(.default = col_character())) %>%
   mutate(atac_rpe_score = sub(",", "_", atac_rpe_score)) %>% 
-  type_convert() %>% mutate(exon = sub("^", " ", exon))
+  type_convert() %>% mutate(exon = sub("^", " ", exon), intron = sub("^", " ", intron))
 print("###gemini tsv loaded### 10%")
 gemini <-  gemini_input %>% mutate( start_vcf = start + 1 ) %>% 
   unite("chr_variant_id", chrom, start_vcf, ref, alt, sep = "-", remove = FALSE ) %>% 
   mutate(gene = toupper(gene)) %>% 
-  mutate(sample = sampleName) 
+  mutate(sample = sampleName) %>%
+  mutate(temp_genes_bed = pmap_chr(list(eyeintegration_gene, gene_gnomad, omim_gene, gene, gene_refgenewithver), ~toString(unique(na.omit(c(...)))) )) %>%
+  mutate(temp_genes_bed = na_if(temp_genes_bed, "") ) %>% 
+  mutate(ref_gene = ifelse(is.na(ref_gene), temp_genes_bed, ref_gene)) %>%
+  mutate(priority_score = ifelse(is.na(ref_gene) & !is.na(temp_genes_bed) & pmaxaf < 0.005, priority_score + 2, priority_score)) %>% 
+  select(-temp_genes_bed)
 rm(gemini_input)
+
 #  mutate(temp_gene = ifelse(grepl(",", gene_refgenewithver), gene, gene_refgenewithver)) 
 #InterVar seperate multiple genes for a variant to mulitple lines, then InterVar.R picks the gene with higher priority score. thus this might be safer
 #use InterVar gene annotation should be fine, thus remove this line.  ref_gene is from intervar
@@ -74,49 +82,96 @@ rm(gemini)
 gemini_rearrangeCol <- left_join(gemini_max_priority_score, panelGene, by = c("ref_gene")) %>% 
   mutate(note = "") %>% separate(vcf_id, c('caller', 'hg38_id'), sep = "_") %>% 
   mutate(hg38_pos = sub("[ACGT]*>[ACGT]*", "", hg38_id)) %>% 
-  mutate(gnomad_hom = ifelse(is.na(gno_hom) & is.na(gnog_hom), NA, ifelse(is.na(gno_hom), 0, gno_hom) + ifelse(is.na(gnog_hom), 0, gnog_hom) ), 
-         gnomad_ac = ifelse(is.na(gno_ac_all) & is.na(gnog_ac_all), NA, ifelse(is.na(gno_ac_all), 0, gno_ac_all) + ifelse(is.na(gnog_ac_all), 0, gnog_ac_all) ), 
-         gnomad_an = ifelse(is.na(gno_an_all) & is.na(gnog_an_all), NA, ifelse(is.na(gno_an_all), 0, gno_an_all) + ifelse(is.na(gnog_an_all), 0, gnog_an_all) )) %>% 
-  mutate(gnomad_af = gnomad_ac/gnomad_an) %>% 
-  unite("gnomad_acan", gnomad_ac, gnomad_an, sep = "/", remove = TRUE) %>% 
+  mutate(gno2e3g_hom = ifelse(is.na(gno2x_hom) & is.na(gno3_nhomalt), NA, ifelse(is.na(gno2x_hom), 0, gno2x_hom) + ifelse(is.na(gno3_nhomalt), 0, gno3_nhomalt) ), 
+         gno2e3g_ac = ifelse(is.na(gno2x_ac_all) & is.na(gno3_ac_all), NA, ifelse(is.na(gno2x_ac_all), 0, gno2x_ac_all) + ifelse(is.na(gno3_ac_all), 0, gno3_ac_all) ), 
+         gno2e3g_an = ifelse(is.na(gno2x_an_all) & is.na(gno3_an_all), NA, ifelse(is.na(gno2x_an_all), 0, gno2x_an_all) + ifelse(is.na(gno3_an_all), 0, gno3_an_all) )) %>% 
+  mutate(gno2e3g_af = gno2e3g_ac/gno2e3g_an) %>% 
+  unite("gno2e3g_acan", gno2e3g_ac, gno2e3g_an, sep = "/", remove = TRUE) %>% 
+  mutate(gno2x_expected_an = case_when(chrom %in% c("X", "chrX") & gno2x_nonpar == "1" ~ 183653,
+                                       chrom %in% c("Y", "chrY") & gno2x_nonpar == "1" ~ 67843,
+                                       TRUE ~ 251496)) %>%
+  mutate(gno3_expected_an = case_when(chrom %in% c("X", "chrX") & gno3_nonpar == "1" ~ 116830,
+                                      chrom %in% c("Y", "chrY") & gno3_nonpar == "1" ~ 35482,
+                                      TRUE ~ 152312)) %>%
+  mutate(gno2x_filter = ifelse(gno2x_an_all > 0 & is.na(gno2x_filter) & gno2x_an_all < gno2x_expected_an/2, "lessHalfAN", gno2x_filter),
+         gno3_filter = ifelse(gno3_an_all > 0 & is.na(gno3_filter) & gno3_an_all < gno3_expected_an/2, "lessHalfAN", gno3_filter) ) %>%
   mutate(eyeGene = case_when(panel_class == "Dx" ~ 2,
                              panel_class == "Candidate" ~ 1,
                              TRUE ~ 0)) %>% 
-  select('chr_variant_id', 'sample', 'chrom', 'start_vcf', 'qual', 'filter', starts_with('gts'), starts_with('gt_'), 'aaf', 'caller', 'hg38_pos',
-         'panel_class', 'priority_score', 'priority_score_intervar', 'clinvar_hgmd_score', 'splice_score', 'other_predic_score', 'gnomad_af', 'gnomad_acan', 'pmaxaf', 'max_af', 'max_af_pops', 'gnomad_hom', 'ref_gene', 'note', 
-         'exonicfunc_ensgene', 'refgenewithver', 'hgvsc', 'hgvsp', 'gene', 'exon', 'aa_length', 'omim_gene', 'omim_inheritance', 'omim_phenotype', 'pvs1', 'truncating_vep', 'hgmd_overlap', 'existing_variation', 'clinvar_intervar', 'intervar_and_evidence', 
-         'clinvar_id', 'clinvar_pathogenic', 'clinvar_sig', 'clin_sig', 'existing_inframe_oorfs','existing_outofframe_oorfs','existing_uorfs','five_prime_utr_variant_annotation','five_prime_utr_variant_consequence',
-         'spliceai', 'spliceai_maxscore', 'spliceaimasked50', 'spliceaimasked50max', 'squirls_interpretation', 'squirls_maxscore', 'squirls_score', 'dbscsnv_ada_score_intervar', 'dbscsnv_rf_score_intervar', 'dpsi_max_tissue_annovar', 'dpsi_zscore_annovar', 'genesplicer', 'maxentscan_diff', 'branchpoint_u2_binding_energy', 'branchpoint_prob', 'branchpoint_to_3prime', 
-         'sift_pred', 'polyphen_pred', 'mutationassessor_pred', 'mutationtaster_pred', 'metasvm_pred','metasvm_score_intervar', 'clinpred_score', 'primatedl', 'revel', 'ccr_pct','mpc', 'cadd_raw', 'cadd_phred','remm', 'fathmm_xf_coding','fathmm_xf_noncoding','eigen_pc_raw', 'eigen_raw', 'gerp_rs_intervar', 'phylop46way_placental_intervar', 'phylop_100way', 
-         'atac_rpe_score','atac_rpe_itemrgb', 'ft_ret_rpe_score', 'genedetail_ensgene', 'aachange_ensgene', 'gene_refgenewithver', 'func_refgene', 'func_refgenewithver', 'exonicfunc_refgenewithver', 'exonicfunc_refgene', 'avsnp150_annovar', 'interpro_domain_intervar', 
-         'pfam_domain', 'tfbs', 'pli', 'lof_z', 'mis_z', 'sigmaaf_lof_0001', 'sigmaaf_lof_01', 'sigmaaf_missense_0001', 'sigmaaf_missense_01', 'atac_rpe_itemrgb', 'atac_rpe_score', 
-         'eyeintegration_rnaseq_tpm_rpe_adulttissue', 'eyeintegration_rnaseq_tpm_rpe_cellline', 'eyeintegration_rnaseq_tpm_rpe_fetaltissue', 'eyeintegration_rnaseq_tpm_rpe_stemcellline', 'eyeintegration_rnaseq_tpm_retina_adulttissue', 'eyeintegration_rnaseq_tpm_retina_stemcellline', 'eyeintegration_rnaseq_tpm_wholeblood', 
-         'pubmed', 'polyphen_score', 'sift_score', 'eigen_pc_phred', 'eigen_pc_raw_rankscore', 'eigen_phred',	'eigen_coding_or_noncoding', 'fathmm_converted_rankscore',	'fathmm_pred',	'fathmm_score',	'gerp',	'genocanyon_score',	'genocanyon_score_rankscore',	'linsight', 'lrt_omega', 'lrt_converted_rankscore', 'lrt_pred',	'lrt_score',
-         'm_cap_pred', 'm_cap_rankscore',	'm_cap_score',	'metalr_pred',	'metalr_rankscore',	'metalr_score',	'metasvm_rankscore', 'metasvm_score', 'mutationassessor_uniprotid',	'mutationassessor_score',	'mutationassessor_score_rankscore',	'mutationtaster_converted_rankscore',	'mutationtaster_model',	'mutationtaster_score',	'provean_converted_rankscore',	'provean_pred',	'provean_score', 'vest3_rankscore',	'vest3_score',
-         'cpg_island', 'gno_an_all', 'gno_af_all',	'gno_hom', 'gnog_an_all', 'gnog_af_all', 'gnog_hom', 'gno_af_asj', 'gnog_af_asj', 'gwas_pubmed_trait', 'pnull', 'precessive', 'rmsk', 'syn_z', everything() )
+  select('chr_variant_id', 'sample', 'chrom', 'start_vcf', 'qual', 'filter', starts_with('gts'), starts_with('gt_'), 'aaf', 'caller', 'hg38_pos','grch37variant_id',
+         'panel_class', 'priority_score', 'prscore_intervar', 'clinvar_hgmd_score', 'splice_score', 'other_predic_score', 'gno2e3g_af', 'gno2e3g_acan', 'pmaxaf',gno2x_filter,gno3_filter,'max_af', 'max_af_pops', 'gno2e3g_hom', gno2x_filter, gno3_filter, 'ref_gene', 'note', 
+         'refgenewithver', 'hgvsc', 'hgvsp', 'gene', 'exon', 'intron', 'aa_length', 'omim_gene', 'omim_inheritance', 'omim_phen', 'pvs1', 'truncating_vep', 'hgmd_id', 'hgmd_class', 'hgmd_phen', 'existing_variation', clnalleleid,clnsig,'clin_sig', clnrevstat, clndn, clndisdb, intervar_and_evidence,
+         'existing_inframe_oorfs','existing_outofframe_oorfs','existing_uorfs','five_prime_utr_variant_annotation','five_prime_utr_variant_consequence',
+         'spliceai', 'spliceai_maxscore', 'spliceaimasked50', 'spliceaimasked50max', 'squirls_interpretation', 'squirls_maxscore', 'squirls_score', 'dbscsnv_ada_score', 'dbscsnv_rf_score', 'regsnp_fpr','regsnp_disease','regsnp_splicing_site','dpsi_max_tissue', 'dpsi_zscore', 'genesplicer', 'maxentscan_diff', 'branchpoint_prob', 'regsnp_fpr','regsnp_disease','regsnp_splicing_site',  
+         'sift_pred', 'polyphen_pred', 'mutscore', 'mutationassessor_pred', 'mutationtaster_pred', 'metasvm_pred','metasvm_score', 'clinpred_score', 'primateai_rankscore', 'revel_score', 'ccr_pct','mpc_score', 'mtr_score', 'mtr_fdr', 'mtr_pct', 'cadd_raw', 'cadd_phred','remm', 'fathmm_xf_coding_score','fathmm_xf_noncoding','eigen_pc_raw_coding', 'eigen_raw_coding', 'gerpplus_rs', 'phylop100way_vertebrate', 
+         'atac_rpe_score','atac_rpe_itemrgb', 'ft_ret_rpe_score', 'gene_refgenewithver', 'func_refgenewithver', 'exonicfunc_refgenewithver', 'avsnp150', 'interpro_domain', 
+         'pfam_domain', 'tfbs', 'pli','pnull', 'prec', 'mis_z', 'sigmaaf_lof_0001', 'sigmaaf_lof_01', 'sigmaaf_missense_0001', 'sigmaaf_missense_01', 'atac_rpe_itemrgb', 'atac_rpe_score', 
+         'eyeintegration_rpe_adulttissue', 'eyeintegration_rpe_cellline', 'eyeintegration_rpe_fetaltissue', 'eyeintegration_rpe_stemcellline', 'eyeintegration_retina_adulttissue', 'eyeintegration_retina_stemcellline', 'eyeintegration_wholeblood', 
+         'pubmed', 'polyphen_score', 'sift_score', 'fathmm_converted_rankscore',	'fathmm_pred',	'fathmm_score',	'genocanyon_score',	'genocanyon_rankscore',	'linsight',
+         'm_cap_pred', 'm_cap_rankscore',	'm_cap_score',	'metalr_pred',	'metalr_rankscore',	'metalr_score',	'metasvm_rankscore', 'metasvm_score', 'provean_converted_rankscore',	'provean_pred',	'provean_score', 
+         'f1000g2015aug_all','esp6500siv2_all',gno2_xg_ratio:gno3_popmax, 'rmsk', 'syn_z', everything() ) %>%
 #4/12/20: removed 'chr_annovar', 'start_annovar', 'ref_annovar', 'alt_annovar',
-write_tsv(gemini_rearrangeCol, file = rearrangedGemini_file)
+print("###gemini_rearranged###")
+write_tsv(gemini_rearrangeCol, file.path('.', rearrangedGemini_file), na="")
 print("###rearranged file written### 30%")
+
+gemini_ref_var_input <- read_tsv(gemini_ref_var_file, col_names = TRUE, na = c("NA", "", "None", ".", "FALSE", "False"), col_types = cols(.default = col_character())) %>%
+  mutate(atac_rpe_score = sub(",", "_", atac_rpe_score)) %>% 
+  type_convert() %>% mutate(exon = sub("^", " ", exon), intron = sub("^", " ", intron)) %>% 
+  mutate( start_vcf = start + 1 ) %>% 
+  unite("chr_variant_id", chrom, start_vcf, ref, alt, sep = "-", remove = FALSE ) %>% 
+  mutate(gene = toupper(gene)) %>% 
+  mutate(sample = sampleName) %>%
+  mutate(temp_genes_bed = pmap_chr(list(eyeintegration_gene, gene_gnomad, omim_gene, gene, gene_refgenewithver), ~toString(unique(na.omit(c(...)))) )) %>%
+  mutate(temp_genes_bed = na_if(temp_genes_bed, "") ) %>% 
+  mutate(ref_gene = ifelse(is.na(ref_gene), temp_genes_bed, ref_gene)) %>%
+  mutate(priority_score = ifelse(is.na(ref_gene) & !is.na(temp_genes_bed) & pmaxaf < 0.005, priority_score + 2, priority_score)) %>% 
+  select(-temp_genes_bed)
+
+gemini_ref_var_rearrangeCol <- left_join(gemini_ref_var_input, panelGene, by = c("ref_gene")) %>% 
+  mutate(note = "") %>% separate(vcf_id, c('caller', 'hg38_id'), sep = "_") %>% 
+  mutate(hg38_pos = sub("[ACGT]*>[ACGT]*", "", hg38_id)) %>% 
+  mutate(gno2e3g_hom = ifelse(is.na(gno2x_hom) & is.na(gno3_nhomalt), NA, ifelse(is.na(gno2x_hom), 0, gno2x_hom) + ifelse(is.na(gno3_nhomalt), 0, gno3_nhomalt) ), 
+         gno2e3g_ac = ifelse(is.na(gno2x_ac_all) & is.na(gno3_ac_all), NA, ifelse(is.na(gno2x_ac_all), 0, gno2x_ac_all) + ifelse(is.na(gno3_ac_all), 0, gno3_ac_all) ), 
+         gno2e3g_an = ifelse(is.na(gno2x_an_all) & is.na(gno3_an_all), NA, ifelse(is.na(gno2x_an_all), 0, gno2x_an_all) + ifelse(is.na(gno3_an_all), 0, gno3_an_all) )) %>% 
+  mutate(gno2e3g_af = gno2e3g_ac/gno2e3g_an) %>% 
+  unite("gno2e3g_acan", gno2e3g_ac, gno2e3g_an, sep = "/", remove = TRUE) %>% 
+  mutate(gno2x_expected_an = case_when(chrom %in% c("X", "chrX") & gno2x_nonpar == "1" ~ 183653,
+                                       chrom %in% c("Y", "chrY") & gno2x_nonpar == "1" ~ 67843,
+                                       TRUE ~ 251496)) %>%
+  mutate(gno3_expected_an = case_when(chrom %in% c("X", "chrX") & gno3_nonpar == "1" ~ 116830,
+                                      chrom %in% c("Y", "chrY") & gno3_nonpar == "1" ~ 35482,
+                                      TRUE ~ 152312)) %>%
+  mutate(gno2x_filter = ifelse(gno2x_an_all > 0 & is.na(gno2x_filter) & gno2x_an_all < gno2x_expected_an/2, "lessHalfAN", gno2x_filter),
+         gno3_filter = ifelse(gno3_an_all > 0 & is.na(gno3_filter) & gno3_an_all < gno3_expected_an/2, "lessHalfAN", gno3_filter) ) %>%
+  mutate(eyeGene = case_when(panel_class == "Dx" ~ 2,
+                             panel_class == "Candidate" ~ 1,
+                             TRUE ~ 0)) %>% 
+  select('chr_variant_id', 'sample', 'chrom', 'start_vcf', 'qual', 'filter', starts_with('gts'), starts_with('gt_'), 'aaf', 'caller', 'hg38_pos','grch37variant_id',
+         'panel_class', 'priority_score', 'prscore_intervar', 'clinvar_hgmd_score', 'splice_score', 'other_predic_score', 'gno2e3g_af', 'gno2e3g_acan', 'pmaxaf',gno2x_filter,gno3_filter,'max_af', 'max_af_pops', 'gno2e3g_hom', gno2x_filter, gno3_filter, 'ref_gene', 'note', 
+         'refgenewithver', 'hgvsc', 'hgvsp', 'gene', 'exon', 'intron', 'aa_length', 'omim_gene', 'omim_inheritance', 'omim_phen', 'pvs1', 'truncating_vep', 'hgmd_id', 'hgmd_class', 'hgmd_phen', 'existing_variation', clnalleleid,clnsig,'clin_sig', clnrevstat, clndn, clndisdb, intervar_and_evidence,
+         'existing_inframe_oorfs','existing_outofframe_oorfs','existing_uorfs','five_prime_utr_variant_annotation','five_prime_utr_variant_consequence',
+         'spliceai', 'spliceai_maxscore', 'spliceaimasked50', 'spliceaimasked50max', 'squirls_interpretation', 'squirls_maxscore', 'squirls_score', 'dbscsnv_ada_score', 'dbscsnv_rf_score', 'regsnp_fpr','regsnp_disease','regsnp_splicing_site','dpsi_max_tissue', 'dpsi_zscore', 'genesplicer', 'maxentscan_diff', 'branchpoint_prob', 'regsnp_fpr','regsnp_disease','regsnp_splicing_site',  
+         'sift_pred', 'polyphen_pred', 'mutscore', 'mutationassessor_pred', 'mutationtaster_pred', 'metasvm_pred','metasvm_score', 'clinpred_score', 'primateai_rankscore', 'revel_score', 'ccr_pct','mpc_score', 'mtr_score', 'mtr_fdr', 'mtr_pct', 'cadd_raw', 'cadd_phred','remm', 'fathmm_xf_coding_score','fathmm_xf_noncoding','eigen_pc_raw_coding', 'eigen_raw_coding', 'gerpplus_rs', 'phylop100way_vertebrate', 
+         'atac_rpe_score','atac_rpe_itemrgb', 'ft_ret_rpe_score', 'gene_refgenewithver', 'func_refgenewithver', 'exonicfunc_refgenewithver', 'avsnp150', 'interpro_domain', 
+         'pfam_domain', 'tfbs', 'pli','pnull', 'prec', 'mis_z', 'sigmaaf_lof_0001', 'sigmaaf_lof_01', 'sigmaaf_missense_0001', 'sigmaaf_missense_01', 'atac_rpe_itemrgb', 'atac_rpe_score', 
+         'eyeintegration_rpe_adulttissue', 'eyeintegration_rpe_cellline', 'eyeintegration_rpe_fetaltissue', 'eyeintegration_rpe_stemcellline', 'eyeintegration_retina_adulttissue', 'eyeintegration_retina_stemcellline', 'eyeintegration_wholeblood', 
+         'pubmed', 'polyphen_score', 'sift_score', 'fathmm_converted_rankscore',	'fathmm_pred',	'fathmm_score',	'genocanyon_score',	'genocanyon_rankscore',	'linsight',
+         'm_cap_pred', 'm_cap_rankscore',	'm_cap_score',	'metalr_pred',	'metalr_rankscore',	'metalr_score',	'metasvm_rankscore', 'metasvm_score', 'provean_converted_rankscore',	'provean_pred',	'provean_score', 
+         'f1000g2015aug_all','esp6500siv2_all',gno2_xg_ratio:gno3_popmax, 'rmsk', 'syn_z', everything() ) %>% 
+  filter(!ref_gene %in% blacklistGene, gno2e3g_af > 0.98) %>%
+  arrange(desc(eyeGene), ref_gene) 
+
+
 gemini_filtered <- gemini_rearrangeCol %>% mutate(temp_group = ifelse(priority_score >= 3, 3, ifelse(priority_score >= -3, -3, -4))) %>% # checked OPA1 non-coding regions, the AF for some of variants with score -3 are around 0.01.
   filter(!ref_gene %in% blacklistGene, temp_group >= -3 & pmaxaf < 0.2 & aaf < aafCutoff | priority_score >= 10 ) %>%
-  arrange(desc(eyeGene), desc(temp_group), desc(maxpriorityscore), ref_gene, desc(priority_score)) %>% 
-  select('chr_variant_id', 'sample', 'chrom', 'start_vcf', 'qual', 'filter', starts_with('gts'), starts_with('gt_'), 'aaf', 'caller', 'hg38_pos',
-         'panel_class', 'priority_score', 'priority_score_intervar', 'clinvar_hgmd_score', 'splice_score', 'other_predic_score', 'gnomad_af', 'gnomad_acan', 'pmaxaf', 'max_af', 'max_af_pops', 'gnomad_hom', 'ref_gene', 'note', 
-         'exonicfunc_ensgene', 'refgenewithver', 'hgvsc', 'hgvsp', 'gene', 'exon', 'aa_length', 'omim_gene', 'omim_inheritance', 'omim_phenotype', 'pvs1', 'truncating_vep', 'hgmd_overlap', 'existing_variation', 'clinvar_intervar', 'intervar_and_evidence', 
-         'clinvar_id', 'clinvar_pathogenic', 'clinvar_sig', 'clin_sig', 'existing_inframe_oorfs','existing_outofframe_oorfs','existing_uorfs','five_prime_utr_variant_annotation','five_prime_utr_variant_consequence',
-         'spliceai', 'spliceai_maxscore', 'spliceaimasked50', 'spliceaimasked50max', 'squirls_interpretation', 'squirls_maxscore', 'squirls_score', 'dbscsnv_ada_score_intervar', 'dbscsnv_rf_score_intervar', 'dpsi_max_tissue_annovar', 'dpsi_zscore_annovar', 'genesplicer', 'maxentscan_diff', 'branchpoint_u2_binding_energy', 'branchpoint_prob', 'branchpoint_to_3prime', 
-         'sift_pred', 'polyphen_pred', 'mutationassessor_pred', 'mutationtaster_pred', 'metasvm_pred','metasvm_score_intervar', 'clinpred_score', 'primatedl', 'revel', 'ccr_pct','mpc', 'cadd_raw', 'cadd_phred','remm', 'fathmm_xf_coding','fathmm_xf_noncoding','eigen_pc_raw', 'eigen_raw', 'gerp_rs_intervar', 'phylop46way_placental_intervar', 'phylop_100way', 
-         'atac_rpe_score','atac_rpe_itemrgb', 'ft_ret_rpe_score', 'genedetail_ensgene', 'aachange_ensgene', 'gene_refgenewithver', 'func_refgene', 'func_refgenewithver', 'exonicfunc_refgenewithver', 'exonicfunc_refgene', 'avsnp150_annovar', 'interpro_domain_intervar', 
-         'pfam_domain', 'tfbs', 'pli', 'lof_z', 'mis_z', 'sigmaaf_lof_0001', 'sigmaaf_lof_01', 'sigmaaf_missense_0001', 'sigmaaf_missense_01', 'atac_rpe_itemrgb', 'atac_rpe_score', 
-         'eyeintegration_rnaseq_tpm_rpe_adulttissue', 'eyeintegration_rnaseq_tpm_rpe_cellline', 'eyeintegration_rnaseq_tpm_rpe_fetaltissue', 'eyeintegration_rnaseq_tpm_rpe_stemcellline', 'eyeintegration_rnaseq_tpm_retina_adulttissue', 'eyeintegration_rnaseq_tpm_retina_stemcellline', 'eyeintegration_rnaseq_tpm_wholeblood', 
-         'pubmed', 'polyphen_score', 'sift_score', 'eigen_pc_phred', 'eigen_pc_raw_rankscore', 'eigen_phred',	'eigen_coding_or_noncoding', 'fathmm_converted_rankscore',	'fathmm_pred',	'fathmm_score',	'gerp',	'genocanyon_score',	'genocanyon_score_rankscore',	'linsight', 'lrt_omega', 'lrt_converted_rankscore', 'lrt_pred',	'lrt_score',
-         'm_cap_pred', 'm_cap_rankscore',	'm_cap_score', 'metalr_pred',	'metalr_rankscore',	'metalr_score',	'metasvm_rankscore', 'metasvm_score', 'mutationassessor_uniprotid',	'mutationassessor_score',	'mutationassessor_score_rankscore',	'mutationtaster_converted_rankscore',	'mutationtaster_model',	'mutationtaster_score',	'provean_converted_rankscore',	'provean_pred',	'provean_score', 'vest3_rankscore',	'vest3_score',
-         'cpg_island', 'gno_an_all', 'gno_af_all',	'gno_hom', 'gnog_an_all', 'gnog_af_all',	'gnog_hom', 'gno_af_asj', 'gnog_af_asj', 'gwas_pubmed_trait', 'pnull', 'precessive', 'rmsk', 'syn_z', 'eyeGene', 'maxpriorityscore') 
+  arrange(desc(eyeGene), desc(temp_group), desc(maxpriorityscore), ref_gene, desc(priority_score)) 
 
 gemini_filtered0 <- gemini_filtered %>% select(-maxpriorityscore)
 
 #AnnotSV does not have GD_POPMAX_AF column as of 3/2/2021, if GD_POPMAX_AF in columnames, then use it in the next version.
-write_tsv(gemini_filtered0, file = filteredGemini_tsv_file)
+write_tsv(gemini_filtered0, file.path('.', filteredGemini_tsv_file), na="")
+
 #found out whether blank is 0 after importing, use 1197 for filtering
 #consider adding manta to the main gemini df for sorting/filtering after knowing the specificity of the manta calls. To better sort AR, AD, and ACMG 2nd.
 
@@ -129,20 +184,31 @@ if (file.size(manta_file) == 0) {
     mutate(ACMG_class = sub("full=", "", ACMG_class)) %>% 
     type_convert() %>% 
     mutate(ACMG_class = case_when(SV_type == "DEL" & !is.na(B_loss_source) ~ ACMG_class - 2,
-                                   SV_type == "DUP" & !is.na(B_gain_source) ~ ACMG_class - 1,
-                                   TRUE ~ ACMG_class )) %>% 
-    filter(ACMG_class > 1, is.na(SV_length) | abs(SV_length) < 1000000) %>% 
+                                  SV_type == "DUP" & !is.na(B_gain_source) ~ ACMG_class - 1,
+                                  SV_type == "BND" & ( ( SV_chrom == "X" & between(SV_start, 140420272, 140421278) | ( grepl("chrX", ALT) & between(as.numeric(gsub("\\D", "", ALT)), 140420272, 140421278) ) )) ~ 5,
+                                  TRUE ~ ACMG_class )) %>% 
+    filter(ACMG_class > 1 | is.na(ACMG_class), is.na(SV_length) | abs(SV_length) < 1000000) %>% #added is.na(ACMG_class) 11/17/2021, may need to remove this part if too many lines in the results
     separate(Location, c('temp_location1', 'temp_location2'), sep = "-", remove = FALSE, convert = FALSE) %>% 
     filter(!(grepl("intron", Location) & temp_location1 == temp_location2)) %>% 
     select(-starts_with('temp_')) %>% 
     rename(ref_gene = "Gene_name")
   manta_sort <- left_join(manta, panelGene, by = c("ref_gene")) %>% 
     mutate(note = "") %>% 
+    mutate(panel_class == ifelse(SV_type == "BND" & ( ( SV_chrom == "X" & between(SV_start, 140420272, 140421278) | ( grepl("chrX", ALT) & between(as.numeric(gsub("\\D", "", ALT)), 140420272, 140421278) ) )), "Dx", panel_class)) %>% 
     mutate(eyeGene = case_when(panel_class == "Dx" ~ 2,
                                panel_class == "Candidate" ~ 1,
+                               SV_type == "BND" & ( ( SV_chrom == "X" & between(SV_start, 140420272, 140421278) | ( grepl("chrX", ALT) & between(as.numeric(gsub("\\D", "", ALT)), 140420272, 140421278) ) )) ~ 3,
                                TRUE ~ 0)) %>% 
     arrange(desc(eyeGene), desc(ACMG_class)) %>% 
     select(AnnotSV_ID:Annotation_mode,OMIM_phenotype:ACMG_class,panel_class,note,everything() )
+}
+
+if ( roh_file == "filePlaceholder") {
+  roh <- data.frame("sample" = sampleName, "note" = "Roh not analyzed.")
+} else if ( file.size(roh_file) == 0) { roh <- data.frame("sample" = sampleName, "note" = "Empty roh") 
+} else {
+  roh <- read_tsv(roh_file, col_names = TRUE, na = c("NA", "", "None", "."), col_types = cols(.default = col_character())) %>%
+    type_convert() 
 }
 
 if (file.size(scramble_mei_file) == 0) {
@@ -199,19 +265,19 @@ gemini_filtered3 <- left_join(gemini_filtered2, recessive_count, by=c("temp_ref_
   mutate(recessive_cnt = as.integer(recessive_cnt)) %>% 
   select(-temp_ref_gene)
 
-xR <- gemini_filtered3 %>% filter(chrom == "X", recessive_cnt >= 2) %>% select(-maxpriorityscore, -recessive_cnt)
-xD <- gemini_filtered3 %>% filter(chrom == "X", recessive_cnt == 1, pmaxaf < 0.002) %>% select(-maxpriorityscore, -recessive_cnt)
+xR <- gemini_filtered3 %>% filter(chrom == "X|chrX", recessive_cnt >= 2) %>% select(-maxpriorityscore, -recessive_cnt)
+xD <- gemini_filtered3 %>% filter(chrom == "X|chrX", recessive_cnt == 1, pmaxaf < 0.002) %>% select(-maxpriorityscore, -recessive_cnt)
 
 #ar are those genes with homozygous or compound hets variants of ps >= 5. However, ps = 4 variants were also listed if there are 2 ps>=5.
 #ar gene with 1 hit will not be here.
-ar <- gemini_filtered3 %>% filter(!chrom %in% c("X", "Y"), !omim_inheritance %in% c("AD"), recessive_cnt >= 2) %>% 
+ar <- gemini_filtered3 %>% filter(!chrom %in% c("X", "Y", "chrX", "chrY"), !omim_inheritance %in% c("AD"), recessive_cnt >= 2) %>% 
   mutate(knownAR = ifelse(grepl("AR", omim_inheritance), 1, 0)) %>% 
   arrange(desc(eyeGene), desc(knownAR), desc(maxpriorityscore), ref_gene, desc(priority_score)) %>% 
   mutate(note = ifelse(ref_gene %in% c("PRPH2", "ROM1", "PCDH15", "CDH23", "CNGA1", "CNGB1", "CNGA3", "CNGB3"), "Digenic?", note) ) %>%
   select(-maxpriorityscore, -knownAR, -recessive_cnt) # digenic recessive
 
 #ad are those omim unknown or AD inheritance. 
-ad <- gemini_filtered3 %>% filter(!chrom %in% c("X", "Y"), 
+ad <- gemini_filtered3 %>% filter(!chrom %in% c("X", "Y", "chrX", "chrY"), 
                                   recessive_cnt == 1 & !omim_inheritance %in% c("AR") | recessive_cnt >=2 & grepl("AD", omim_inheritance),
                                   pmaxaf < 0.002, priority_score >= 5) %>% 
   arrange(desc(eyeGene), desc(maxpriorityscore), ref_gene, desc(priority_score)) %>% 
@@ -234,14 +300,14 @@ acmg <- gemini_filtered3 %>% filter(ref_gene %in% acmg_genes, priority_score > 4
 print("###acmg done### 70%")
 summaryInfo <- data.frame("sample" = sampleName, "DxOutcome"= NA, "variant" = NA, "reviewer" = NA, "date" = NA, "2ndReviewer" = NA, "2ndReviewDate" = NA)
 if (is.na(scramble_del_file)) {
-  openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG3" = acmg, "all" = gemini_filtered1, "manta" = manta_sort, "scramble_mei" = scramble_mei, "summary" = summaryInfo), file = gemini_xlsx_file, firstRow = TRUE, firstCol = TRUE)
+  openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG3" = acmg, "all" = gemini_filtered1, "rareRef" = gemini_ref_var_rearrangeCol, "manta" = manta_sort, "scramble_mei" = scramble_mei, "roh" = roh, "summary" = summaryInfo), file = gemini_xlsx_file, firstRow = TRUE, firstCol = TRUE)
 } else if (is.na(convading_file)) {
-  openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG3" = acmg, "all" = gemini_filtered1, "manta" = manta_sort, "scramble_mei" = scramble_mei, "scramble_del" = scramble_del_sort, "summary" = summaryInfo), file = gemini_xlsx_file, firstRow = TRUE, firstCol = TRUE)
+  openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG3" = acmg, "all" = gemini_filtered1, "rareRef" = gemini_ref_var_rearrangeCol, "manta" = manta_sort, "scramble_mei" = scramble_mei, "scramble_del" = scramble_del_sort, "roh" = roh, "summary" = summaryInfo), file = gemini_xlsx_file, firstRow = TRUE, firstCol = TRUE)
 } else {
     cnv <- read_tsv(convading_file, col_names = TRUE, na = c("NA", "", "None", "."), col_types = cols(.default = col_character())) %>%
       type_convert() 
     if (dim(cnv)[1] == 0) {
-      openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG3" = acmg, "all" = gemini_filtered1, "manta" = manta_sort, "scramble_mei" = scramble_mei, "scramble_del" = scramble_del_sort, "summary" = summaryInfo), file = gemini_xlsx_file, firstRow = TRUE, firstCol = TRUE)
+      openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG3" = acmg, "all" = gemini_filtered1, "rareRef" = gemini_ref_var_rearrangeCol, "manta" = manta_sort, "scramble_mei" = scramble_mei, "scramble_del" = scramble_del_sort, "summary" = summaryInfo), file = gemini_xlsx_file, firstRow = TRUE, firstCol = TRUE)
     } else {
       cnv_gene <- as.list(distinct(cnv, GENE)[[1]])
       #cnv_gene <- dplyr::pull(cnv, GENE) #pull column as a vector
@@ -253,7 +319,7 @@ if (is.na(scramble_del_file)) {
         select('chr_variant_id', 'chrom', 'start', 'qual', 'filter', starts_with('gts'), starts_with('gt_'), 'LAF', 'ref_gene', 'exon', 'ref_gene',  
               'refgenewithver', 'exonicfunc_refgenewithver', 'hgvsc', 'hgvsp', 'type') %>% 
         rename(gene = ref_gene)
-      openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG3" = acmg, "all" = gemini_filtered1, "CoNVaDING" = cnv, "CNV-variant" = cnv_variant, "manta" = manta_sort, "scramble_mei" = scramble_mei, "scramble_del" = scramble_del_sort, "summary" = summaryInfo), file = gemini_xlsx_file, firstRow = TRUE, firstCol = TRUE)
+      openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG3" = acmg, "all" = gemini_filtered1, "rareRef" = gemini_ref_var_rearrangeCol, "CoNVaDING" = cnv, "CNV-variant" = cnv_variant, "manta" = manta_sort, "scramble_mei" = scramble_mei, "scramble_del" = scramble_del_sort, "summary" = summaryInfo), file = gemini_xlsx_file, firstRow = TRUE, firstCol = TRUE)
       cnv_edit <- cnv %>% 
         mutate(START = START - 100, STOP = STOP + 100, type = "snp") %>% #padding of 100 nt
         gather(START:STOP, key = "datatype", value = "position") %>% 
