@@ -14,25 +14,24 @@ library(tidyverse)
 
 args <- commandArgs(trailingOnly=TRUE)
 #When testing, comment out line above and use the line below.
-#args <- c("Z:/exome/BlueprintGenetics/prioritization_hg38/temp/BP__chr19.tsv", "Z:/exome/BlueprintGenetics/prioritization_hg38/temp/squirls.BP__chr19.csv", "Z:/exome/BlueprintGenetics/prioritization_hg38/temp/crossmap.hg19.BP__chr19.tsv", "Z:/exome/BlueprintGenetics/prioritization_hg38/temp/BP__chr19.ps.tsv")
+#args <- c("broad__MT_contigs.tsv", "squirls.broad__MT_contigs.csv", "temp/crossmap.hg19.broad__MT_contigs.tsv", "MT.ps.output.tsv")
 
 psInput_file <- args[1]
 squirls_file <- args[2]
 crossmap_file <- args[3]
 psOutput_file <- args[4]
 
-input_df <- read_tsv(psInput_file, col_names = TRUE, na = c("NA", "", "None", "."), col_types = cols(.default = col_character())) %>%
+input_df <- read_tsv(psInput_file, col_names = TRUE, na = c("NA", "", "None", "NONE", "."), col_types = cols(.default = col_character())) %>%
   type_convert() %>% 
   mutate(CHROM = as.factor(CHROM)) %>% 
   mutate(across(where(is.character), ~na_if(., "1"))) %>% #bcftools query outputted "1" for blank.
   type_convert()
 
-squirls_annotation <-  read_csv(squirls_file,  col_names = TRUE, na = c("NA", "", "None", "."), col_types = cols(.default = col_character())) %>%
+squirls_annotation <-  read_csv(squirls_file,  col_names = TRUE, na = c("NA", "", "None", "NONE", ".", "NaN"), col_types = "ficccdc") %>%
   rename(squirls_interpretation = INTERPRETATION, squirls_maxscore = MAX_SCORE, squirls_score = SCORES) %>%
-  type_convert() %>% 
-  mutate(CHROM = as.factor(CHROM)) %>% 
   unite("variantkey", CHROM:ALT, sep = "-", remove = FALSE) %>% 
   group_by(variantkey) %>%
+  replace_na(list(squirls_maxscore = 0, squirls_score = 0)) %>%
   slice(which.max(squirls_maxscore)) %>% 
   ungroup(variantkey) %>% 
   select(-variantkey)
@@ -53,7 +52,7 @@ pickMaxScore <- function(x, y){
 
 squirls_annotation$squirls_score <- mapply(pickMaxScore, squirls_annotation$squirls_score, squirls_annotation$squirls_maxscore)
 
-crossmap <- read_tsv(crossmap_file, col_names = TRUE, na = c("NA", "", "None", "."), col_types = cols(.default = col_character())) %>%
+crossmap <- read_tsv(crossmap_file, col_names = TRUE, na = c("NA", "", "None", "NONE", "."), col_types = cols(.default = col_character())) %>%
   type_convert() %>% 
   unite("grch37variant_id", CHROM, POS, REF, ALT, sep = "-")
 
@@ -72,11 +71,14 @@ ps_df <-  left_join(ps_df_crossmap, squirls_annotation, by=c('CHROM', 'POS', 'RE
   mutate(gno3_expected_an = case_when(CHROM %in% c("X", "chrX") & gno3_nonpar == "1" ~ 116830,
                                        CHROM %in% c("Y", "chrY") & gno3_nonpar == "1" ~ 35482,
                                        TRUE ~ 152312)) %>%
-  mutate(gno2x_filter = ifelse(gno2x_an_all > 0 & is.na(gno2x_filter) & gno2x_an_all < gno2x_expected_an/2, "lessHalfAN", gno2x_filter),
-         gno3_filter = ifelse(gno3_an_all > 0 & is.na(gno3_filter) & gno3_an_all < gno3_expected_an/2, "lessHalfAN", gno3_filter) ) %>% 
+  mutate(gno2x_filter = ifelse(gno2x_an_all > 0 & is.na(gno2x_filter) & gno2x_an_all < gno2x_expected_an/2, "AN<half", gno2x_filter),
+         gno3_filter = ifelse(gno3_an_all > 0 & is.na(gno3_filter) & gno3_an_all < gno3_expected_an/2, "AN<half", gno3_filter) ) %>% 
+  replace_na(list(gno2x_af_all=0, gno3_af_all=0, gno2x_af_popmax=0, gno3_maxaf = 0, max_af=0, esp6500siv2_all = 0, f1000g2015aug_all = 0)) %>% 
   mutate(pmaxaf = case_when(is.na(gno2x_filter) & !is.na(gno3_filter) ~ pmax(gno2x_af_all, gno2x_af_popmax, max_af, na.rm = TRUE),
-                            !is.na(gno2x_filter) & is.na(gno3_filter) ~ gno3_af_all,
-                            TRUE ~ pmax(gno2x_af_all, gno3_af_all, gno2x_af_popmax, max_af, na.rm = TRUE))) %>% 
+                            !is.na(gno2x_filter) & is.na(gno3_filter) ~ pmax(gno3_af_all, gno3_maxaf, na.rm = TRUE),
+                            !is.na(gno2x_filter) & !is.na(gno3_filter) ~ pmax(esp6500siv2_all,f1000g2015aug_all, na.rm = TRUE),
+                            TRUE ~ pmax(gno2x_af_all, gno3_af_all, gno2x_af_popmax, gno3_maxaf, max_af, na.rm = TRUE))) %>% 
+  replace_na(list(pmaxaf=0)) %>% 
   unite("temp_clinvar", CLNSIG, clin_sig, sep = "-", remove = FALSE ) %>% 
   mutate(temp_clinvar = gsub("_interpretations_of_pathogenicity", "", temp_clinvar)) %>% 
   mutate(temp_existing_variant = gsub("rs\\d+", "", existing_variation)) %>% 
@@ -95,16 +97,16 @@ ps_df <-  left_join(ps_df_crossmap, squirls_annotation, by=c('CHROM', 'POS', 'RE
            ifelse(grepl("D", MetaSVM_pred), 0.5, 0) + 
            ifelse(is.na(PrimateAI_score), 0, ifelse(PrimateAI_score > 0.803, 0.5, 0)) +
            ifelse(is.na(MPC_score), 0, ifelse(MPC_score > 1.5 & pmaxaf < 0.02, 0.5, 0)) +
-           ifelse(grepl("H|M", MutationAssessor_pred), 0.5, 0) + ifelse(grepl("D", MutationTaster_pred), 0.5, 0) + ifelse(grepl("D", PROVEAN_pred), 0.5, 0) +
+           ifelse(grepl("H|M", MutationAssessor_pred), 0.5, 0) + 
+           ifelse(grepl("D", MutationTaster_pred), 0.5, 0) + 
+           ifelse(grepl("D", PROVEAN_pred), 0.5, 0) +
            ifelse(is.na(Eigen_PC_raw_coding), 0, ifelse(Eigen_PC_raw_coding > 0 | Eigen_raw_coding > 0, 0.5, 0)) + 
            ifelse(is.na(cadd_phred), 0, ifelse(cadd_phred > 15, 0.5, 0) ) +
            ifelse(is.na(phyloP100way_vertebrate), 0, ifelse(phyloP100way_vertebrate > 2, 0.5, 0)) +
            ifelse(is.na(GERPplus_RS), 0, ifelse(GERPplus_RS > 1, 0.5, 0)) +
            ifelse(is.na(ccr_pct) | is.na(ExonicFunc_refGeneWithVer), 0, ifelse(ccr_pct > 0.99 & grepl("nonframeshift|nonsynonymous", ExonicFunc_refGeneWithVer) & pmaxaf < 0.02, 1, ifelse(ccr_pct > 0.9 & grepl("nonframeshift|nonsynonymous", ExonicFunc_refGeneWithVer) & pmaxaf < 0.02, 0.5, 0))) +
            ifelse(is.na(remm), 0, ifelse(remm > 0.6 & pmaxaf < 0.02, 0.5, 0)) + 
-           ifelse(is.na(fathmm_XF_coding_score), 0, ifelse(fathmm_XF_coding_score > 0.6 & pmaxaf < 0.02, 0.5, 0)) +
-           ifelse(is.na(five_prime_utr_variant_consequence) | pmaxaf > 0.01, 0, 1) +
-           ifelse(is.na(regsnp_disease) | regsnp_disease == "B" | pmaxaf > 0.01, 0, ifelse(regsnp_disease == "D", 1, 0.5))) %>% 
+           ifelse(is.na(fathmm_XF_coding_score), 0, ifelse(fathmm_XF_coding_score > 0.6 & pmaxaf < 0.02, 0.5, 0)) ) %>% 
   replace_na(list(clinvar_hgmd_score=0, other_predic_score=0)) %>% 
   mutate(temp_genesplicer = case_when(grepl("High", genesplicer) ~ 3,
                                       grepl("Medium", genesplicer) ~ 1,
@@ -122,21 +124,24 @@ ps_df <-  left_join(ps_df_crossmap, squirls_annotation, by=c('CHROM', 'POS', 'RE
                                      TRUE ~ 0)) %>%
   mutate(temp_dbscSNV_score = ifelse((pmaxaf < 0.02 & temp_dbscsnv_ada_score>0.8 & temp_dbscsnv_rf_score>0.5), 3, 0)) %>% 
   mutate(temp_squirl_score = case_when(squirls_interpretation == "pathogenic" & squirls_maxscore > 0.8 ~ 3, #according to squirls paper Fig. S4.
-                                       squirls_interpretation == "pathogenic" & squirls_maxscore <= 0.8 ~ 1,
+                                       squirls_interpretation == "pathogenic" & squirls_maxscore > 0.2 ~ 0.5,
                                        TRUE ~ 0)) %>% 
   mutate(splice_score = pmin(8, (spliceai_rank + temp_genesplicer + temp_maxentscan_diff + temp_dpsi_score + temp_dbscSNV_score + temp_squirl_score + ifelse(pmaxaf < 0.02 & !is.na(branchpoint_prob), 2, 0))) ) %>% 
   mutate(priority_score = PrScore_intervar + ifelse(pmaxaf < 0.03, clinvar_hgmd_score, 0) + ifelse(PVS1 == 1 | pmaxaf >= 0.03, 0, splice_score) + 
            ifelse(PVS1 == 1 | pmaxaf >= 0.005 | PrScore_intervar > 6 | splice_score > 2, 0, truncating_vep*3) +
-           ifelse(pmaxaf >= 0.02, 0, other_predic_score) +
-           ifelse(grepl("protein_altering_variant", CSQ, ignore.case = TRUE) & pmaxaf < 0.01 & PrScore_intervar < 5, 3, 0) +
-           ifelse(grepl("missense_variant", CSQ, ignore.case = TRUE) & mis_z >= 3.09 & SigmaAF_Missense_0001 < 0.005 & pmaxaf < 0.005, 2, 0) +
-           ifelse(grepl("upstream|downstream|UTR", Func_refGeneWithVer), ifelse(pmaxaf < 0.005, 0.5, 0), 0) + 
-           ifelse(is.na(fathmm_xf_noncoding), 0, ifelse(fathmm_xf_noncoding > 0.6 & pmaxaf < 0.02, 0.5, 0)) + #noncoding scores added to priority_score directly
-           ifelse(grepl("0,255,0|255,0,0", atac_rpe_itemRgb), ifelse(pmaxaf < 0.02, 1, 0), 0) + 
-           ifelse(is.na(ft_ret_rpe_score), 0, ifelse(pmaxaf < 0.02, 0.5, 0)) +
-           ifelse(is.na(cherry_sum_score) | cherry_sum_score > -5, 0, ifelse(pmaxaf < 0.02, 1, 0))) %>% 
+           ifelse(pmaxaf >= 0.02, 0, pmin(6, other_predic_score)) +
+           ifelse(grepl("protein_altering_variant", CSQ, ignore.case = TRUE) & pmaxaf < 0.01 & PrScore_intervar < 5 & other_predic_score < 3, 3, 0) +
+           ifelse(grepl("missense_variant", CSQ, ignore.case = TRUE) & mis_z >= 3.09 & SigmaAF_Missense_0001 < 0.005 & pmaxaf < 0.005 & other_predic_score < 4, 2, 0) +
+           ifelse(grepl("upstream|downstream|UTR", Func_refGeneWithVer) & pmaxaf < 0.005, 0.5, 0) + 
+           ifelse(is.na(fathmm_xf_noncoding), 0, ifelse(fathmm_xf_noncoding > 0.6 & pmaxaf < 0.02, 0.5, 0)) ) %>% #noncoding scores added to priority_score directly
+  mutate(priority_score = priority_score + 
+           ifelse(is.na(five_prime_utr_variant_consequence) | pmaxaf > 0.001, 0, 1) +
+           ifelse(is.na(regsnp_disease) | regsnp_disease == "B" | pmaxaf > 0.001, 0, ifelse(regsnp_disease == "D", 1, 0.5)) +
+           ifelse(grepl("0,255,0|255,0,0", atac_rpe_itemRgb) & pmaxaf < 0.001 & priority_score < 5, 1, 0) + 
+           ifelse(is.na(ft_ret_rpe_score), 0, ifelse(pmaxaf < 0.001 & priority_score < 5, 0.5, 0)) +
+           ifelse(is.na(cherry_sum_score) | cherry_sum_score > -5, 0, ifelse(pmaxaf < 0.001 & priority_score < 5, 1, 0)) ) %>% 
   mutate(priority_score = ifelse(priority_score < 5 & Ref_Gene == "ROM1" & truncating_vep == "1", 5, priority_score)) %>%
-  mutate(priority_score = ifelse(priority_score < 5 & pmaxaf < 0.001 & is.na(Ref_Gene) & (!is.na(gene_gnomad) | !is.na(eyeIntegration_gene) | !is.na(omim_Gene)), 5, priority_score)) %>% 
+  mutate(priority_score = ifelse(priority_score < 5 & pmaxaf < 0.005 & is.na(Ref_Gene) & (!is.na(gene_gnomad) | !is.na(eyeIntegration_gene) | !is.na(omim_Gene)), priority_score + 2, priority_score)) %>% 
   mutate(priority_score = ifelse(priority_score < 5 & pmaxaf < 0.001 & Ref_Gene %in% c("MIR184","MIR204"), 5, ifelse(priority_score < 5 & pmaxaf < 0.001 & grepl("^MIR", Ref_Gene, ignore.case = TRUE), 4, priority_score) )) %>% 
   select(CHROM, POS, REF, ALT, priority_score, clinvar_hgmd_score, splice_score, other_predic_score, pmaxaf, truncating_vep, squirls_interpretation, squirls_maxscore, squirls_score, grch37variant_id)
 #pmaxaf cutoff increased to 0.005 from 0.0005; 4/14/2020

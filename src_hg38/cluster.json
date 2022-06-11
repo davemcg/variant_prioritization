@@ -19,15 +19,7 @@
 		"mem" : "16g",
 		"extra" : "--gres=lscratch:150"
 	},
-	"n_split_vcf" :
-	{
-		"extra" : "--gres=lscratch:50"
-	},
-	"vt_bgzip_and_tabix_vcf" :
-	{
-		"extra" : "--gres=lscratch:50"
-	},
-  "spliceai_wrapper" :
+	"spliceai_wrapper" :
   {
     "partition" : "gpu",
     "extra" : "--gres=gpu:p100:1",
@@ -73,7 +65,6 @@
 	},
 	"vcfanno2" :
 	{
-		"threads" : "4",
 		"mem" : "16g"
 	},
 	"merge_vcf" :

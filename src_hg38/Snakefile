@@ -118,7 +118,7 @@ rule all:
 			gemini_lenient = config['gemini_lenient']) if ('family_query' in config['output_type'] and config['seeGEM'].upper() != 'TRUE') else 'dummy.txt',
 		expand('gemini_xlsx/{sampleid}.{sample}.{ped}.gemini.filtered.xlsx', sample=SAMPLE, ped=PEDfile, sampleid=SampleID) if ('individual_query' in config['output_type']) else 'dummy.txt',
 		expand('LesserAlleleFreq/{sampleid}.{sample}.{ped}.LAF.jpeg', sample=SAMPLE, ped=PEDfile, sampleid=SampleID) if config['LAFplot'] == 'TRUE' else 'dummy.txt',
-		'dummy.txt' if config['spliceai_wrapper'] == 'TRUE' else expand('temp/{sample}.spliceai.new.vcf.depot.merged', sample=SAMPLE)
+		'dummy.txt' if config['spliceai'].upper() in ['WRAPPER', 'VCFANNO'] else expand('temp/{sample}.spliceai.new.vcf.depot.merged', sample=SAMPLE)
 
 localrules: dummy
 rule dummy:
@@ -148,7 +148,7 @@ rule n_split_vcf:
 		vcf = config['input_vcf']
 	output:
 		vcf = temp('temp/{sample}__{region}.vcf.gz'),
-		#index = temp('temp/{sample}__{region}.vcf.gz.tbi')
+		index = temp('temp/{sample}__{region}.vcf.gz.tbi')
 	shell:
 		"""
 		export REF_CACHE=/lscratch/$SLURM_JOB_ID/
@@ -158,14 +158,15 @@ rule n_split_vcf:
 		else
 			bcftools view --threads 8 -Oz -r {MT_CONTIGS} {input.vcf} -o {output.vcf}
 		fi
-		#tabix -p vcf {output.vcf}
+		tabix -p vcf {output.vcf}
 		"""
 
 if config['gatk3'] == 'TRUE':
 	localrules: vt_bgzip_and_tabix_vcf
 	rule vt_bgzip_and_tabix_vcf:
 		input:
-			'temp/{sample}__{region}.vcf.gz'
+			vcf = 'temp/{sample}__{region}.vcf.gz',
+			index = 'temp/{sample}__{region}.vcf.gz.tbi'
 		output:
 			vcf = temp('temp/vt.{sample}__{region}.vcf.gz'),
 			index = temp('temp/vt.{sample}__{region}.vcf.gz.tbi')
@@ -174,7 +175,7 @@ if config['gatk3'] == 'TRUE':
 			export REF_CACHE=/lscratch/$SLURM_JOB_ID/
 			module load {config[samtools_version]}
 			module load {config[vt_version]}
-			zcat {input} \
+			zcat {input.vcf} \
 				| sed 's/ID=AD,Number=./ID=AD,Number=R/' \
 				| vt decompose -s - \
 				| vt normalize -r {config[ref_genome]} - \
@@ -184,7 +185,8 @@ if config['gatk3'] == 'TRUE':
 else:
 	rule bcftools_norm:
 		input:
-			'temp/{sample}__{region}.vcf.gz'
+			vcf = 'temp/{sample}__{region}.vcf.gz',
+			index = 'temp/{sample}__{region}.vcf.gz.tbi'
 		output:
 			bcf = temp('temp/vt.{sample}__{region}.bcf'),
 			vcf = temp('temp/vt.{sample}__{region}.vcf.gz'),
@@ -193,7 +195,7 @@ else:
 		shell:
 			"""
 			if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
-			bcftools norm --multiallelics -any --output-type u --no-version {input} \
+			bcftools norm --multiallelics -any --output-type u --no-version {input.vcf} \
 				| bcftools norm --check-ref s --fasta-ref {config[ref_genome]} --output-type u --no-version - \
 				| bcftools norm --threads $(({threads}-2)) -d exact --output-type b -o {output.bcf}
 			/data/OGL/resources/git/slivar expr \
@@ -252,6 +254,7 @@ rule annovar_intervar:
 	output:
 		avinput = temp('temp/{sample}__{region}.avinput'),
 		annovar_out = temp('temp/{sample}__{region}.avinput.hg38_multianno.txt'),
+		annovar_grlp = temp('temp/{sample}__{region}.avinput.hg38_multianno.txt.grl_p'),
 		gnomadAF = temp('temp/{sample}__{region}.gnomad3.tsv'),
 		intervar_out = temp('temp/{sample}__{region}.avinput.hg38_multianno.txt.intervar')
 	threads: 4
@@ -368,7 +371,7 @@ rule squirls:
 			{output.barevcf} {output.csv}
 		"""
 #annotate-csv does not allow html output. Only annotate-vcf has html output.
-if config['spliceai_wrapper'] == 'TRUE':
+if config['spliceai'].upper() == 'WRAPPER':
 	rule spliceai_wrapper:
 		input:
 			vcf = 'temp/vt.{sample}__{region}.vcf.gz',
@@ -390,18 +393,36 @@ if config['spliceai_wrapper'] == 'TRUE':
 				--genes-tsv /data/OGVFB/OGL_NGS/variant_prioritization/data/spliceai_wrapper/grch37.txt
 			tabix -f -p vcf {output.vcf}
 			"""
+elif config['spliceai'].upper() == 'VCFANNO':
+	localrules: spliceai_depot
+	rule spliceai_depot:
+		input:
+			vcf = 'temp/vt.{sample}__{region}.vcf.gz',
+			index = 'temp/vt.{sample}__{region}.vcf.gz.tbi'
+		output:
+			vcf = temp('temp/spliceai.{sample}__{region}.vcf.gz'),
+			index = temp('temp/spliceai.{sample}__{region}.vcf.gz.tbi')
+		threads: 4
+		shell:
+			"""
+			if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
+			if [[ $(module list 2>&1 | grep "vcfanno" | wc -l) < 1 ]]; then module load {config[vcfanno_version]}; fi
+			vcfanno -p {threads} ~/git/variant_prioritization/src_hg38/spliceai.depot.conf {input.vcf} \
+				| bgzip --threads {threads} -f > {output.vcf}
+			tabix -f -p vcf {output.vcf}
+			"""
 else:
-	rule spliceai:
+	rule spliceai_isec:
 		input:
 			vcf = 'temp/vt.{sample}__{region}.vcf.gz',
 			index = 'temp/vt.{sample}__{region}.vcf.gz.tbi'
 		output:
 			barevcf = temp('temp/{sample}__{region}.bare.vcf.gz'),
 			barevcfindex = temp('temp/{sample}__{region}.bare.vcf.gz.tbi'),
-			new_anno_spliceai = temp('temp/{sample}__{region}.new.spliceai.vcf.gz'),
-			new_anno_spliceai_index = temp('temp/{sample}__{region}.new.spliceai.vcf.gz.tbi'),
-			vcf = temp('temp/spliceai.{sample}__{region}.vcf.gz'),
-			index = temp('temp/spliceai.{sample}__{region}.vcf.gz.tbi')
+			spliceai_input = temp('temp/{sample}__{region}.spliceai_input.vcf.gz'),
+			spliceai_input_index = temp('temp/{sample}__{region}.spliceai_input.vcf.gz.tbi'),
+			variant_in_depot = temp('temp/{sample}__{region}.spliceai_depot.vcf.gz'),
+			variant_in_depot_index = temp('temp/{sample}__{region}.spliceai_depot.vcf.gz.tbi')
 		threads: 8
 		shell:
 			"""
@@ -410,15 +431,34 @@ else:
 			( bcftools view --no-header -Ov {input.vcf} | awk -F"\t" 'BEGIN{{OFS="\t"}} {{print $1,$2,".",$4,$5,".",".","."}}' - | cat /lscratch/$SLURM_JOB_ID/vcf.header - | bgzip --threads $(({threads}-2)) -c > {output.barevcf} ) && echo "barevcf" || exit 1
 			tabix -f -p vcf {output.barevcf} && echo "index barevcf" || exit 1
 			bcftools isec --threads {threads} -Oz -p /lscratch/$SLURM_JOB_ID {output.barevcf} /data/OGL/resources/spliceai/spliceai500.depot.GRCh38.vcf.gz && echo "isec" || exit 1
-			module load {config[spliceai_version]}
+			cp /lscratch/$SLURM_JOB_ID/0000.vcf.gz {output.spliceai_input}
+			cp /lscratch/$SLURM_JOB_ID/0003.vcf.gz {output.variant_in_depot}
+			tabix -f -p vcf {output.spliceai_input}
+			tabix -f -p vcf {output.variant_in_depot}
+			"""
+	rule spliceai:
+		input:
+			spliceai_input = 'temp/{sample}__{region}.spliceai_input.vcf.gz',
+			spliceai_input_index = 'temp/{sample}__{region}.spliceai_input.vcf.gz.tbi',
+			variant_in_depot = 'temp/{sample}__{region}.spliceai_depot.vcf.gz',
+			variant_in_depot_index = 'temp/{sample}__{region}.spliceai_depot.vcf.gz.tbi'
+		output:
+			new_anno_spliceai = temp('temp/{sample}__{region}.new.spliceai.vcf.gz'),
+			new_anno_spliceai_index = temp('temp/{sample}__{region}.new.spliceai.vcf.gz.tbi'),
+			vcf = temp('temp/spliceai.{sample}__{region}.vcf.gz'),
+			index = temp('temp/spliceai.{sample}__{region}.vcf.gz.tbi')
+		threads: 8
+		shell:
+			"""
+			module load {config[spliceai_version]} {config[samtools_version]}
 			if [[ {config[genomeBuild]} == "GRCh38" ]]; then
 				ver=grch38
 			else
 				ver=grch37
 			fi
-			spliceai -I /lscratch/$SLURM_JOB_ID/0000.vcf.gz -R {config[ref_genome]} -A $ver -D 500 -M 0 -O {output.new_anno_spliceai} && echo "spliceai" || exit 1
+			spliceai -I {input.spliceai_input} -R {config[ref_genome]} -A $ver -D 500 -M 0 -O {output.new_anno_spliceai} && echo "spliceai" || exit 1
 			tabix -f -p vcf {output.new_anno_spliceai}
-			bcftools concat --threads {threads} -a {output.new_anno_spliceai} /lscratch/$SLURM_JOB_ID/0003.vcf.gz | bcftools sort -T /lscratch/$SLURM_JOB_ID/ -m 16G -Oz -o {output.vcf}
+			bcftools concat --threads {threads} -a {output.new_anno_spliceai} {input.variant_in_depot} -Oz -o {output.vcf}
 			tabix -f -p vcf {output.vcf}
 			"""
 # if [[ $(cat test.empty.vcf |  grep -v "^#" | wc -l) = 0 ]]; then echo "empty"; else echo "spliceai"; fi
@@ -428,9 +468,10 @@ else:
 localrules: spliceai_edit
 rule spliceai_edit:
 	input:
-		'temp/spliceai.{sample}__{region}.vcf.gz'
+		vcf = 'temp/spliceai.{sample}__{region}.vcf.gz',
+		index = 'temp/spliceai.{sample}__{region}.vcf.gz.tbi'
 	output:
-		tsv = temp('temp/spliceai.{sample}__{region}.tsv'),
+	#	tsv = temp('temp/spliceai.{sample}__{region}.tsv'),
 		tsv_cut = temp('temp/spliceai.{sample}__{region}.tsv.cut')
 	#	index = temp('temp/spliceai.vt.{sample}__{region}.tsv.gz.tbi')
 	shell:
@@ -438,11 +479,11 @@ rule spliceai_edit:
 		"""
 	 	if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
 		if [[ $(module list 2>&1 | grep "VCF-kit" | wc -l) < 1 ]]; then module load {config[VCF-kit_version]}; fi
-		vk vcf2tsv wide --print-header {input} > {output.tsv}
-		cut -f 1-5,$(head -1 {output.tsv} | sed "s/\\t/\\n/g" | grep -n "^SpliceAI$" | cut -f 1 -d:) {output.tsv} \
-		| awk -F"\t" 'BEGIN{{OFS="\t"}} !/,/ {{split($6, splices, "|"); max = splices[3]; for(m = 3; m <=6; m++) {{if(max<splices[m]) max = splices[m]}} print $0,max; next; }} /,/ {{n = split($6,annotation,","); max = 0; anno = annotation[1]; for (i = 1; i <=n; i++) {{split(annotation[i],splices,"|"); for(m = 3; m <=6; m++) {{if(max<splices[m]) {{max = splices[m]; anno = annotation[i]}}}}; }}; print $1,$2,$3,$4,$5,anno,max }}' - \
-		| awk -F"\t" 'BEGIN{{OFS="\t"}} NR==1 {{$7="spliceai_maxscore"; print $0}} NR>1 {{if ($6==".") {{$7="."; print $0}} else {{print $0}} }}' - \
-		| awk -F"\t" 'BEGIN{{OFS="\t"}} NR==1 {{$8="spliceai_rank"; print $0}} NR>1 {{ if ($7==".") {{$8 = 0}} else {{ if ($7 >= 0.8) {{$8 = 8}} else {{if ($7 >= 0.5) {{$8 = 6}} else {{if ($7 >= 0.2) {{$8 = 3}} else {{if ($7 >= 0.15) {{$8 = 1}} else {{$8 = 0}}}}}} }}}}; print $0}}' -  > {output.tsv_cut}
+		bcftools query -H -f '%CHROM\t%POS\t%ID\t%REF\t%ALT\t%INFO/SpliceAI\n' {input.vcf} \
+			| sed -e '1 s/^# //' -e '1 s/\[[0-9]*\]//g' \
+			| awk -F"\t" 'BEGIN{{OFS="\t"}} !/,/ {{split($6, splices, "|"); max = splices[3]; for(m = 3; m <=6; m++) {{if(max<splices[m]) max = splices[m]}} print $0,max; next; }} /,/ {{n = split($6,annotation,","); max = 0; anno = annotation[1]; for (i = 1; i <=n; i++) {{split(annotation[i],splices,"|"); for(m = 3; m <=6; m++) {{if(max<splices[m]) {{max = splices[m]; anno = annotation[i]}}}}; }}; print $1,$2,$3,$4,$5,anno,max }}' - \
+			| awk -F"\t" 'BEGIN{{OFS="\t"}} NR==1 {{$7="spliceai_maxscore"; print $0}} NR>1 {{if ($6==".") {{$7="."; print $0}} else {{print $0}} }}' - \
+			| awk -F"\t" 'BEGIN{{OFS="\t"}} NR==1 {{$8="spliceai_rank"; print $0}} NR>1 {{ if ($7==".") {{$8 = 0}} else {{ if ($7 >= 0.8) {{$8 = 8}} else {{if ($7 >= 0.5) {{$8 = 6}} else {{if ($7 >= 0.2) {{$8 = 3}} else {{if ($7 >= 0.15) {{$8 = 1}} else {{$8 = 0}}}}}} }}}}; print $0}}' -  > {output.tsv_cut}
 		"""
 #Snakemake use {} as special wildcard, need to replace with {{}}.
 #Also better use double quotation marks "" instead of ''.
@@ -471,7 +512,8 @@ rule spliceai_intervar_edit:
 		intermediate = temp('temp/{sample}__{region}.avinput.hg38_multianno.modified.txt'),
 		spliceai_intervar = temp('temp/{sample}__{region}.spliceai_annovar_intervar'),
 		header = temp('temp/{sample}__{region}.annovar_intervar_header'),
-		gz = temp('temp/{sample}__{region}.spliceai_annovar_intervar_annotation.txt.gz')
+		gz = temp('temp/{sample}__{region}.spliceai_annovar_intervar_annotation.txt.gz'),
+		tbi = temp('temp/{sample}__{region}.spliceai_annovar_intervar_annotation.txt.gz.tbi')
 	shell:
 		"""
 		if [[ $(module list 2>&1 | grep "R/" | wc -l) < 1 ]]; then module load {config[R_version]}; fi
@@ -525,8 +567,9 @@ rule VEP_annotate:
 		index = 'temp/vt.{sample}__{region}.vcf.gz.tbi'
 	output:
 		vcf = temp('temp/{sample}__{region}.SORTED.VT.VEP.vcf.gz'),
-		index = temp('temp/{sample}__{region}.SORTED.VT.VEP.vcf.gz.tbi')
-	threads: 6
+		index = temp('temp/{sample}__{region}.SORTED.VT.VEP.vcf.gz.tbi'),
+		html = temp('temp/{sample}__{region}.SORTED.VT.VEP.vcf.gz_summary.html')
+	threads: 8
 	params:
 		pick = pick()
 	shell:
@@ -591,6 +634,7 @@ if config['datatype'].upper() in ["PANEL"]:
 rule vcfanno_annotate:
 	input:
 		annovar_intervar = 'temp/{sample}__{region}.spliceai_annovar_intervar_annotation.txt.gz',
+		annovar_intervar_index = 'temp/{sample}__{region}.spliceai_annovar_intervar_annotation.txt.gz.tbi',
 		vcf = 'temp/{sample}__{region}.SORTED.VT.VEP.vcf.gz',
 		index = 'temp/{sample}__{region}.SORTED.VT.VEP.vcf.gz.tbi'
 	output:
@@ -629,7 +673,7 @@ rule priority_scores:
 		"""
 		if [[ $(module list 2>&1 | grep "R/" | wc -l) < 1 ]]; then module load {config[R_version]}; fi
 		if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
-		bcftools query -H -f '%CHROM\t%POS\t%ID\t%REF\t%ALT\t%INFO/CSQ\t%INFO/Ref_Gene\t%INFO/Func_refGeneWithVer\t%INFO/ExonicFunc_refGeneWithVer\t%INFO/gno2x_af_all\t%INFO/gno2g_af_all\t%INFO/gno2x_af_popmax\t%INFO/gno2g_af_popmax\t%INFO/gno2_xg_ratio\t%INFO/gno2x_an_all\t%INFO/gno2g_an_all\t%INFO/gno2x_nonpar\t%INFO/gno2g_nonpar\t%INFO/gno2x_filter\t%INFO/gno2g_filter\t%INFO/gno3_af_all\t%INFO/gno3_an_all\t%INFO/gno3_nonpar\t%INFO/gno3_filter\t%INFO/gno3_maxaf\t%INFO/mis_z\t%INFO/CLNSIG\t%INFO/HGMD_Overlap4aa\t%INFO/hgmd_class\t%INFO/SIFT_pred\t%INFO/Polyphen2_HVAR_pred\t%INFO/ClinPred_score\t%INFO/MetaSVM_pred\t%INFO/REVEL_score\t%INFO/MPC_score\t%INFO/MutationAssessor_pred\t%INFO/MutationTaster_pred\t%INFO/PROVEAN_pred\t%INFO/Eigen_PC_raw_coding\t%INFO/Eigen_raw_coding\t%INFO/phyloP100way_vertebrate\t%INFO/GERPplus_RS\t%INFO/dpsi_max_tissue\t%INFO/dpsi_zscore\t%INFO/dbscSNV_ADA_SCORE\t%INFO/dbscSNV_RF_SCORE\t%INFO/spliceai_rank\t%INFO/branchpoint_prob\t%INFO/PrScore_intervar\t%INFO/PVS1\t%INFO/SigmaAF_Missense_0001\t%INFO/PrimateAI_score\t%INFO/ccr_pct\t%INFO/remm\t%INFO/fathmm_XF_coding_score\t%INFO/fathmm_xf_noncoding\t%INFO/mutscore\t%INFO/atac_rpe_itemRgb\t%INFO/ft_ret_rpe_score\t%INFO/cherry_sum_score\t%INFO/gene_gnomad\t%INFO/eyeIntegration_gene\t%INFO/omim_Gene\t%INFO/regsnp_disease\n' {input.vcf} \
+		bcftools query -H -f '%CHROM\t%POS\t%ID\t%REF\t%ALT\t%INFO/CSQ\t%INFO/Ref_Gene\t%INFO/Func_refGeneWithVer\t%INFO/ExonicFunc_refGeneWithVer\t%INFO/gno2x_af_all\t%INFO/gno2g_af_all\t%INFO/gno2x_af_popmax\t%INFO/gno2g_af_popmax\t%INFO/gno2_xg_ratio\t%INFO/gno2x_an_all\t%INFO/gno2g_an_all\t%INFO/gno2x_nonpar\t%INFO/gno2g_nonpar\t%INFO/gno2x_filter\t%INFO/gno2g_filter\t%INFO/gno3_af_all\t%INFO/gno3_an_all\t%INFO/gno3_nonpar\t%INFO/gno3_filter\t%INFO/gno3_maxaf\t%INFO/esp6500siv2_all\t%INFO/f1000g2015aug_all\t%INFO/mis_z\t%INFO/CLNSIG\t%INFO/HGMD_Overlap4aa\t%INFO/hgmd_class\t%INFO/SIFT_pred\t%INFO/Polyphen2_HVAR_pred\t%INFO/ClinPred_score\t%INFO/MetaSVM_pred\t%INFO/REVEL_score\t%INFO/MPC_score\t%INFO/MutationAssessor_pred\t%INFO/MutationTaster_pred\t%INFO/PROVEAN_pred\t%INFO/Eigen_PC_raw_coding\t%INFO/Eigen_raw_coding\t%INFO/phyloP100way_vertebrate\t%INFO/GERPplus_RS\t%INFO/dpsi_max_tissue\t%INFO/dpsi_zscore\t%INFO/dbscSNV_ADA_SCORE\t%INFO/dbscSNV_RF_SCORE\t%INFO/spliceai_rank\t%INFO/branchpoint_prob\t%INFO/PrScore_intervar\t%INFO/PVS1\t%INFO/SigmaAF_Missense_0001\t%INFO/PrimateAI_score\t%INFO/ccr_pct\t%INFO/remm\t%INFO/fathmm_XF_coding_score\t%INFO/fathmm_xf_noncoding\t%INFO/mutscore\t%INFO/atac_rpe_itemRgb\t%INFO/ft_ret_rpe_score\t%INFO/cherry_sum_score\t%INFO/gene_gnomad\t%INFO/eyeIntegration_gene\t%INFO/omim_Gene\t%INFO/regsnp_disease\n' {input.vcf} \
 			| sed -e '1 s/^# //' -e '1 s/\[[0-9]*\]//g' > {output.tsv}
 		Rscript /home/$USER/git/variant_prioritization/src_hg38/priority_score.R {output.tsv} {input.csv} {input.hg19} \
 			{output.ps_tsv}
@@ -687,129 +731,42 @@ rule vcfanno2:
 
 
 # merge vcfs into one again
-if config['spliceai_wrapper'] == 'TRUE':
-	rule merge_sample_vcf:
-		input:
-			vcf = expand('temp/{{sample}}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz', region=REGIONS),
-			index = expand('temp/{{sample}}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz.tbi', region=REGIONS)
-		output:
-			vcf = '{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz',
-			index = '{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz.tbi'
-		threads: 16
-		shell:
-			"""
-			export REF_CACHE=/lscratch/$SLURM_JOB_ID/
-			if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
-			bcftools concat --threads {threads} {input.vcf} -O z -o {output.vcf}
-			tabix -f -p vcf {output.vcf}
-			"""
-else:
-	rule merge_sample_vcf:
-		input:
-			vcf = expand('temp/{{sample}}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz', region=REGIONS),
-			index = expand('temp/{{sample}}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz.tbi', region=REGIONS)
-		output:
-			vcf = '{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz',
-			index = '{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz.tbi'
-		threads: 16
-		shell:
-			"""
-			export REF_CACHE=/lscratch/$SLURM_JOB_ID/
-			if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
-			bcftools concat --threads {threads} {input.vcf} -Oz -o {output.vcf}
-			tabix -f -p vcf {output.vcf}
-			"""
-	rule merge_spliceai_vcf:
-		input:
-			vcf = expand('temp/{{sample}}__{region}.new.spliceai.vcf.gz', region=REGIONS),
-			index = expand('temp/{{sample}}__{region}.new.spliceai.vcf.gz.tbi', region=REGIONS)
-		output:
-			temp('temp/{sample}.spliceai.new.vcf.depot.merged')
-		threads: 16
-		shell:
-			"""
-			export REF_CACHE=/lscratch/$SLURM_JOB_ID/
-			if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
-			bcftools concat --threads {threads} {input.vcf} -Oz -o /lscratch/$SLURM_JOB_ID/new.spliceai.vcf.gz
-			tabix -f -p vcf /lscratch/$SLURM_JOB_ID/new.spliceai.vcf.gz
-			( bcftools concat --threads {threads} -a --rm-dups none --no-version \
-				/data/OGL/resources/spliceai/spliceai500.depot.GRCh38.vcf.gz /lscratch/$SLURM_JOB_ID/new.spliceai.vcf.gz \
-				-Oz -o /lscratch/$SLURM_JOB_ID/spliceai500.depot.GRCh38.vcf.gz ) || exit 1
-			tabix -f -p vcf /lscratch/$SLURM_JOB_ID/spliceai500.depot.GRCh38.vcf.gz || exit 1
-			cp /lscratch/$SLURM_JOB_ID/spliceai500.depot.GRCh38.vcf.gz* /data/OGL/resources/spliceai
-			touch {output}
-			"""
+rule merge_sample_vcf:
+	input:
+		vcf = expand('temp/{{sample}}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz', region=REGIONS),
+		index = expand('temp/{{sample}}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz.tbi', region=REGIONS)
+	output:
+		vcf = '{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz',
+		index = '{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz.tbi'
+	threads: 16
+	shell:
+		"""
+		export REF_CACHE=/lscratch/$SLURM_JOB_ID/
+		if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
+		bcftools concat --threads {threads} {input.vcf} -Oz -o {output.vcf}
+		tabix -f -p vcf {output.vcf}
+		"""
+rule merge_spliceai_vcf:
+	input:
+		vcf = expand('temp/{{sample}}__{region}.new.spliceai.vcf.gz', region=REGIONS),
+		index = expand('temp/{{sample}}__{region}.new.spliceai.vcf.gz.tbi', region=REGIONS)
+	output:
+		temp('temp/{sample}.spliceai.new.vcf.depot.merged')
+	threads: 16
+	shell:
+		"""
+		export REF_CACHE=/lscratch/$SLURM_JOB_ID/
+		if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
+		bcftools concat --threads {threads} {input.vcf} -Oz -o /lscratch/$SLURM_JOB_ID/new.spliceai.vcf.gz
+		tabix -f -p vcf /lscratch/$SLURM_JOB_ID/new.spliceai.vcf.gz
+		( bcftools concat --threads {threads} -a --rm-dups none --no-version \
+			/data/OGL/resources/spliceai/spliceai500.depot.GRCh38.vcf.gz /lscratch/$SLURM_JOB_ID/new.spliceai.vcf.gz \
+			-Oz -o /lscratch/$SLURM_JOB_ID/spliceai500.depot.GRCh38.vcf.gz ) || exit 1
+		tabix -f -p vcf /lscratch/$SLURM_JOB_ID/spliceai500.depot.GRCh38.vcf.gz || exit 1
+		cp /lscratch/$SLURM_JOB_ID/spliceai500.depot.GRCh38.vcf.gz* /data/OGL/resources/spliceai
+		touch {output}
+		"""
 # 5/31/22: removed sort from merge_sample_vcf above. bcftools concat --threads {threads} {input.vcf} | bcftools sort -T /lscratch/$SLURM_JOB_ID/ -m 100G -O z -o {output.vcf}
-#below with sorting which is time-consuming. Tested no sort on 1/30/21
-# if config['spliceai_wrapper'] == 'TRUE':
-# 	rule merge_vcf:
-# 		input:
-# 			vcf = expand('temp/{{sample}}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz', region=REGIONS),
-# 			index = expand('temp/{{sample}}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz.tbi', region=REGIONS)
-# 		output:
-# 			vcf = '{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz',
-# 			index = '{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz.tbi'
-# 		threads: 16
-# 		shell:
-# 			"""
-# 			export REF_CACHE=/lscratch/$SLURM_JOB_ID/
-# 			module load {config[samtools_version]}
-# 			bcftools concat --threads {threads} {input.vcf} | bcftools sort -T /lscratch/$SLURM_JOB_ID/ -m 100G -O z -o {output.vcf}
-# 			tabix -f -p vcf {output.vcf}
-# 			"""
-# else:
-# 	rule merge_vcf:
-# 		input:
-# 			vcf = expand('temp/{{sample}}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz', region=REGIONS),
-# 			index = expand('temp/{{sample}}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz.tbi', region=REGIONS),
-# 			spliceai_vcf = expand('temp/{{sample}}__{region}.new.spliceai.vcf.gz', region=REGIONS),
-# 			spliceai_index = expand('temp/{{sample}}__{region}.new.spliceai.vcf.gz.tbi', region=REGIONS)
-# 		output:
-# 			vcf = '{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz',
-# 			index = '{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz.tbi'
-# 		threads: 16
-# 		shell:
-# 			"""
-# 			export REF_CACHE=/lscratch/$SLURM_JOB_ID/
-# 			module load {config[samtools_version]}
-# 			bcftools concat --threads {threads} {input.vcf} | bcftools sort -T /lscratch/$SLURM_JOB_ID/ -m 100G -O z -o {output.vcf}
-# 			tabix -f -p vcf {output.vcf}
-# 			( bcftools concat --threads {threads} -a --rm-dups none --no-version \
-# 				/data/OGL/resources/spliceai/spliceai500.depot.vcf.gz {input.spliceai_vcf} \
-# 				| bcftools sort -T /lscratch/$SLURM_JOB_ID/ -m 100G -Oz -o /lscratch/$SLURM_JOB_ID/spliceai500.depot.vcf.gz ) || exit 1
-# 			tabix -f -p vcf /lscratch/$SLURM_JOB_ID/spliceai500.depot.vcf.gz || exit 1
-# 			cp /lscratch/$SLURM_JOB_ID/spliceai500.depot.vcf.gz* /data/OGL/resources/spliceai
-# 			"""
-
-#spliceai file merge step took ~ 1hour for the 4gb first 500 files.
-#if config['re_sort'] == 'TRUE':
-	# ensure that the concat didn't mess up the order
-#	rule sort_tabix:
-#		input:
-#			vcf = 'temp/{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz'
-#		output:
-#			vcf = protected('{sample}.RESORTED.VT.VEP.VCFANNO.vcf.gz'),
-#			index = '{sample}.RESORTED.VT.VEP.VCFANNO.vcf.gz.tbi'
-#		shell:
-#			"""
-#			export REF_CACHE=/scratch/$SLURM_JOB_ID/
-#			/home/mcgaugheyd/bin/gsort_linux_amd64 --memory 60000 {input.vcf} /data/mcgaugheyd/genomes/1000G_phase2_GRCh37/GRCh37_gatk_order.genome | bgzip -c > {output.vcf}
-#			tabix -f -p vcf {output.vcf}
-#			"""
-#else:
-#	rule faux_sort_tabix:
-#		input:
-#			vcf = 'temp/{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz',
-#			index = 'temp/{sample}.SORTED.VT.VEP.VCFANNO.vcf.gz.tbi'
-#		output:
-#			vcf = protected('{sample}.RESORTED.VT.VEP.VCFANNO.vcf.gz'),
-#			index = '{sample}.RESORTED.VT.VEP.VCFANNO.vcf.gz.tbi'
-#		shell:
-#			"""
-#			module load {config[samtools_version]}
-#			mv {input.vcf} {output.vcf}
-#			mv {input.index} {output.vcf}
-#			"""
 
 rule peddy_QC:
 	input:
@@ -855,7 +812,14 @@ if config['datatype'].upper() in ["WGS", "GENOME"]:
 		input:
 			db = '{sample}.PED_{ped}.gemini.db'
 		output:
-			xlsx = 'gemini_xlsx/{family_name}.{sample}.{ped}.lenient{gemini_lenient}.xlsx'
+			denovo = temp('temp/{family_name}.{sample}.{ped}.denovo.tsv'),
+			ad = temp('temp/{family_name}.{sample}.{ped}.ad.tsv'),
+			ar = temp('temp/{family_name}.{sample}.{ped}.ar.tsv'),
+			comphets = temp('temp/{family_name}.{sample}.{ped}.comphets.tsv'),
+			xdenovo = temp('temp/{family_name}.{sample}.{ped}.xdenovo.tsv'),
+			xd = temp('temp/{family_name}.{sample}.{ped}.xd.tsv'),
+			xr = temp('temp/{family_name}.{sample}.{ped}.xr.tsv'),
+			mendel_errors = temp('temp/{family_name}.{sample}.{ped}.mendel_errors.tsv')
 		shell:
 			"""
 			module load {config[gemini_version]} {config[R_version]}
@@ -865,36 +829,40 @@ if config['datatype'].upper() in ["WGS", "GENOME"]:
 			LENIENT={config[gemini_lenient]}
 			case "${{LENIENT^^}}" in
 				"YES"|"TRUE")
-					time gemini de_novo -d 9 --min-gq 5 --lenient --filter "priority_score > 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/denovo.tsv
-					time gemini autosomal_dominant -d 9 --min-gq 5 --filter "priority_score > 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/ad.tsv
-					time gemini autosomal_recessive -d 9 --min-gq 5 --lenient --filter "priority_score > 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/ar.tsv
-					time gemini comp_hets -d 9 --min-gq 5 --gene-where "priority_score >= 5" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/comphets.tsv
-					time gemini x_linked_de_novo -d 9 --min-gq 5 --filter "priority_score > 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/xdenovo.tsv
-					time gemini x_linked_dominant -d 9 --min-gq 5 --filter "priority_score > 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/xd.tsv
-					time gemini x_linked_recessive -d 9 --min-gq 5 --filter "priority_score > 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/xr.tsv
-					time gemini mendel_errors -d 9 --min-gq 5 --lenient --filter "priority_score > 3" --only-affected --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/mendel_errors.tsv
+					time gemini de_novo -d 9 --min-gq 5 --lenient --filter "priority_score > 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.denovo}
+					time gemini autosomal_dominant -d 9 --min-gq 5 --filter "priority_score > 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.ad}
+					time gemini autosomal_recessive -d 9 --min-gq 5 --lenient --filter "priority_score > 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.ar}
+					time gemini comp_hets -d 9 --min-gq 5 --gene-where "priority_score >= 5" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.comphets}
+					time gemini x_linked_de_novo -d 9 --min-gq 5 --filter "priority_score > 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.xdenovo}
+					time gemini x_linked_dominant -d 9 --min-gq 5 --filter "priority_score > 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.xd}
+					time gemini x_linked_recessive -d 9 --min-gq 5 --filter "priority_score > 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.xr}
+					time gemini mendel_errors -d 9 --min-gq 5 --lenient --filter "priority_score > 3" --only-affected --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.mendel_errors}
 					;;
 				*)
-					time gemini de_novo -d 9 --min-gq 5 --filter "priority_score > 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/denovo.tsv
-					time gemini autosomal_dominant -d 9 --min-gq 5 --filter "priority_score > 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/ad.tsv
-					time gemini autosomal_recessive -d 9 --min-gq 5 --filter "priority_score > 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/ar.tsv
-					time gemini comp_hets -d 9 --min-gq 5 --gene-where "priority_score >= 5" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/comphets.tsv
-					time gemini x_linked_de_novo -d 9 --min-gq 5 --filter "priority_score > 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/xdenovo.tsv
-					time gemini x_linked_dominant -d 9 --min-gq 5 --filter "priority_score > 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/xd.tsv
-					time gemini x_linked_recessive -d 9 --min-gq 5 --filter "priority_score > 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/xr.tsv
-					time gemini mendel_errors -d 9 --min-gq 5 --filter "priority_score > 3" --only-affected --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/mendel_errors.tsv
+					time gemini de_novo -d 9 --min-gq 5 --filter "priority_score > 4" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.denovo}
+					time gemini autosomal_dominant -d 9 --min-gq 5 --filter "priority_score > 4" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.ad}
+					time gemini autosomal_recessive -d 9 --min-gq 5 --filter "priority_score > 4" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.ar}
+					time gemini comp_hets -d 9 --min-gq 5 --gene-where "priority_score >= 6" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.comphets}
+					time gemini x_linked_de_novo -d 9 --min-gq 5 --filter "priority_score > 4" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.xdenovo}
+					time gemini x_linked_dominant -d 9 --min-gq 5 --filter "priority_score > 4" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.xd}
+					time gemini x_linked_recessive -d 9 --min-gq 5 --filter "priority_score > 4" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.xr}
+					time gemini mendel_errors -d 9 --min-gq 5 --filter "priority_score > 4" --only-affected --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.mendel_errors}
 					;;
 			esac
-			Rscript /home/$USER/git/variant_prioritization/src_hg38/sortGeminiFamily.R \
-				{config[OGL_Dx_research_genes]} {config[aaf_change]} {output.xlsx} {wildcards.family_name} \
-				$WKDIR/denovo.tsv $WKDIR/ad.tsv $WKDIR/ar.tsv $WKDIR/comphets.tsv $WKDIR/xdenovo.tsv $WKDIR/xd.tsv $WKDIR/xr.tsv $WKDIR/mendel_errors.tsv
 			"""
 elif config['datatype'].upper() in ["EXOME", "WES"]:
 		rule query_gemini_family:
 			input:
 				db = '{sample}.PED_{ped}.gemini.db'
 			output:
-				xlsx = 'gemini_xlsx/{family_name}.{sample}.{ped}.lenient{gemini_lenient}.xlsx'
+				denovo = temp('temp/{family_name}.{sample}.{ped}.denovo.tsv'),
+				ad = temp('temp/{family_name}.{sample}.{ped}.ad.tsv'),
+				ar = temp('temp/{family_name}.{sample}.{ped}.ar.tsv'),
+				comphets = temp('temp/{family_name}.{sample}.{ped}.comphets.tsv'),
+				xdenovo = temp('temp/{family_name}.{sample}.{ped}.xdenovo.tsv'),
+				xd = temp('temp/{family_name}.{sample}.{ped}.xd.tsv'),
+				xr = temp('temp/{family_name}.{sample}.{ped}.xr.tsv'),
+				mendel_errors = temp('temp/{family_name}.{sample}.{ped}.mendel_errors.tsv')
 			shell:
 				"""
 				module load {config[gemini_version]} {config[R_version]}
@@ -904,29 +872,26 @@ elif config['datatype'].upper() in ["EXOME", "WES"]:
 				LENIENT={config[gemini_lenient]}
 				case "${{LENIENT^^}}" in
 					"YES"|"TRUE")
-						time gemini de_novo -d 9 --min-gq 5 --lenient --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/denovo.tsv
-						time gemini autosomal_dominant -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/ad.tsv
-						time gemini autosomal_recessive -d 9 --min-gq 5 --lenient --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/ar.tsv
-						time gemini comp_hets -d 9 --min-gq 5 --gene-where "priority_score >= 4" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/comphets.tsv
-						time gemini x_linked_de_novo -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/xdenovo.tsv
-						time gemini x_linked_dominant -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/xd.tsv
-						time gemini x_linked_recessive -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/xr.tsv
-						time gemini mendel_errors -d 9 --min-gq 5 --lenient --filter "priority_score >= 3" --only-affected --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/mendel_errors.tsv
+						time gemini de_novo -d 9 --min-gq 5 --lenient --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.denovo}
+						time gemini autosomal_dominant -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.ad}
+						time gemini autosomal_recessive -d 9 --min-gq 5 --lenient --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.ar}
+						time gemini comp_hets -d 9 --min-gq 5 --gene-where "priority_score >= 4" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.comphets}
+						time gemini x_linked_de_novo -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.xdenovo}
+						time gemini x_linked_dominant -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.xd}
+						time gemini x_linked_recessive -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.xr}
+						time gemini mendel_errors -d 9 --min-gq 5 --lenient --filter "priority_score >= 3" --only-affected --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.mendel_errors}
 						;;
 					*)
-						time gemini de_novo -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/denovo.tsv
-						time gemini autosomal_dominant -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/ad.tsv
-						time gemini autosomal_recessive -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/ar.tsv
-						time gemini comp_hets -d 9 --min-gq 5 --gene-where "priority_score >= 4" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/comphets.tsv
-						time gemini x_linked_de_novo -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/xdenovo.tsv
-						time gemini x_linked_dominant -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/xd.tsv
-						time gemini x_linked_recessive -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/xr.tsv
-						time gemini mendel_errors -d 9 --min-gq 5 --filter "priority_score >= 3" --only-affected --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > $WKDIR/mendel_errors.tsv
+						time gemini de_novo -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.denovo}
+						time gemini autosomal_dominant -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.ad}
+						time gemini autosomal_recessive -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.ar}
+						time gemini comp_hets -d 9 --min-gq 5 --gene-where "priority_score >= 4" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.comphets}
+						time gemini x_linked_de_novo -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.xdenovo}
+						time gemini x_linked_dominant -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.xd}
+						time gemini x_linked_recessive -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.xr}
+						time gemini mendel_errors -d 9 --min-gq 5 --filter "priority_score >= 3" --only-affected --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.mendel_errors}
 						;;
 				esac
-				Rscript /home/$USER/git/variant_prioritization/src_hg38/sortGeminiFamily.R \
-					{config[OGL_Dx_research_genes]} {config[aaf_change]} {output.xlsx} {wildcards.family_name} \
-					$WKDIR/denovo.tsv $WKDIR/ad.tsv $WKDIR/ar.tsv $WKDIR/comphets.tsv $WKDIR/xdenovo.tsv $WKDIR/xd.tsv $WKDIR/xr.tsv $WKDIR/mendel_errors.tsv
 				"""
 else:
 	localrules: query_gemini_family
@@ -934,42 +899,68 @@ else:
 		input:
 			db = '{sample}.PED_{ped}.gemini.db'
 		output:
-			xlsx = 'gemini_xlsx/{family_name}.{sample}.{ped}.lenient{gemini_lenient}.xlsx'
+			denovo = temp('temp/{family_name}.{sample}.{ped}.denovo.tsv'),
+			ad = temp('temp/{family_name}.{sample}.{ped}.ad.tsv'),
+			ar = temp('temp/{family_name}.{sample}.{ped}.ar.tsv'),
+			comphets = temp('temp/{family_name}.{sample}.{ped}.comphets.tsv'),
+			xdenovo = temp('temp/{family_name}.{sample}.{ped}.xdenovo.tsv'),
+			xd = temp('temp/{family_name}.{sample}.{ped}.xd.tsv'),
+			xr = temp('temp/{family_name}.{sample}.{ped}.xr.tsv'),
+			mendel_errors = temp('temp/{family_name}.{sample}.{ped}.mendel_errors.tsv')
 		resources: res=1
 		shell:
 			"""
-			module load {config[gemini_version]}
-			if [[ $(module list 2>&1 | grep "R/" | wc -l) < 1 ]]; then module load {config[R_version]}; fi
+			if [[ $(module list 2>&1 | grep "gemini" | wc -l) < 1 ]]; then module load {config[gemini_version]}; fi
 			mkdir -p /lscratch/$SLURM_JOB_ID/{wildcards.family_name}
 			WKDIR=/lscratch/$SLURM_JOB_ID/{wildcards.family_name}
 			LENIENT={config[gemini_lenient]}
 			case "${{LENIENT^^}}" in
 				"YES"|"TRUE")
-					time gemini de_novo -d 9 --min-gq 5 --lenient --filter "priority_score >= 3" --families {wildcards.family_name} {input} > $WKDIR/denovo.tsv
-					time gemini autosomal_dominant -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} {input} > $WKDIR/ad.tsv
-					time gemini autosomal_recessive -d 9 --min-gq 5 --lenient --filter "priority_score >= 3" --families {wildcards.family_name} {input} > $WKDIR/ar.tsv
-					time gemini comp_hets -d 9 --min-gq 5 --gene-where "priority_score >= 4" --families {wildcards.family_name} {input} > $WKDIR/comphets.tsv
-					time gemini x_linked_de_novo -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} {input} > $WKDIR/xdenovo.tsv
-					time gemini x_linked_dominant -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} {input} > $WKDIR/xd.tsv
-					time gemini x_linked_recessive -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} {input} > $WKDIR/xr.tsv
-					time gemini mendel_errors -d 9 --min-gq 5 --lenient --filter "priority_score >= 3" --only-affected --families {wildcards.family_name} {input} > $WKDIR/mendel_errors.tsv
+					time gemini de_novo -d 9 --min-gq 5 --lenient --filter "priority_score >= 3" --families {wildcards.family_name} {input} > {output.denovo}
+					time gemini autosomal_dominant -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} {input} > {output.ad}
+					time gemini autosomal_recessive -d 9 --min-gq 5 --lenient --filter "priority_score >= 3" --families {wildcards.family_name} {input} > {output.ar}
+					time gemini comp_hets -d 9 --min-gq 5 --gene-where "priority_score >= 4" --families {wildcards.family_name} {input} > {output.comphets}
+					time gemini x_linked_de_novo -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} {input} > {output.xdenovo}
+					time gemini x_linked_dominant -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} {input} > {output.xd}
+					time gemini x_linked_recessive -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} {input} > {output.xr}
+					time gemini mendel_errors -d 9 --min-gq 5 --lenient --filter "priority_score >= 3" --only-affected --families {wildcards.family_name} {input} > {output.mendel_errors}
 					;;
 				*)
-					time gemini de_novo -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} {input} > $WKDIR/denovo.tsv
-					time gemini autosomal_dominant -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} {input} > $WKDIR/ad.tsv
-					time gemini autosomal_recessive -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} {input} > $WKDIR/ar.tsv
-					time gemini comp_hets -d 9 --min-gq 5 --gene-where "priority_score >= 4" --families {wildcards.family_name} {input} > $WKDIR/comphets.tsv
-					time gemini x_linked_de_novo -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} {input} > $WKDIR/xdenovo.tsv
-					time gemini x_linked_dominant -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} {input} > $WKDIR/xd.tsv
-					time gemini x_linked_recessive -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} {input} > $WKDIR/xr.tsv
-					time gemini mendel_errors -d 9 --min-gq 5 --filter "priority_score >= 3" --only-affected --families {wildcards.family_name} {input} > $WKDIR/mendel_errors.tsv
+					time gemini de_novo -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} {input} > {output.denovo}
+					time gemini autosomal_dominant -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} {input} > {output.ad}
+					time gemini autosomal_recessive -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} {input} > {output.ar}
+					time gemini comp_hets -d 9 --min-gq 5 --gene-where "priority_score >= 4" --families {wildcards.family_name} {input} > {output.comphets}
+					time gemini x_linked_de_novo -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} {input} > {output.xdenovo}
+					time gemini x_linked_dominant -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} {input} > {output.xd}
+					time gemini x_linked_recessive -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} {input} > {output.xr}
+					time gemini mendel_errors -d 9 --min-gq 5 --filter "priority_score >= 3" --only-affected --families {wildcards.family_name} {input} > {output.mendel_errors}
 					;;
 			esac
-			Rscript /home/$USER/git/variant_prioritization/src_hg38/sortGeminiFamily.R \
-				{config[OGL_Dx_research_genes]} {config[aaf_change]} {output.xlsx} {wildcards.family_name} \
-				$WKDIR/denovo.tsv $WKDIR/ad.tsv $WKDIR/ar.tsv $WKDIR/comphets.tsv $WKDIR/xdenovo.tsv $WKDIR/xd.tsv $WKDIR/xr.tsv $WKDIR/mendel_errors.tsv
 			"""
 
+localrules: sortGeminiFamily
+rule sortGeminiFamily:
+	input:
+		denovo = 'temp/{family_name}.{sample}.{ped}.denovo.tsv',
+		ad = 'temp/{family_name}.{sample}.{ped}.ad.tsv',
+		ar = 'temp/{family_name}.{sample}.{ped}.ar.tsv',
+		comphets = 'temp/{family_name}.{sample}.{ped}.comphets.tsv',
+		xdenovo = 'temp/{family_name}.{sample}.{ped}.xdenovo.tsv',
+		xd = 'temp/{family_name}.{sample}.{ped}.xd.tsv',
+		xr = 'temp/{family_name}.{sample}.{ped}.xr.tsv',
+		mendel_errors = 'temp/{family_name}.{sample}.{ped}.mendel_errors.tsv'
+	output:
+		xlsx = 'gemini_xlsx/{family_name}.{sample}.{ped}.lenient{gemini_lenient}.xlsx'
+	shell:
+		"""
+		if [[ $(module list 2>&1 | grep "R/" | wc -l) < 1 ]]; then module load {config[R_version]}; fi
+		Rscript /home/$USER/git/variant_prioritization/src_hg38/sortGeminiFamily.R \
+			{config[OGL_Dx_research_genes]} {config[aaf_change]} {output.xlsx} {wildcards.family_name} \
+			{input} \
+			{config[configuration_file]}
+		"""
+
+# 1-2 hours for genome
 if config['datatype'].upper() in ["WGS", "GENOME", "EXOME", "WES"]:
 	rule query_gemini_individual:
 		input:
@@ -983,10 +974,10 @@ if config['datatype'].upper() in ["WGS", "GENOME", "EXOME", "WES"]:
 			cp {input.db} /lscratch/$SLURM_JOB_ID/.
  			time gemini query -q \
 			"SELECT *, gt_types.{wildcards.sampleid}, gts.{wildcards.sampleid}, gt_phases.{wildcards.sampleid}, gt_depths.{wildcards.sampleid}, gt_alt_freqs.{wildcards.sampleid}, gt_quals.{wildcards.sampleid} FROM variants WHERE priority_score > -2" \
-			--header --gt-filter "gt_types.{wildcards.sampleid} != HOM_REF AND gts.{wildcards.sampleid} != './.' " /lscratch/$SLURM_JOB_ID/{input.db} > {output.tsv}
+			--header --gt-filter "gt_types.{wildcards.sampleid}  == HET OR gt_types.{wildcards.sampleid}  == HOM_ALT" /lscratch/$SLURM_JOB_ID/{input.db} > {output.tsv}
 			time gemini query -q \
 			"SELECT *, gt_types.{wildcards.sampleid}, gts.{wildcards.sampleid}, gt_phases.{wildcards.sampleid}, gt_depths.{wildcards.sampleid}, gt_alt_freqs.{wildcards.sampleid}, gt_quals.{wildcards.sampleid} FROM variants WHERE pmaxaf > 0.99 AND gno3_af_all > 0.98" \
-			--header --gt-filter "(gt_types.{wildcards.sampleid} == HOM_REF OR gts.{wildcards.sampleid} == HET) AND gts.{wildcards.sampleid} != './.' AND gt_quals.{wildcards.sampleid} > 10 AND gt_depths.{wildcards.sampleid} > 5" /lscratch/$SLURM_JOB_ID/{input.db} > {output.ref_tsv}
+			--header --gt-filter "(gt_types.{wildcards.sampleid}  == HET OR gt_types.{wildcards.sampleid}  == HOM_REF) AND gt_quals.{wildcards.sampleid} > 10 AND gt_depths.{wildcards.sampleid} > 5" /lscratch/$SLURM_JOB_ID/{input.db} > {output.ref_tsv}
 			"""
 else:
 	localrules: query_gemini_individual
@@ -1002,12 +993,14 @@ else:
 			if [[ $(module list 2>&1 | grep "gemini" | wc -l) < 1 ]]; then module load {config[gemini_version]}; fi
  			time gemini query -q \
 			"SELECT *, gt_types.{wildcards.sampleid}, gts.{wildcards.sampleid}, gt_phases.{wildcards.sampleid}, gt_depths.{wildcards.sampleid}, gt_alt_freqs.{wildcards.sampleid}, gt_quals.{wildcards.sampleid} FROM variants" \
-			--header --gt-filter "gt_types.{wildcards.sampleid} != HOM_REF AND gts.{wildcards.sampleid} != './.' " {input.db} > {output.tsv}
+			--header --gt-filter "gt_types.{wildcards.sampleid}  == HET OR gt_types.{wildcards.sampleid}  == HOM_ALT" {input.db} > {output.tsv}
 			time gemini query -q \
 			"SELECT *, gt_types.{wildcards.sampleid}, gts.{wildcards.sampleid}, gt_phases.{wildcards.sampleid}, gt_depths.{wildcards.sampleid}, gt_alt_freqs.{wildcards.sampleid}, gt_quals.{wildcards.sampleid} FROM variants WHERE pmaxaf > 0.99 AND gno3_af_all > 0.98" \
-			--header --gt-filter "(gt_types.{wildcards.sampleid} == HET OR gts.{wildcards.sampleid} == HOM_REF) AND gts.{wildcards.sampleid} != './.' AND gt_quals.{wildcards.sampleid} > 10 AND gt_depths.{wildcards.sampleid} > 5" {input.db} > {output.ref_tsv}
+			--header --gt-filter "(gt_types.{wildcards.sampleid}  == HET OR gt_types.{wildcards.sampleid}  == HOM_REF) AND gt_quals.{wildcards.sampleid} > 10 AND gt_depths.{wildcards.sampleid} > 5" {input.db} > {output.ref_tsv}
 			"""
 
+#--gt-filter "gt_types.{wildcards.sampleid}  == HET OR gt_types.{wildcards.sampleid}  == HOM_ALT" equals to but faster than
+#"gt_types.{wildcards.sampleid} != HOM_REF AND gts.{wildcards.sampleid} != './.' " equals
 # Add BBS2 N70S query
 #####
 #####
@@ -1025,7 +1018,7 @@ if config['datatype'].upper() == "PANEL":
 			"""
 			if [[ $(module list 2>&1 | grep "R/" | wc -l) < 1 ]]; then module load {config[R_version]}; fi
 			Rscript /home/$USER/git/variant_prioritization/src_hg38/sortGeminiTSV_v1.R \
-				{input.tsv} {input.ref_tsv} {config[OGL_Dx_research_genes]} {output.rearranged_tsv} {output.filtered_tsv} {wildcards.sampleid} {output.filtered_xlsx} {config[aaf_change]} ../manta/manta.{wildcards.sampleid}.annotated.tsv filePlaceholder ../scramble_anno/{wildcards.sampleid}.scramble.xlsx ../scramble_anno/{wildcards.sampleid}.scramble.del.tsv ../CoNVaDING/CNV_hiSens/{wildcards.sampleid}.markDup.aligned.only.best.score.shortlist.txt gemini_xlsx/{wildcards.sampleid}.geneLAF.pdf
+				{input.tsv} {input.ref_tsv} {config[OGL_Dx_research_genes]} {output.rearranged_tsv} {output.filtered_tsv} {wildcards.sampleid} {output.filtered_xlsx} {config[aaf_change]} ../manta/manta.{wildcards.sampleid}.annotated.tsv filePlaceholder ../scramble_anno/{wildcards.sampleid}.scramble.xlsx ../scramble_anno/{wildcards.sampleid}.scramble.del.tsv {config[configuration_file]} ../CoNVaDING/CNV_hiSens/{wildcards.sampleid}.markDup.aligned.only.best.score.shortlist.txt gemini_xlsx/{wildcards.sampleid}.geneLAF.pdf
 	 		"""
 elif config['datatype'].upper() in ["EXOME", "WES"]:
 	rule sortGemini:
@@ -1040,7 +1033,7 @@ elif config['datatype'].upper() in ["EXOME", "WES"]:
 			"""
 			if [[ $(module list 2>&1 | grep "R/" | wc -l) < 1 ]]; then module load {config[R_version]}; fi
 			Rscript /home/$USER/git/variant_prioritization/src_hg38/sortGeminiTSV_v1.R \
-				{input.tsv} {input.ref_tsv} {config[OGL_Dx_research_genes]} {output.rearranged_tsv} {output.filtered_tsv} {wildcards.sampleid} {output.filtered_xlsx} {config[aaf_change]} ../manta/manta.{wildcards.sampleid}.annotated.tsv ../AutoMap/{wildcards.sampleid}/{wildcards.sampleid}.HomRegions.annot.tsv ../scramble_anno/{wildcards.sampleid}.scramble.xlsx ../scramble_anno/{wildcards.sampleid}.scramble.del.tsv
+				{input.tsv} {input.ref_tsv} {config[OGL_Dx_research_genes]} {output.rearranged_tsv} {output.filtered_tsv} {wildcards.sampleid} {output.filtered_xlsx} {config[aaf_change]} ../manta/manta.{wildcards.sampleid}.annotated.tsv ../AutoMap/{wildcards.sampleid}/{wildcards.sampleid}.HomRegions.annot.tsv ../scramble_anno/{wildcards.sampleid}.scramble.xlsx ../scramble_anno/{wildcards.sampleid}.scramble.del.tsv {config[configuration_file]}
 	 		"""
 else:
 	rule sortGemini:
@@ -1056,7 +1049,7 @@ else:
 			mkdir -p gemini_tsv_filtered gemini_xlsx
 			module load {config[R_version]}
 			Rscript /home/$USER/git/variant_prioritization/src_hg38/sortGeminiTSV_v1.R \
-				{input.tsv} {input.ref_tsv} {config[OGL_Dx_research_genes]} {output.rearranged_tsv} {output.filtered_tsv} {wildcards.sampleid} {output.filtered_xlsx} {config[aaf_change]} ../manta/manta.{wildcards.sampleid}.annotated.tsv ../AutoMap/{wildcards.sampleid}/{wildcards.sampleid}.HomRegions.annot.tsv ../scramble_anno/{wildcards.sampleid}.scramble.xlsx
+				{input.tsv} {input.ref_tsv} {config[OGL_Dx_research_genes]} {output.rearranged_tsv} {output.filtered_tsv} {wildcards.sampleid} {output.filtered_xlsx} {config[aaf_change]} ../manta/manta.{wildcards.sampleid}.annotated.tsv ../AutoMap/{wildcards.sampleid}/{wildcards.sampleid}.HomRegions.annot.tsv ../scramble_anno/{wildcards.sampleid}.scramble.xlsx filePlaceholder {config[configuration_file]}
 			"""
 
 

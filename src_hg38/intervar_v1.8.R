@@ -27,7 +27,7 @@ output_file <- args[5]
 
 
 # change the file name below
-intervar <- read.delim(intervar_file, sep = "\t", header = TRUE, na.strings = c("."),
+intervar <- read.delim(intervar_file, sep = "\t", header = TRUE, na.strings = c(".", "None", "NONE"),
                        colClasses = c("factor","integer","integer","character","character","character","character","character","character",
                                       "character","character","character","character","character","numeric","numeric","numeric","numeric",
                                       "numeric","numeric","numeric","numeric","numeric","numeric","character","character","character","numeric",
@@ -41,7 +41,7 @@ intervar <- read.delim(intervar_file, sep = "\t", header = TRUE, na.strings = c(
 #   group_by(variantkey_annovar) %>%
 #   slice(which.max(QUAL))
 
-annovar <- read_tsv(annovar_file, col_names = TRUE, na = c("NA", "", "None", "."), col_types = cols(.default = col_character())) %>% type_convert() %>%
+annovar <- read_tsv(annovar_file, col_names = TRUE, na = c("NA", "", "None", "NONE", "."), col_types = cols(.default = col_character())) %>% type_convert() %>%
   mutate(Chr = as.factor(Chr), CHROM = as.factor(CHROM)) %>%
   unite("variantkey_annovar", Chr:Alt, sep = "_", remove = TRUE) %>%
   group_by(variantkey_annovar) %>%
@@ -81,7 +81,7 @@ spliceai <- read.delim(spliceai_file, sep = "\t", header = TRUE, na.strings = c(
 
 annovar <- left_join(annovar, spliceai, by = c("CHROM", "POS", "REF", "ALT"))
 rm(spliceai)
-HGMD <- read_tsv(hgmd_transcript_file, col_names = TRUE, na = c("NA", "", "None", "."), col_types = cols(.default = col_character()))
+HGMD <- read_tsv(hgmd_transcript_file, col_names = TRUE, na = c("NA", "", "None", "NONE", "."), col_types = cols(.default = col_character()))
 hgmdNM <- dplyr::pull(HGMD, name)
 
 mapHGMD <- function(x){

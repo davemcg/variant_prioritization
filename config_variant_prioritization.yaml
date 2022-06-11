@@ -6,9 +6,10 @@ family_name: [] # empty list or One or more family names in the list ['family_1'
 seeGEM: 'FALSE' #TRUE or FALSE
 ped: 'test_trio.ped' # has to be \t delimited.
 regions: '/home/$USER/git/variant_prioritization/src_hg38/vcf_region_split_1_coords.txt' # hg19 version delete _hg38
-#regions, 1 for panel (only 1,2,..,22,X); 24 for exome if needed;
-#regions, 25 or 100 for WGS of 50 cases.
+#regions, 1 for panel (only 1,2,..,22,X); "chr" for exome if needed;
+#regions, 25 or 100 for WGS of 50 cases. Use chr, 24, 99, 499 for genome.
 datatype: 'exome' #panel, exome, wgs, blank
+configuration_file: 'config_variant_prioritization.yaml'
 genomeBuild: 'GRCh38' # GRCh37 or GRCh38, case sensitive
 pick: 'canonical' #canoical or all
 LAFplot: 'TRUE' #If TRUE then chromosome LesserAlleleFreq plot will be generated. Any other value equals to FALSE
@@ -24,8 +25,8 @@ peddy_version: 'peddy/0.3.1'
 python2_version: 'python/2.7'
 R_version: 'R/3.6.3'
 vt_version: 'vt/0.57721'
+spliceai: 'spliceai' # choose from 'wrapper', 'vcfanno', or 'spliceai'; choose vcfanno if variants already added to the spliceai depot file.
 spliceai_version: 'spliceai/1.3' #version 1.3.1 seems to be mucher slower.Try to make spliceai_wrapper work if possible
-spliceai_wrapper: 'FALSE' #any value other than TRUE will run spliceai directly
 spliceai-wrapper_version: 'spliceai-wrapper/0.1.0'
 VCF-kit_version: 'VCF-kit/0.1.6'
 annovar_version: 'annovar/2020-06-08' #previous ver 2019-10-24
