@@ -32,7 +32,8 @@ intervar <- read.delim(intervar_file, sep = "\t", header = TRUE, na.strings = c(
                                       "character","character","character","character","character","numeric","numeric","numeric","numeric",
                                       "numeric","numeric","numeric","numeric","numeric","numeric","character","character","character","numeric",
                                       "character","integer","character","character","character","character") ) %>% 
-  mutate(Ref.Gene = toupper(Ref.Gene))
+  #mutate(Ref.Gene = toupper(Ref.Gene)) %>% 
+  rename(InterVar_and_Evidence = `InterVar..InterVar.and.Evidence`)
 #  mutate(X.Chr = sub("^", "chr", X.Chr))
 
 #vroom --> NA in the number columns written as 0 in the output.
@@ -51,29 +52,17 @@ annovar <- read_tsv(annovar_file, col_names = TRUE, na = c("NA", "", "None", "NO
   distinct() %>%
   mutate(Interpro_domain = paste(Interpro_domain, collapse="|")) %>%
   mutate(Interpro_domain = gsub("NA\\||\\|NA", "", Interpro_domain)) %>% 
-  distinct() %>% ungroup()
+  distinct() %>% ungroup() %>% 
+  rename(f1000g2015aug_all = `1000g2015aug_all`,
+         fathmm_XF_coding_score = `fathmm-XF_coding_score`,
+         fathmm_XF_coding_rankscore = `fathmm-XF_coding_rankscore`,
+         fathmm_XF_coding_pred = `fathmm-XF_coding_pred`,
+         Eigen_PC_raw_coding = `Eigen-PC-raw_coding`, 
+         Eigen_PC_raw_coding_rankscore = `Eigen-PC-raw_coding_rankscore`,
+         GERPplus_NR = `GERP++_NR`,
+         GERPplus_RS = `GERP++_RS`,
+         GERPplus_RS_rankscore = `GERP++_RS_rankscore`)
   
-  
-#
-# annovar <- read.delim(args[2], sep = "\t", header = TRUE, na.strings = c("."),
-#                       colClasses = c("factor","integer","integer","character","character","character","character","character","character","character",
-#                                      "numeric","numeric","character","numeric","numeric","character","numeric","numeric","character","numeric",
-#                                      "numeric","character","numeric","numeric","character","numeric","numeric","character","numeric","numeric",
-#                                      "character","numeric","numeric","character","numeric","numeric","character","numeric","numeric","numeric",
-#                                      "numeric","character","numeric","numeric","character","numeric","numeric","character","numeric","numeric",
-#                                      "numeric","numeric","numeric","numeric","numeric","character","character","numeric","numeric","numeric",
-#                                      "numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric",
-#                                      "numeric","numeric","numeric","numeric","numeric","numeric","character","character","character","character",
-#                                      "character","character","character","character","numeric","numeric","numeric","numeric","numeric","numeric",
-#                                      "numeric","numeric","numeric","numeric","character","character","character","character","character","character",
-#                                      "character","character","character","character","character","character","character","character","character","character",
-#                                      "character","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric",
-#                                      "numeric","numeric","numeric","character","numeric","factor","integer","character","character",
-#                                      "character","numeric","factor") ) %>%
-#   unite("variantkey_annovar", Chr:Alt, sep = "_", remove = FALSE) %>%
-#   group_by(variantkey_annovar) %>%
-#   slice(which.max(QUAL))
-
 
 spliceai <- read.delim(spliceai_file, sep = "\t", header = TRUE, na.strings = c("."),
                        colClasses = c("factor","integer","character","character","character","character","numeric","integer") ) %>%
@@ -108,7 +97,7 @@ rm(annovar)
 #pick one annotation for each variant that is of highest Priority score
 
 intervar_for_sorting <- intervar %>%
-  separate('InterVar..InterVar.and.Evidence',
+  separate(InterVar_and_Evidence,
            c('InterVarInterpretation','PVS1','PS','PM','PP','BA1','BS','BP'),
            sep = '\\]{0,1} [A-Z]{2,3}\\d{0,1}\\=\\[{0,1}', remove = FALSE, convert = TRUE) %>%
   separate(PS, c('PS1','PS2','PS3','PS4','PS5'), sep = ',', convert = TRUE) %>%
@@ -126,7 +115,7 @@ intervar_for_sorting <- intervar %>%
   unite("variantkey", X.Chr:Alt, sep = "_", remove = TRUE ) %>%
   group_by(variantkey) %>%
   slice(which.max(Priority.Score)) %>%
-  select(variantkey, Ref.Gene, `clinvar..Clinvar`, `InterVar..InterVar.and.Evidence`, PVS1, maxaf_intervar, Priority.Score) %>% 
+  select(variantkey, Ref.Gene, `clinvar..Clinvar`, InterVar_and_Evidence, PVS1, maxaf_intervar, Priority.Score) %>% 
   ungroup()
 
 #InterVar 2.2.2 PVS1: "nonsense","frameshift","splic","stopgain". Thus use ExonicFunc.ensGene for ^frameshift|stopgain|stoploss|startloss|startgain above. 2019-10-24 annovar did not annotate startloss/gain in ExonicFun.Ref
@@ -145,13 +134,14 @@ annovar_inter <- merge(x = annovarS, y = intervar_for_sorting,
                                 PVS1 == 0 & grepl("^frameshift|stop|start", ExonicFunc.ensGene, ignore.case = TRUE) & maxaf_annovar < 0.02  ~ 3,
                                 TRUE ~ 0)) %>%
   mutate(Priority.Score = Priority.Score + truncating) %>%
-  mutate(Priority.Score = case_when(grepl("Pathogenic", InterVar..InterVar.and.Evidence, ignore.case = FALSE) ~ pmax(Priority.Score, 12),
-                                    grepl("Likely pathogenic", InterVar..InterVar.and.Evidence, ignore.case = FALSE) ~ pmax(Priority.Score, 9),
+  mutate(Priority.Score = case_when(grepl("Pathogenic", InterVar_and_Evidence, ignore.case = FALSE) ~ pmax(Priority.Score, 12),
+                                    grepl("Likely pathogenic", InterVar_and_Evidence, ignore.case = FALSE) ~ pmax(Priority.Score, 9),
                                     TRUE ~ Priority.Score)) %>%
   select("CHROM", "POS", "ID", "REF", "ALT", "QUAL",  "Priority.Score", Ref.Gene, "Gene.refGeneWithVer",
-           "Func.refGeneWithVer", "ExonicFunc.refGeneWithVer", "refgenewithver",
-           CLNALLELEID:CLNSIG, "InterVar..InterVar.and.Evidence", "PVS1", "dbscSNV_ADA_SCORE", "dbscSNV_RF_SCORE", "dpsi_max_tissue", "dpsi_zscore", "SpliceAI", "spliceai_maxscore", "spliceai_rank",
-         esp6500siv2_all, `1000g2015aug_all`, SIFT_score:GTEx_V8_tissue, mutscore, rmsk, avsnp150, regsnp_fpr, regsnp_disease, regsnp_splicing_site) #%>% 
+        "Func.refGeneWithVer", "ExonicFunc.refGeneWithVer", "refgenewithver",CLNALLELEID:CLNSIG, InterVar_and_Evidence, "PVS1", "dbscSNV_ADA_SCORE", "dbscSNV_RF_SCORE", "dpsi_max_tissue", "dpsi_zscore", "SpliceAI", "spliceai_maxscore", "spliceai_rank",
+         esp6500siv2_all,`f1000g2015aug_all`,'MutationTaster_score','MutationTaster_converted_rankscore','MutationTaster_pred','MutationAssessor_score','MutationAssessor_rankscore','MutationAssessor_pred','PROVEAN_score','PROVEAN_converted_rankscore','PROVEAN_pred','MetaSVM_score','MetaSVM_rankscore','MetaSVM_pred','REVEL_score','REVEL_rankscore','MPC_score','MPC_rankscore','PrimateAI_score','PrimateAI_rankscore','PrimateAI_pred','ClinPred_score','ClinPred_rankscore','ClinPred_pred','fathmm_XF_coding_score','fathmm_XF_coding_rankscore','fathmm_XF_coding_pred','Eigen_PC_raw_coding','Eigen_PC_raw_coding_rankscore','GERPplus_NR','GERPplus_RS','GERPplus_RS_rankscore','phyloP100way_vertebrate','phyloP100way_vertebrate_rankscore','mutscore','rmsk','avsnp150','regsnp_fpr','regsnp_disease','regsnp_splicing_site','Interpro_domain',everything()) 
+
+#'MutationTaster_score','MutationTaster_converted_rankscore','MutationTaster_pred','MutationAssessor_score','MutationAssessor_rankscore','MutationAssessor_pred','PROVEAN_score','PROVEAN_converted_rankscore','PROVEAN_pred','MetaSVM_score','MetaSVM_rankscore','MetaSVM_pred','REVEL_score','REVEL_rankscore','MPC_score','MPC_rankscore','PrimateAI_score','PrimateAI_rankscore','PrimateAI_pred','ClinPred_score','ClinPred_rankscore','ClinPred_pred','fathmm_XF_coding_score','fathmm_XF_coding_rankscore','fathmm_XF_coding_pred','Eigen_PC_raw_coding','Eigen_PC_raw_coding_rankscore','GERPplus_NR','GERPplus_RS','GERPplus_RS_rankscore','phyloP100way_vertebrate','phyloP100way_vertebrate_rankscore','mutscore','rmsk','avsnp150','regsnp_fpr','regsnp_disease','regsnp_splicing_site','LRT_score','LRT_converted_rankscore','LRT_pred','FATHMM_score','FATHMM_converted_rankscore','FATHMM_pred','VEST4_score','VEST4_rankscore','MetaLR_score','MetaLR_rankscore','MetaLR_pred','MetaRNN_score','MetaRNN_rankscore','MetaRNN_pred','M_CAP_score','M_CAP_rankscore','M_CAP_pred','MutPred_score','MutPred_rankscore','MVP_score','MVP_rankscore''DEOGEN2_score','DEOGEN2_rankscore','DEOGEN2_pred','BayesDel_addAF_score','BayesDel_addAF_rankscore','BayesDel_addAF_pred','BayesDel_noAF_score','BayesDel_noAF_rankscore','BayesDel_noAF_pred','LIST_S2_score','LIST_S2_rankscore','LIST_S2_pred','Aloft_pred','Aloft_Confidence','CADD_raw','CADD_raw_rankscore','CADD_phred','DANN_score','DANN_rankscore','fathmm_MKL_coding_score','fathmm_MKL_coding_rankscore','fathmm_MKL_coding_pred','Eigen_raw_coding','Eigen_raw_coding_rankscore','GenoCanyon_score','GenoCanyon_rankscore','integrated_fitCons_score','integrated_fitCons_rankscore','integrated_confidence_value','LINSIGHT','LINSIGHT_rankscore','phyloP30way_mammalian','phyloP30way_mammalian_rankscore','phastCons100way_vertebrate','phastCons100way_vertebrate_rankscore','phastCons30way_mammalian','phastCons30way_mammalian_rankscore','SiPhy_29way_logOdds','SiPhy_29way_logOdds_rankscore','Interpro_domain','GTEx_V8_gene','GTEx_V8_tissue'
 #  mutate(across(everything(), as.character)) %>% 
 #  mutate_all(list(~na_if(.,"")))
 

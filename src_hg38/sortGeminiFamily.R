@@ -63,11 +63,10 @@ sortFilterGemini <- function(fileName) {
              'refgenewithver', mane_select, 'hgvsc', 'hgvsp', 'exon', 'intron', 'aa_length', 'omim_gene', 'omim_inheritance', 'omim_phen', 'pvs1', 'truncating_vep', 'hgmd_id', 'hgmd_class', 'hgmd_phen', hgmd_overlap4aa, 'existing_variation', clnalleleid,clnsig,'clin_sig', clnrevstat, clndn, clndisdb, intervar_and_evidence,
              'interpro_domain', 'pfam_domain','existing_inframe_oorfs','existing_outofframe_oorfs','existing_uorfs','five_prime_utr_variant_annotation','five_prime_utr_variant_consequence',
              'spliceai', 'spliceai_maxscore', 'spliceaimasked50', 'spliceaimasked50max', 'squirls_interpretation', 'squirls_maxscore', 'squirls_score', 'dbscsnv_ada_score', 'dbscsnv_rf_score', 'regsnp_fpr','regsnp_disease','regsnp_splicing_site','dpsi_max_tissue', 'dpsi_zscore', 'genesplicer', 'maxentscan_diff', 'branchpoint_prob', 'regsnp_fpr','regsnp_disease','regsnp_splicing_site',  
-             'sift_pred', 'polyphen_pred', 'mutscore', 'mutationassessor_pred', 'mutationtaster_pred', 'metasvm_pred','metasvm_score', 'clinpred_score', 'primateai_rankscore', 'revel_score', 'ccr_pct','mpc_score', 'mtr_score', 'mtr_fdr', 'mtr_pct', 'cadd_raw', 'cadd_phred','remm', 'fathmm_xf_coding_score','fathmm_xf_noncoding','eigen_pc_raw_coding', 'eigen_raw_coding', 'gerpplus_rs', 'phylop100way_vertebrate', 
+             'sift_pred', 'polyphen_pred', 'mutscore', 'mutationassessor_pred', 'mutationtaster_pred', 'metasvm_pred','metasvm_score', 'clinpred_score', 'primateai_rankscore', 'revel_score', 'ccr_pct','mpc_score', 'mtr_score', 'mtr_fdr', 'mtr_pct', 'cadd_raw', 'cadd_phred','remm', 'fathmm_xf_coding_score','fathmm_xf_noncoding','eigen_pc_raw_coding', 'gerpplus_rs', 'phylop100way_vertebrate', 
              'atac_rpe_score','atac_rpe_itemrgb', 'ft_ret_rpe_score', 'gene_refgenewithver', 'avsnp150', 'tfbs', 'pli','pnull', 'prec', 'mis_z', 'sigmaaf_lof_0001', 'sigmaaf_lof_01', 'sigmaaf_missense_0001', 'sigmaaf_missense_01', 'atac_rpe_itemrgb', 'atac_rpe_score', 
              'eyeintegration_rpe_adulttissue', 'eyeintegration_rpe_cellline', 'eyeintegration_rpe_fetaltissue', 'eyeintegration_rpe_stemcellline', 'eyeintegration_retina_adulttissue', 'eyeintegration_retina_stemcellline', 'eyeintegration_wholeblood', 
-             'pubmed', 'polyphen_score', 'sift_score', 'fathmm_converted_rankscore',	'fathmm_pred',	'fathmm_score',	'genocanyon_score',	'genocanyon_rankscore',	'linsight',
-             'm_cap_pred', 'm_cap_rankscore',	'm_cap_score',	'metalr_pred',	'metalr_rankscore',	'metalr_score',	'metasvm_rankscore', 'metasvm_score', 'provean_converted_rankscore',	'provean_pred',	'provean_score', 
+             'pubmed','sift_score', 'polyphen_score', 'metasvm_rankscore', 'metasvm_score', 'provean_score', 'provean_converted_rankscore',	'provean_pred',
              'f1000g2015aug_all','esp6500siv2_all',gno2_xg_ratio:gno3_popmax, 'rmsk', 'syn_z', everything()) %>%
       arrange(desc(eyeGene), desc(maxpriorityscore), ref_gene, desc(priority_score)) %>% select(-maxpriorityscore, -eyeGene) 
     return(InheritanceTest_rearrangeCol)
@@ -136,14 +135,17 @@ if (file.size(mendel_errors_file) == 0) {
   mendel_errors <- data.frame("family_id" = family_name, "note" = "Empty mendel_errors query")
 } else {
   mendel_errors <- sortFilterGemini(mendel_errors_file)
-  if (nrow(mendel_errors) > 0) { all <- rbind(all, mendel_errors) } 
+  if (nrow(mendel_errors) > 0) { 
+    mendel_errors <- mendel_errors %>% select(-violation)
+    all <- rbind(all, mendel_errors) 
+    } 
 }
 
 #summaryInfo <- data.frame("family_id" = family_name, "DxOutcome"= NA, "variant" = NA, "reviewer" = NA, "date" = NA, "SecondReviewer" = NA, "SecondReviewDate" = NA)
 summaryInfo <- data.frame("family_id" = family_name, "PatientDxPhenotype" = NA, "DxOutcome"= NA, "variant" = NA, "reviewer" = NA, "date" = NA) %>% 
   add_row("family_id" = family_name, "PatientDxPhenotype" = NA, "DxOutcome"= NA, "variant" = NA, "reviewer" = NA, "date" = NA)
 
-acmg_genes <- read_xlsx(geneCategory_file, sheet = "ACMG3", na = c("NA", "", "None", "NONE", ".")) %>% pull(Gene) %>% unique()
+acmg_genes <- read_xlsx(geneCategory_file, sheet = "ACMG", na = c("NA", "", "None", "NONE", ".")) %>% pull(Gene) %>% unique()
 acmg <- all %>% filter(ref_gene %in% acmg_genes, priority_score > 4) %>% distinct(chr_variant_id, .keep_all = TRUE)
 #in the next version, consider TTN truncating, HFE C..Y hmz etc.
 config <- read_tsv(config_file, col_names = FALSE, na = c("NA", ""), col_types = cols(.default = col_character())) %>% 
@@ -157,7 +159,7 @@ openxlsx::write.xlsx(list( "de_novo" = denovo,
                            "XD" = xd, 
                            "XR" = xr, 
                            "mendel_errors" = mendel_errors, 
-                           "ACMG3" = acmg,
+                           "ACMG" = acmg,
                            "config" = config,
                            "summary" = summaryInfo), 
                      file = output_xlsx, firstRow = TRUE, firstCol = TRUE)

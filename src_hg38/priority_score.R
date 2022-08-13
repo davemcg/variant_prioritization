@@ -57,13 +57,14 @@ crossmap <- read_tsv(crossmap_file, col_names = TRUE, na = c("NA", "", "None", "
   unite("grch37variant_id", CHROM, POS, REF, ALT, sep = "-")
 
 ps_df_crossmap <- left_join(input_df, crossmap, by = "ID")
+
 rm(input_df)
 rm(crossmap)
 
 ##The following line was meant to add 3 to Priority_Score when CSQ fields has truncating and PVS1 == 0 and pmaxaf < 0.01 & Priority_Score_intervar < 6
 ps_df <-  left_join(ps_df_crossmap, squirls_annotation, by=c('CHROM', 'POS', 'REF', 'ALT')) %>% mutate(truncating_vep = ifelse(grepl("frameshift_variant|splice_acceptor_variant|splice_donor_variant|start_lost|stop_gained|stop_lost", CSQ, ignore.case = TRUE), 1, 0)) %>% 
   mutate(temp_CSQ = sub(",.*", "", CSQ)) %>%
-  separate(temp_CSQ, c('allele','consequence','codons','amino_acids','gene','symbol','MANE_SELECT','MANE_PLUS_CLINICAL','feature','exon','intron','hgvsc','hgvsp','max_af','max_af_pops','protein_position','biotype','canonical','domains','existing_variation','clin_sig','pick','pubmed','phenotypes','sift','polyphen','cadd_raw','cadd_phred','genesplicer','spliceregion','MaxEntScan_alt','maxentscan_diff','MaxEntScan_ref','existing_inframe_oorfs','existing_outofframe_oorfs','existing_uorfs','five_prime_utr_variant_annotation','five_prime_utr_variant_consequence','Mastermind_counts','Mastermind_MMID3','MOTIF_NAME','MOTIF_POS','HIGH_INF_POS','MOTIF_SCORE_CHANGE'), sep = "\\|", remove = TRUE, convert = TRUE) %>% 
+  separate(temp_CSQ, c('allele','consequence','codons','amino_acids','gene','symbol','MANE_SELECT','feature','exon','intron','hgvsc','hgvsp','max_af','max_af_pops','protein_position','biotype','canonical','domains','existing_variation','clin_sig','pick','pubmed','phenotypes','sift','polyphen','cadd_raw','cadd_phred','genesplicer','spliceregion','MaxEntScan_alt','maxentscan_diff','MaxEntScan_ref','existing_inframe_oorfs','existing_outofframe_oorfs','existing_uorfs','five_prime_utr_variant_annotation','five_prime_utr_variant_consequence','Mastermind_counts','Mastermind_MMID3','MOTIF_NAME','MOTIF_POS','HIGH_INF_POS','MOTIF_SCORE_CHANGE'), sep = "\\|", remove = TRUE, convert = TRUE) %>% 
   #gno2x_af_all,gno3_af_all,maxaf_annovar,gno2x_af_popmax,gno3_popmax,gno_gx_ratio,gno2x_an_all,gno3_an_all,gno2x_filter,gno3_filter AND max_af above from VEP.
   mutate(gno2x_expected_an = case_when(CHROM %in% c("X", "chrX") & gno2x_nonpar == "1" ~ 183653,
                                        CHROM %in% c("Y", "chrY") & gno2x_nonpar == "1" ~ 67843,
@@ -90,9 +91,11 @@ ps_df <-  left_join(ps_df_crossmap, squirls_annotation, by=c('CHROM', 'POS', 'RE
            ifelse(is.na(hgmd_class) & !is.na(HGMD_Overlap4aa) & pmaxaf < 0.005, 1, 0) ) %>% 
   mutate(clinvar_hgmd_score = ifelse(clinvar_hgmd_score > 6, 6, clinvar_hgmd_score)) %>% 
   mutate(other_predic_score = ifelse(is.na(ClinPred_score), 0, ifelse(ClinPred_score > 0.5, 0.5, 0)) + 
-           ifelse(is.na(REVEL_score), 0, ifelse(REVEL_score > 0.55, 0.5, 0)) + 
-           ifelse(grepl("D", SIFT_pred), 0.5, 0) + #T for tolerant, D for damaging
-           ifelse(grepl("D", Polyphen2_HVAR_pred), 0.5, 0) + #B for benign, P for possibly damaging, D for probably damgaing in dbSNP4
+           ifelse(is.na(REVEL_score), 0, ifelse(REVEL_score > 0.55, 0.5, 0)) +
+           ifelse(grepl("deleterious", sift), 0.5, 0) +
+           ifelse(grepl("damaging", polyphen), 0.5, 0) + 
+           #ifelse(grepl("D", SIFT_pred), 0.5, 0) + #T for tolerant, D for damaging
+           #ifelse(grepl("D", Polyphen2_HVAR_pred), 0.5, 0) + #B for benign, P for possibly damaging, D for probably damgaing in dbSNP4
            ifelse(is.na(mutscore), 0, ifelse(mutscore > 0.7, 0.5, 0)) +
            ifelse(grepl("D", MetaSVM_pred), 0.5, 0) + 
            ifelse(is.na(PrimateAI_score), 0, ifelse(PrimateAI_score > 0.803, 0.5, 0)) +
@@ -100,7 +103,7 @@ ps_df <-  left_join(ps_df_crossmap, squirls_annotation, by=c('CHROM', 'POS', 'RE
            ifelse(grepl("H|M", MutationAssessor_pred), 0.5, 0) + 
            ifelse(grepl("D", MutationTaster_pred), 0.5, 0) + 
            ifelse(grepl("D", PROVEAN_pred), 0.5, 0) +
-           ifelse(is.na(Eigen_PC_raw_coding), 0, ifelse(Eigen_PC_raw_coding > 0 | Eigen_raw_coding > 0, 0.5, 0)) + 
+           ifelse(is.na(Eigen_PC_raw_coding), 0, ifelse(Eigen_PC_raw_coding > 0, 0.5, 0)) + 
            ifelse(is.na(cadd_phred), 0, ifelse(cadd_phred > 15, 0.5, 0) ) +
            ifelse(is.na(phyloP100way_vertebrate), 0, ifelse(phyloP100way_vertebrate > 2, 0.5, 0)) +
            ifelse(is.na(GERPplus_RS), 0, ifelse(GERPplus_RS > 1, 0.5, 0)) +

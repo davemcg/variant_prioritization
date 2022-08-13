@@ -29,6 +29,8 @@ def pick():
 		out = '--pick_allele_gene  --pick_order canonical, tsl, biotype, ccds, length '
 	if config['pick'].upper() == 'ALL':
 		out = '--flag_pick_allele_gene '
+	if config['pick'].upper() == 'PICK':
+		out = '--pick '
 	return(out)
 
 # import regions
@@ -142,6 +144,7 @@ if config['datatype'].upper() in ["PANEL", "EXOME", "WES"]:
 	localrules: priority_scores
 else:
 	localrules: n_split_vcf
+	localrules: priority_scores
 
 rule n_split_vcf:
 	input:
@@ -517,8 +520,8 @@ rule spliceai_intervar_edit:
 	shell:
 		"""
 		if [[ $(module list 2>&1 | grep "R/" | wc -l) < 1 ]]; then module load {config[R_version]}; fi
-		sed -e "1 s/avsnp147/avsnp150/" {input.annovar} \
-			| sed "s/^chr//" > {output.intermediate}
+		sed -e "1 s/avsnp147/avsnp150/" -e "s/^chr//" {input.annovar} \
+			> {output.intermediate}
 		Rscript {config[intervar_Rscript_path]} \
 			{input.intervar} \
 			{output.intermediate} \
@@ -596,8 +599,8 @@ rule VEP_annotate:
 			--plugin Mastermind,{config[mastermind_vcf]} \
 			--sift b --polyphen b \
 			--regulatory \
-			--ccds \
-			--mane \
+			--canonical \
+			--mane_select \
 			--total_length \
 			--hgvs \
 			--shift_hgvs 1 \
@@ -611,20 +614,20 @@ rule VEP_annotate:
 			--gene_phenotype \
 			--max_af \
 			{params.pick} \
-            --fields Allele,Consequence,Codons,Amino_acids,Gene,SYMBOL,MANE_SELECT,MANE_PLUS_CLINICAL,Feature,EXON,INTRON,HGVSc,HGVSp,MAX_AF,MAX_AF_POPS,Protein_position,BIOTYPE,CANONICAL,DOMAINS,Existing_variation,CLIN_SIG,PICK,PUBMED,Phenotypes,SIFT,PolyPhen,CADD_RAW,CADD_PHRED,GeneSplicer,SpliceRegion,MaxEntScan_alt,MaxEntScan_diff,MaxEntScan_ref,existing_InFrame_oORFs,existing_OutOfFrame_oORFs,existing_uORFs,five_prime_UTR_variant_annotation,five_prime_UTR_variant_consequence,Mastermind_counts,Mastermind_MMID3,MOTIF_NAME,MOTIF_POS,HIGH_INF_POS,MOTIF_SCORE_CHANGE \
+            --fields Allele,Consequence,Codons,Amino_acids,Gene,SYMBOL,MANE_SELECT,Feature,EXON,INTRON,HGVSc,HGVSp,MAX_AF,MAX_AF_POPS,Protein_position,BIOTYPE,CANONICAL,DOMAINS,Existing_variation,CLIN_SIG,PICK,PUBMED,Phenotypes,SIFT,PolyPhen,CADD_RAW,CADD_PHRED,GeneSplicer,SpliceRegion,MaxEntScan_alt,MaxEntScan_diff,MaxEntScan_ref,existing_InFrame_oORFs,existing_OutOfFrame_oORFs,existing_uORFs,five_prime_UTR_variant_annotation,five_prime_UTR_variant_consequence,Mastermind_counts,Mastermind_MMID3,MOTIF_NAME,MOTIF_POS,HIGH_INF_POS,MOTIF_SCORE_CHANGE \
 			--vcf --compress_output bgzip --force_overwrite
 		# tabix
 		tabix -f -p vcf {output.vcf}
 		"""
-
+#after updating the --fields, edit priority_score.R
+#--mane --> --mane_slect; --fields: MANE_SELECT, MANE_PLUS_CLINICAL --> MANE_SELECT
+#--ccds \ removed 6/10/22, --fields: CCDS (not included)
 #If fields name unknown, run VEP and look for the ## explanation after CSQ
 #--plugin RefSeqHGVS \HGVSc-RefSeq,HGVSp-RefSeq, error/#warning
 #--plugin LoF,loftee_path:$VEPCACHEDIR/Plugins/loftee_GRCh38 --dir_plugins $VEPCACHEDIR/Plugins/loftee_GRCh38 \ compilation error/warning, but did not quit run
 #--nearest symbol : had problem
 #			--plugin G2P,file=$VEPCACHEDIR/EyeG2P.csv \ produce html output.
-# remove --fields:
-# remove:
-#remove Grantham. 5/21/2020: remove --canonical
+#remove Grantham. 5/21/2020
 #remove --plugin dbscSNV,$VEPCACHEDIR/dbscSNV1.1.txt.gz & ada_score,rf_score, from fields \ because included in annovar and didn't try to find the GRCh38 files
 #SpliceAI plugin was not added because vcf output had fields separated. Used vcfanno instead.
 
@@ -657,7 +660,7 @@ rule vcfanno_annotate:
 		tabix -f -p vcf {output.vcf}
 		"""
 #-lua {config[vcfanno_lua]}
-#localrules: priority_scores
+
 rule priority_scores:
 	input:
 		vcf = 'temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.vcf.gz',
@@ -673,7 +676,7 @@ rule priority_scores:
 		"""
 		if [[ $(module list 2>&1 | grep "R/" | wc -l) < 1 ]]; then module load {config[R_version]}; fi
 		if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
-		bcftools query -H -f '%CHROM\t%POS\t%ID\t%REF\t%ALT\t%INFO/CSQ\t%INFO/Ref_Gene\t%INFO/Func_refGeneWithVer\t%INFO/ExonicFunc_refGeneWithVer\t%INFO/gno2x_af_all\t%INFO/gno2g_af_all\t%INFO/gno2x_af_popmax\t%INFO/gno2g_af_popmax\t%INFO/gno2_xg_ratio\t%INFO/gno2x_an_all\t%INFO/gno2g_an_all\t%INFO/gno2x_nonpar\t%INFO/gno2g_nonpar\t%INFO/gno2x_filter\t%INFO/gno2g_filter\t%INFO/gno3_af_all\t%INFO/gno3_an_all\t%INFO/gno3_nonpar\t%INFO/gno3_filter\t%INFO/gno3_maxaf\t%INFO/esp6500siv2_all\t%INFO/f1000g2015aug_all\t%INFO/mis_z\t%INFO/CLNSIG\t%INFO/HGMD_Overlap4aa\t%INFO/hgmd_class\t%INFO/SIFT_pred\t%INFO/Polyphen2_HVAR_pred\t%INFO/ClinPred_score\t%INFO/MetaSVM_pred\t%INFO/REVEL_score\t%INFO/MPC_score\t%INFO/MutationAssessor_pred\t%INFO/MutationTaster_pred\t%INFO/PROVEAN_pred\t%INFO/Eigen_PC_raw_coding\t%INFO/Eigen_raw_coding\t%INFO/phyloP100way_vertebrate\t%INFO/GERPplus_RS\t%INFO/dpsi_max_tissue\t%INFO/dpsi_zscore\t%INFO/dbscSNV_ADA_SCORE\t%INFO/dbscSNV_RF_SCORE\t%INFO/spliceai_rank\t%INFO/branchpoint_prob\t%INFO/PrScore_intervar\t%INFO/PVS1\t%INFO/SigmaAF_Missense_0001\t%INFO/PrimateAI_score\t%INFO/ccr_pct\t%INFO/remm\t%INFO/fathmm_XF_coding_score\t%INFO/fathmm_xf_noncoding\t%INFO/mutscore\t%INFO/atac_rpe_itemRgb\t%INFO/ft_ret_rpe_score\t%INFO/cherry_sum_score\t%INFO/gene_gnomad\t%INFO/eyeIntegration_gene\t%INFO/omim_Gene\t%INFO/regsnp_disease\n' {input.vcf} \
+		bcftools query -H -f '%CHROM\t%POS\t%ID\t%REF\t%ALT\t%INFO/CSQ\t%INFO/Ref_Gene\t%INFO/Func_refGeneWithVer\t%INFO/ExonicFunc_refGeneWithVer\t%INFO/gno2x_af_all\t%INFO/gno2g_af_all\t%INFO/gno2x_af_popmax\t%INFO/gno2g_af_popmax\t%INFO/gno2_xg_ratio\t%INFO/gno2x_an_all\t%INFO/gno2g_an_all\t%INFO/gno2x_nonpar\t%INFO/gno2g_nonpar\t%INFO/gno2x_filter\t%INFO/gno2g_filter\t%INFO/gno3_af_all\t%INFO/gno3_an_all\t%INFO/gno3_nonpar\t%INFO/gno3_filter\t%INFO/gno3_maxaf\t%INFO/esp6500siv2_all\t%INFO/f1000g2015aug_all\t%INFO/mis_z\t%INFO/CLNSIG\t%INFO/HGMD_Overlap4aa\t%INFO/hgmd_class\t%INFO/ClinPred_score\t%INFO/MetaSVM_pred\t%INFO/REVEL_score\t%INFO/MPC_score\t%INFO/MutationAssessor_pred\t%INFO/MutationTaster_pred\t%INFO/PROVEAN_pred\t%INFO/Eigen_PC_raw_coding\t%INFO/phyloP100way_vertebrate\t%INFO/GERPplus_RS\t%INFO/dpsi_max_tissue\t%INFO/dpsi_zscore\t%INFO/dbscSNV_ADA_SCORE\t%INFO/dbscSNV_RF_SCORE\t%INFO/spliceai_rank\t%INFO/branchpoint_prob\t%INFO/PrScore_intervar\t%INFO/PVS1\t%INFO/SigmaAF_Missense_0001\t%INFO/PrimateAI_score\t%INFO/ccr_pct\t%INFO/remm\t%INFO/fathmm_XF_coding_score\t%INFO/fathmm_xf_noncoding\t%INFO/mutscore\t%INFO/atac_rpe_itemRgb\t%INFO/ft_ret_rpe_score\t%INFO/cherry_sum_score\t%INFO/gene_gnomad\t%INFO/eyeIntegration_gene\t%INFO/omim_Gene\t%INFO/regsnp_disease\n' {input.vcf} \
 			| sed -e '1 s/^# //' -e '1 s/\[[0-9]*\]//g' > {output.tsv}
 		Rscript /home/$USER/git/variant_prioritization/src_hg38/priority_score.R {output.tsv} {input.csv} {input.hg19} \
 			{output.ps_tsv}
@@ -779,9 +782,9 @@ rule peddy_QC:
 	shell:
 		"""
 		module load {config[peddy_version]}
-		peddy -p {threads} {input} {config[ped]} --prefix {wildcards.sample}_PEDDY
+		peddy -p {threads} {input} {config[ped]} --prefix {wildcards.sample}_PEDDY --sites hg38
 		"""
-
+#v0.4.6 worked with genome but failed with bp exome; v0.3.7 worked with GRCh37 vcf files without hg38 support.
 
 # create gemini database. 19gb wgs genome --> 104gb in 24 hours.
 localrules: make_gemini_db

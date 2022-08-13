@@ -11,36 +11,37 @@ regions: '/home/$USER/git/variant_prioritization/src_hg38/vcf_region_split_1_coo
 datatype: 'exome' #panel, exome, wgs, blank
 configuration_file: 'config_variant_prioritization.yaml'
 genomeBuild: 'GRCh38' # GRCh37 or GRCh38, case sensitive
-pick: 'canonical' #canoical or all
+spliceai: 'spliceai' # choose from 'wrapper', 'vcfanno', or 'spliceai'; choose vcfanno if variants already added to the spliceai depot file.
+spliceai_version: 'spliceai/1.3' #version 1.3.1 seems to be mucher slower.Try to make spliceai_wrapper work if possible
+spliceai-wrapper_version: 'spliceai-wrapper/0.1.0'
+gemini_lenient: 'Yes'
+pick: 'canonical' #pick, canonical, or all. See snake file for description
 LAFplot: 'TRUE' #If TRUE then chromosome LesserAlleleFreq plot will be generated. Any other value equals to FALSE
 samtools_version: 'samtools/1.13' #previous version 1.11
 ref_genome: '' #hard-coded in snakemake file
-VEP_version: 'VEP/105' #previous version 103
+VEP_version: 'VEP/107' #previous version 103
 vcfanno_version: 'vcfanno/0.3.2'
 vcfanno_lua: '/home/$USER/git/variant_prioritization/src_hg38/vcfanno_custom.lua' #hg19 version delete _hg38
 vcfanno_conf: '' #hard-coded in snakemake file
 vcf2db_version: 'vcf2db/2018.10.26' #'vcf2db/2020.09.14'
 gemini_version: 'gemini/0.20.1' #0.30.2
-peddy_version: 'peddy/0.3.1'
+peddy_version: 'peddy/0.4.8'
 python2_version: 'python/2.7'
 R_version: 'R/3.6.3'
 vt_version: 'vt/0.57721'
-spliceai: 'spliceai' # choose from 'wrapper', 'vcfanno', or 'spliceai'; choose vcfanno if variants already added to the spliceai depot file.
-spliceai_version: 'spliceai/1.3' #version 1.3.1 seems to be mucher slower.Try to make spliceai_wrapper work if possible
-spliceai-wrapper_version: 'spliceai-wrapper/0.1.0'
 VCF-kit_version: 'VCF-kit/0.1.6'
 annovar_version: 'annovar/2020-06-08' #previous ver 2019-10-24
 InterVar_version: 'InterVar2.2.1' # OGL/resources/git hardcoded in Snakemake
 hgmd_version: '2022.1'
 annovar_clinvar_version: 'clinvar_20220320'
 OGLpatient_version: '2022-05'
+ACMG_SF: 'v3.1'
 mastermind_vcf: '/data/OGL/resources/mastermind/mastermind_cited_variants_reference-2022.01.06-grch38.vcf.gz'
 #intervar_evidence: '/data/OGVFB/OGL_NGS/OGL.variants.evidence.txt'
 crossmap_version: 'crossmap/0.5.4'
 intervar_Rscript_path: '/home/$USER/git/variant_prioritization/src_hg38/intervar_v1.8.R' # hg19 version delete _hg38
 OGL_Dx_research_genes: '/data/OGL/resources/OGLpanelGeneDxORcandidate.xlsx'
 pandoc_version: 'pandoc/2.1.1'
-gemini_lenient: 'Yes'
 output_raw: 'Yes'
 SeeGEM_script: '/home/$USER/git/variant_prioritization/src/GEMINI_db_to_SeeGEM_OGL.R' # not used
 HGMDtranscript: '/data/OGL/resources/HGMD/HGMDtranscript.txt'
