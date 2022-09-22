@@ -784,7 +784,7 @@ rule peddy_QC:
 		module load {config[peddy_version]}
 		peddy -p {threads} {input} {config[ped]} --prefix {wildcards.sample}_PEDDY --sites hg38
 		"""
-#v0.4.6 worked with genome but failed with bp exome; v0.3.7 worked with GRCh37 vcf files without hg38 support.
+#v0.4.6 worked with genome but failed with bp exome; v0.3.1 worked with GRCh37 vcf files without hg38 support.
 
 # create gemini database. 19gb wgs genome --> 104gb in 24 hours.
 localrules: make_gemini_db
@@ -835,7 +835,7 @@ if config['datatype'].upper() in ["WGS", "GENOME"]:
 					time gemini de_novo -d 9 --min-gq 5 --lenient --filter "priority_score > 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.denovo}
 					time gemini autosomal_dominant -d 9 --min-gq 5 --filter "priority_score > 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.ad}
 					time gemini autosomal_recessive -d 9 --min-gq 5 --lenient --filter "priority_score > 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.ar}
-					time gemini comp_hets -d 9 --min-gq 5 --gene-where "priority_score >= 5" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.comphets}
+					time gemini comp_hets -d 9 --min-gq 5 --gene-where "priority_score >= 6" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.comphets}
 					time gemini x_linked_de_novo -d 9 --min-gq 5 --filter "priority_score > 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.xdenovo}
 					time gemini x_linked_dominant -d 9 --min-gq 5 --filter "priority_score > 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.xd}
 					time gemini x_linked_recessive -d 9 --min-gq 5 --filter "priority_score > 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.xr}
