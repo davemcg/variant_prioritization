@@ -21,11 +21,11 @@ squirls_file <- args[2]
 crossmap_file <- args[3]
 psOutput_file <- args[4]
 
-input_df <- read_tsv(psInput_file, col_names = TRUE, na = c("NA", "", "None", "NONE", "."), col_types = cols(.default = col_character())) %>%
+input_df <- read_tsv("Z:/genome/prasov2022-09/prioritization/test.tsv", col_names = TRUE, na = c("NA", "", "None", "NONE", "."), col_types = cols(.default = col_character())) %>%
   type_convert() %>% 
   mutate(CHROM = as.factor(CHROM)) %>% 
   mutate(across(where(is.character), ~na_if(., "1"))) %>% #bcftools query outputted "1" for blank.
-  type_convert()
+  type_convert() 
 
 squirls_annotation <-  read_csv(squirls_file,  col_names = TRUE, na = c("NA", "", "None", "NONE", ".", "NaN"), col_types = "ficccdc") %>%
   rename(squirls_interpretation = INTERPRETATION, squirls_maxscore = MAX_SCORE, squirls_score = SCORES) %>%
@@ -62,7 +62,7 @@ rm(input_df)
 rm(crossmap)
 
 ##The following line was meant to add 3 to Priority_Score when CSQ fields has truncating and PVS1 == 0 and pmaxaf < 0.01 & Priority_Score_intervar < 6
-ps_df <-  left_join(ps_df_crossmap, squirls_annotation, by=c('CHROM', 'POS', 'REF', 'ALT')) %>% mutate(truncating_vep = ifelse(grepl("frameshift_variant|splice_acceptor_variant|splice_donor_variant|start_lost|stop_gained|stop_lost", CSQ, ignore.case = TRUE), 1, 0)) %>% 
+ps_df <-  input_df %>% mutate(truncating_vep = ifelse(grepl("frameshift_variant|splice_acceptor_variant|splice_donor_variant|start_lost|stop_gained|stop_lost", CSQ, ignore.case = TRUE), 1, 0)) %>% 
   mutate(temp_CSQ = sub(",.*", "", CSQ)) %>%
   separate(temp_CSQ, c('allele','consequence','codons','amino_acids','gene','symbol','MANE_SELECT','feature','exon','intron','hgvsc','hgvsp','max_af','max_af_pops','protein_position','biotype','canonical','domains','existing_variation','clin_sig','pick','pubmed','phenotypes','sift','polyphen','cadd_raw','cadd_phred','genesplicer','spliceregion','MaxEntScan_alt','maxentscan_diff','MaxEntScan_ref','existing_inframe_oorfs','existing_outofframe_oorfs','existing_uorfs','five_prime_utr_variant_annotation','five_prime_utr_variant_consequence','Mastermind_counts','Mastermind_MMID3','MOTIF_NAME','MOTIF_POS','HIGH_INF_POS','MOTIF_SCORE_CHANGE'), sep = "\\|", remove = TRUE, convert = TRUE) %>% 
   #gno2x_af_all,gno3_af_all,maxaf_annovar,gno2x_af_popmax,gno3_popmax,gno_gx_ratio,gno2x_an_all,gno3_an_all,gno2x_filter,gno3_filter AND max_af above from VEP.
@@ -70,8 +70,8 @@ ps_df <-  left_join(ps_df_crossmap, squirls_annotation, by=c('CHROM', 'POS', 'RE
                                        CHROM %in% c("Y", "chrY") & gno2x_nonpar == "1" ~ 67843,
                                        TRUE ~ 251496)) %>%
   mutate(gno3_expected_an = case_when(CHROM %in% c("X", "chrX") & gno3_nonpar == "1" ~ 116830,
-                                       CHROM %in% c("Y", "chrY") & gno3_nonpar == "1" ~ 35482,
-                                       TRUE ~ 152312)) %>%
+                                      CHROM %in% c("Y", "chrY") & gno3_nonpar == "1" ~ 35482,
+                                      TRUE ~ 152312)) %>%
   mutate(gno2x_filter = ifelse(gno2x_an_all > 0 & is.na(gno2x_filter) & gno2x_an_all < gno2x_expected_an/2, "AN<half", gno2x_filter),
          gno3_filter = ifelse(gno3_an_all > 0 & is.na(gno3_filter) & gno3_an_all < gno3_expected_an/2, "AN<half", gno3_filter) ) %>% 
   replace_na(list(gno2x_af_all=0, gno3_af_all=0, gno2x_af_popmax=0, gno3_maxaf = 0, max_af=0, esp6500siv2_all = 0, f1000g2015aug_all = 0)) %>% 
@@ -149,8 +149,9 @@ ps_df <-  left_join(ps_df_crossmap, squirls_annotation, by=c('CHROM', 'POS', 'RE
   #mutate(priority_score = ifelse(priority_score < 5 & pmaxaf < 0.005 & is.na(Ref_Gene) & (!is.na(gene_gnomad) | !is.na(eyeIntegration_gene) | !is.na(omim_Gene)), priority_score + 2, priority_score)) %>% 
   mutate(priority_score = case_when(priority_score < 5 & pmaxaf < 0.001 & Ref_Gene %in% c("MIR184","MIR204") ~ 5,
                                     priority_score < 4.5 & pmaxaf < 0.001 & grepl("^MIR", Ref_Gene, ignore.case = TRUE) ~ 4,
-                                    TRUE ~ priority_score)) %>% 
-  select(CHROM, POS, REF, ALT, priority_score, clinvar_hgmd_score, splice_score, insilico_score, pmaxaf, truncating_vep, squirls_interpretation, squirls_maxscore, squirls_score, grch37variant_id)
+                                    TRUE ~ priority_score))
+#%>% 
+#  select(CHROM, POS, REF, ALT, priority_score, clinvar_hgmd_score, splice_score, insilico_score, pmaxaf, truncating_vep, squirls_interpretation, squirls_maxscore, squirls_score, grch37variant_id) 
 
 #pmaxaf cutoff increased to 0.005 from 0.0005; 4/14/2020
 #http://web.corral.tacc.utexas.edu/WGSAdownload/resources/dbNSFP/dbNSFP4.0b2c.readme.txt

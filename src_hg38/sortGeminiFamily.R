@@ -20,7 +20,7 @@ library(readxl)
 
 sortFilterGemini <- function(fileName) {
   InheritanceTest <- read_tsv(fileName, col_names = TRUE, na = c("NA", "", "None", "NONE", "."), col_types = cols(.default = col_character())) %>%
-    mutate(atac_rpe_score = sub(",", "_", atac_rpe_score)) %>% 
+    mutate(atac_rpe_score = gsub(",", "_", atac_rpe_score)) %>% 
     type_convert() %>% mutate(exon = sub("^", " ", exon), intron = sub("^", " ", intron)) %>%
     mutate( start_vcf = start + 1 ) %>% 
     unite("chr_variant_id", chrom, start_vcf, ref, alt, sep = "-", remove = FALSE ) %>% 
@@ -58,16 +58,16 @@ sortFilterGemini <- function(fileName) {
       mutate(eyeGene = case_when(panel_class == "Dx" ~ 2,
                                  panel_class == "Candidate" ~ 1,
                                  TRUE ~ 0)) %>% 
-      select('gene', 'chr_variant_id','grch37variant_id','chrom', 'start_vcf', 'qual', 'filter', 'family_id','family_members', 'family_genotypes', 'samples', 'aaf', 'caller','hg38_pos',
-             'panel_class', 'priority_score', 'prscore_intervar', 'clinvar_hgmd_score', 'splice_score', 'other_predic_score', 'gno2e3g_af', 'gno2e3g_acan', 'pmaxaf',gno2x_af_all,gno2x_filter,gno3_af_all,gno3_filter,'max_af', 'max_af_pops', 'gno2e3g_hom', 'note', 'ref_gene', func_refgenewithver, exonicfunc_refgenewithver,
-             'refgenewithver', mane_select, 'hgvsc', 'hgvsp', 'exon', 'intron', 'aa_length', 'omim_gene', 'omim_inheritance', 'omim_phen', 'pvs1', 'truncating_vep', 'hgmd_id', 'hgmd_class', 'hgmd_phen', hgmd_overlap4aa, 'existing_variation', clnalleleid,clnsig,'clin_sig', clnrevstat, clndn, clndisdb, intervar_and_evidence,
-             'interpro_domain', 'pfam_domain','existing_inframe_oorfs','existing_outofframe_oorfs','existing_uorfs','five_prime_utr_variant_annotation','five_prime_utr_variant_consequence',
+      select('ref_gene', 'chr_variant_id','grch37variant_id','chrom', 'start_vcf', 'qual', 'filter', 'family_id','family_members', 'family_genotypes', 'samples','aaf', 'caller','hg38_pos',
+             'panel_class', 'priority_score', 'prscore_intervar', 'clinvar_hgmd_score', 'splice_score', 'insilico_score', 'gno2e3g_af', 'gno2e3g_acan', 'pmaxaf',gno2x_af_all,gno2x_filter,gno3_af_all,gno3_filter,'max_af', 'max_af_pops', 'gno2e3g_hom', 'note', func_refgenewithver, exonicfunc_refgenewithver, 
+             'refgenewithver', 'gene', mane_select, 'hgvsc', 'hgvsp', 'exon', 'intron', 'aa_length', 'omim_gene', 'omim_inheritance', 'omim_phen', 'pvs1', 'truncating_vep', 'hgmd_id', 'hgmd_class', 'hgmd_phen', hgmd_overlap4aa, 'existing_variation', clnalleleid,clnsig,'clin_sig', clnrevstat, clndn, clndisdb, 
+             af_oglx, ac_oglx, ac_hom_oglx, an_oglx, af_oglg, ac_oglg, ac_hom_oglg, an_oglg, intervar_and_evidence, 'interpro_domain', 'pfam_domain', 'rmsk', 'existing_inframe_oorfs','existing_outofframe_oorfs','existing_uorfs','five_prime_utr_variant_annotation','five_prime_utr_variant_consequence',
              'spliceai', 'spliceai_maxscore', 'spliceaimasked50', 'spliceaimasked50max', 'squirls_interpretation', 'squirls_maxscore', 'squirls_score', 'dbscsnv_ada_score', 'dbscsnv_rf_score', 'regsnp_fpr','regsnp_disease','regsnp_splicing_site','dpsi_max_tissue', 'dpsi_zscore', 'genesplicer', 'maxentscan_diff', 'branchpoint_prob', 'regsnp_fpr','regsnp_disease','regsnp_splicing_site',  
-             'sift_pred', 'polyphen_pred', 'mutscore', 'mutationassessor_pred', 'mutationtaster_pred', 'metasvm_pred','metasvm_score', 'clinpred_score', 'primateai_rankscore', 'revel_score', 'ccr_pct','mpc_score', 'mtr_score', 'mtr_fdr', 'mtr_pct', 'cadd_raw', 'cadd_phred','remm', 'fathmm_xf_coding_score','fathmm_xf_noncoding','eigen_pc_raw_coding', 'gerpplus_rs', 'phylop100way_vertebrate', 
-             'atac_rpe_score','atac_rpe_itemrgb', 'ft_ret_rpe_score', 'gene_refgenewithver', 'avsnp150', 'tfbs', 'pli','pnull', 'prec', 'mis_z', 'sigmaaf_lof_0001', 'sigmaaf_lof_01', 'sigmaaf_missense_0001', 'sigmaaf_missense_01', 'atac_rpe_itemrgb', 'atac_rpe_score', 
+             'sift_pred', 'polyphen_pred', 'mutscore', 'mutationassessor_pred', 'mutationtaster_pred', 'metasvm_pred','metasvm_score', 'clinpred_score', 'primateai_rankscore', 'revel_score', hmc_score, 'ccr_pct','mpc_score', 'mtr_score', 'mtr_fdr', 'mtr_pct', 'cadd_raw', 'cadd_phred','remm', 'fathmm_xf_coding_score','fathmm_xf_noncoding','eigen_pc_raw_coding', 'gerpplus_rs', 'phylop100way_vertebrate', 
+             'atac_rpe_score','atac_rpe_itemrgb', 'ft_ret_rpe_score', cherry_sum_score, 'gene_refgenewithver', 'avsnp150', 'tfbs', 'pli','pnull', 'prec', 'mis_z', 'sigmaaf_lof_0001', 'sigmaaf_lof_01', 'sigmaaf_missense_0001', 'sigmaaf_missense_01', 'atac_rpe_itemrgb', 'atac_rpe_score', 
              'eyeintegration_rpe_adulttissue', 'eyeintegration_rpe_cellline', 'eyeintegration_rpe_fetaltissue', 'eyeintegration_rpe_stemcellline', 'eyeintegration_retina_adulttissue', 'eyeintegration_retina_stemcellline', 'eyeintegration_wholeblood', 
              'pubmed','sift_score', 'polyphen_score', 'metasvm_rankscore', 'metasvm_score', 'provean_score', 'provean_converted_rankscore',	'provean_pred',
-             'f1000g2015aug_all','esp6500siv2_all',gno2_xg_ratio:gno3_popmax, 'rmsk', 'syn_z', everything()) %>%
+             'f1000g2015aug_all','esp6500siv2_all',gno2_xg_ratio:gno3_popmax, 'syn_z', everything()) %>%
       arrange(desc(eyeGene), desc(maxpriorityscore), ref_gene, desc(priority_score)) %>% select(-maxpriorityscore, -eyeGene) 
     return(InheritanceTest_rearrangeCol)
   }

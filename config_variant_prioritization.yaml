@@ -1,10 +1,10 @@
 input_vcf: 'test_trio.vcf.gz' #bcf also accepted.
 gatk3: 'FALSE' # FALSE if using freebayes or deepvariant vcf.
 aaf_change: '1.1'
-output_type: ['geminiDB', 'family_query', 'individual_query'] #list, delete the compopnent that is not needed.
+output_type: ['geminiDB', 'family_query', 'individual_query'] #list, delete the compopnent that is not needed, 'vcf' or blank for annotating a vcf file only
 family_name: [] # empty list or One or more family names in the list ['family_1', 'family_2']. If it's blank and output_type includes family_query, then it will take ped file and make a family list.
 seeGEM: 'FALSE' #TRUE or FALSE
-ped: 'test_trio.ped' # has to be \t delimited.
+ped: 'example.ped' # has to be \t delimited. Keep as is and cp the example.ped for vcf annotation only
 regions: '/home/$USER/git/variant_prioritization/src_hg38/vcf_region_split_1_coords.txt' # hg19 version delete _hg38
 #regions, 1 for panel (only 1,2,..,22,X); "chr" for exome if needed;
 #regions, 25 or 100 for WGS of 50 cases. Use chr, 24, 99, 499 for genome.
@@ -16,7 +16,7 @@ spliceai_version: 'spliceai/1.3' #version 1.3.1 seems to be mucher slower.Try to
 spliceai-wrapper_version: 'spliceai-wrapper/0.1.0'
 gemini_lenient: 'Yes'
 pick: 'canonical' #pick, canonical, or all. See snake file for description
-LAFplot: 'TRUE' #If TRUE then chromosome LesserAlleleFreq plot will be generated. Any other value equals to FALSE
+LAFplot: 'FALSE' #TRUE if panel after production. If TRUE then chromosome LesserAlleleFreq plot will be generated. Any other value equals to FALSE
 samtools_version: 'samtools/1.13' #previous version 1.11
 ref_genome: '' #hard-coded in snakemake file
 VEP_version: 'VEP/107' #previous version 103
@@ -32,10 +32,12 @@ vt_version: 'vt/0.57721'
 VCF-kit_version: 'VCF-kit/0.1.6'
 annovar_version: 'annovar/2020-06-08' #previous ver 2019-10-24
 InterVar_version: 'InterVar2.2.1' # OGL/resources/git hardcoded in Snakemake
-hgmd_version: '2022.2'
+hgmd_version: '2022.3'
 annovar_clinvar_version: 'clinvar_20220320'
-OGLpatient_version: '2022-08'
+OGLexome_version: '/data/OGL/resources/OGLsample/OGL.exome.gl.fb.v2.2022-09.vcf.gz'
+OGLgenome_version: '/data/OGL/resources/OGLsample/OGL.genome.gl.fb.v2.index.2022-09.vcf.gz'
 ACMG_SF: 'v3.1'
+manta_freq: '/data/OGL/resources/manta/manta.OGL.freq.2022-09.tsv' #make it an excel file with two sheets if using scramble-like db file
 mastermind_vcf: '/data/OGL/resources/mastermind/mastermind_cited_variants_reference-2022.01.06-grch38.vcf.gz'
 #intervar_evidence: '/data/OGVFB/OGL_NGS/OGL.variants.evidence.txt'
 crossmap_version: 'crossmap/0.5.4'
