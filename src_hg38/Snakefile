@@ -233,6 +233,7 @@ else:
 			 	| sed 's/Number=A/Number=1/g' | bgzip > {output.vcf}
 			tabix -f -p vcf {output.vcf}
 			"""
+#clinvar in this step by vcfanno
 #slivar annotated
 #INFO=<ID=gnomad_popmax_af,Number=1,Type=Float,Description="field from from gnotate VCF">
 ##INFO=<ID=gnomad_popmax_af_filter,Number=0,Type=Flag,Description="non-passing flag in gnotate source VCF">
@@ -267,7 +268,7 @@ rule intervar_evidence_omim:
 		cd /data/OGL/resources/clinvar
 		bash download.clinvar.sh
 		cd $projectdir
-		echo "ClinVar vcf: '$(zcat /data/OGL/resources/clinvar/clinvar.vcf.gz | head -n 2 | tail -n 1)'"  \
+		echo "ClinVar_vcf: '$(zcat /data/OGL/resources/clinvar/clinvar.vcf.gz | head -n 2 | tail -n 1 | sed s/##// )'"  \
 			>> $(grep "configuration_file:" {config[configuration_file]} | cut -d"'" -f 2)
 		touch {output.omim}
 		"""
@@ -301,18 +302,18 @@ rule annovar_intervar:
 			-buildver $ver \
 			-remove \
 			-out {output.avinput} \
-			--protocol refGene,esp6500siv2_all,1000g2015aug_all,dbnsfp42a,{config[annovar_clinvar_version]},dbscsnv11,rmsk,ensGene,knownGene,refGeneWithVer,spidex,avsnp150,mutscore,regsnpintron \
-			-operation  g,f,f,f,f,f,r,g,g,g,f,f,f,f \
-			--argument '-hgvs',,,,,,,,,'-hgvs -splicing 50',,,, \
+			--protocol refGene,esp6500siv2_all,1000g2015aug_all,dbnsfp42a,dbscsnv11,rmsk,ensGene,knownGene,refGeneWithVer,spidex,avsnp150,mutscore,regsnpintron \
+			-operation  g,f,f,f,f,r,g,g,g,f,f,f,f \
+			--argument '-hgvs',,,,,,,,'-hgvs -splicing 50',,,, \
 			--polish -nastring . \
 			--thread {threads} \
 			--otherinfo \
 			--tempdir /lscratch/$SLURM_JOB_ID
-		cut -f -155 {output.annovar_out} \
+		cut -f -150 {output.annovar_out} \
 			| sed -e "1 s/Otherinfo1\tOtherinfo2\tOtherinfo3\tOtherinfo4\tOtherinfo5\tOtherinfo6/CHROM\tPOS\tID\tREF\tALT\tQUAL/" \
 				-e "1 s/avsnp150/avsnp147/" \
 			> /lscratch/$SLURM_JOB_ID/$(basename {output.annovar_out})
-		bcftools query -H -f '%CHROM\t%POS\t%REF\t%ALT\t%INFO/gno3_af_all\t%INFO/gno3_af_afr\t%INFO/gno3_af_amr\t%INFO/gno3_af_eas\t%INFO/gno3_af_nfe\t%INFO/gno3_af_sas\t%INFO/gno3_af_asj\t%INFO/gno3_af_ami\t%INFO/gno3_af_fin\t%INFO/gno3_af_mid\t%INFO/gno3_af_oth\n' {input.vcf} \
+		bcftools query -H -f '%CHROM\t%POS\t%REF\t%ALT\t%INFO/gno3_af_all\t%INFO/gno3_af_afr\t%INFO/gno3_af_amr\t%INFO/gno3_af_eas\t%INFO/gno3_af_nfe\t%INFO/gno3_af_sas\t%INFO/gno3_af_asj\t%INFO/gno3_af_ami\t%INFO/gno3_af_fin\t%INFO/gno3_af_mid\t%INFO/gno3_af_oth\t%INFO/CLNALLELEID\t%INFO/CLNDN\t%INFO/CLNDISDB\t%INFO/CLNREVSTAT\t%INFO/CLNSIG\n' {input.vcf} \
 			| sed -e '1 s/^# //' -e '1 s/\[[0-9]*\]//g' -e "1 s/\tgno3_af_all\t/\tgnomAD_genome_ALL\t/" -e "1 s/\tgno3_af_\w\+/\\U&/g" -e "1 s/\tGNO3_AF_/\tgnomAD_genome_/g" \
 			> {output.gnomadAF}
 		if [[ $(module list 2>&1 | grep "R/" | wc -l) < 1 ]]; then module load {config[R_version]}; fi
@@ -328,6 +329,7 @@ rule annovar_intervar:
 			-o {output.avinput} \
 			--skip_annovar
 		"""
+#{config[annovar_clinvar_version]}, removed after dbnsfp42a on 11/11/2022
 #editing 5/26/2022
 # table_annovar.pl {output.avinput} \
 # 	$ANNOVAR_DATA/$ver \
@@ -699,6 +701,7 @@ rule priority_scores:
 		ps_tsv = temp('temp/{sample}__{region}.ps.tsv'),
 		bgzip = temp('temp/{sample}__{region}.ps.tsv.gz'),
 		index = temp('temp/{sample}__{region}.ps.tsv.gz.tbi')
+	resources: res=1
 	shell:
 		"""
 		if [[ $(module list 2>&1 | grep "R/" | wc -l) < 1 ]]; then module load {config[R_version]}; fi
@@ -774,7 +777,7 @@ rule merge_sample_vcf:
 		"""
 		export REF_CACHE=/lscratch/$SLURM_JOB_ID/
 		if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
-		bcftools concat --threads {threads} {input.vcf} -Oz -o {output.vcf}
+		bcftools concat --threads {threads} -a --rm-dups none {input.vcf} -Oz -o {output.vcf}
 		tabix -f -p vcf {output.vcf}
 		"""
 rule merge_spliceai_vcf:
@@ -788,7 +791,7 @@ rule merge_spliceai_vcf:
 		"""
 		export REF_CACHE=/lscratch/$SLURM_JOB_ID/
 		if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
-		bcftools concat --threads {threads} {input.vcf} -Oz -o /lscratch/$SLURM_JOB_ID/new.spliceai.vcf.gz
+		bcftools concat --threads {threads} -a --rm-dups none {input.vcf} -Oz -o /lscratch/$SLURM_JOB_ID/new.spliceai.vcf.gz
 		tabix -f -p vcf /lscratch/$SLURM_JOB_ID/new.spliceai.vcf.gz
 		( bcftools concat --threads {threads} -a --rm-dups none --no-version \
 			/data/OGL/resources/spliceai/spliceai500.depot.GRCh38.vcf.gz /lscratch/$SLURM_JOB_ID/new.spliceai.vcf.gz \

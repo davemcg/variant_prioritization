@@ -7,27 +7,44 @@ module load samtools/1.13
 rm -f /lscratch/$SLURM_JOBID/gene.nochr.bed
 rm -f /lscratch/$SLURM_JOBID/gene.wchr.bed
 for gene in $@; do
-	grep "$1" /data/OGL/resources/omim/genemap2.txt | awk -F"\t" 'BEGIN{OFS="\t"} {print $1,$2-1000,$3+1000}' | sed 's/^chr//' >> /lscratch/$SLURM_JOBID/gene.nochr.bed
-	grep "$1" /data/OGL/resources/omim/genemap2.txt | awk -F"\t" 'BEGIN{OFS="\t"} {print $1,$2-1000,$3+1000}' >> /lscratch/$SLURM_JOBID/gene.wchr.bed
+	grep "$gene" /data/OGL/resources/omim/genemap2.txt | grep -v "^#" | awk -F"\t" 'BEGIN{OFS="\t"} {print $1,$2-1000,$3+1000}' | sed 's/^chr//' >> /lscratch/$SLURM_JOBID/gene.nochr.bed
+	grep "$gene" /data/OGL/resources/omim/genemap2.txt | grep -v "^#" | awk -F"\t" 'BEGIN{OFS="\t"} {print $1,$2-1000,$3+1000}' >> /lscratch/$SLURM_JOBID/gene.wchr.bed
 done
 
-bcftools view --no-header -Ov /fdb/spliceai/spliceai_scores.masked.snv.hg38.vcf.gz -R /lscratch/$SLURM_JOBID/gene.nochr.bed | awk -F"\t" 'BEGIN{OFS="\t"} {print "chr"$1,$2,".",$4,$5,".",".",".","GT:GQ:DP","0/1:50:100"}' - | cat ~/git/variant_prioritization/dev/vcf.header.hg38 - | bgzip -c > /lscratch/$SLURM_JOBID/gene.snv.vcf.gz 
+#need have chr for hg38 pipeline
+#QUAL score is needed for the intervar_edit step
+#ID has to be present for the crossmap left_join in the priority score step
+bcftools view --no-header -Ov /fdb/spliceai/spliceai_scores.masked.snv.hg38.vcf.gz -R /lscratch/$SLURM_JOBID/gene.nochr.bed | awk -F"\t" 'BEGIN{OFS="\t"} {print "chr"$1,$2,".",$4,$5,"30","PASS",".","GT:GQ:DP","0/1:50:100"}' - | cat ~/git/variant_prioritization/dev/vcf.header.hg38 - | bgzip -c > /lscratch/$SLURM_JOBID/gene.snv.vcf.gz 
 tabix -p vcf /lscratch/$SLURM_JOBID/gene.snv.vcf.gz 
 
 #insertion of 1 nt and del of 1-4 nt
-bcftools view --no-header -Ov /fdb/spliceai/spliceai_scores.masked.indel.hg38.vcf.gz -R /lscratch/$SLURM_JOBID/gene.nochr.bed | awk -F"\t" 'BEGIN{OFS="\t"} {print "chr"$1,$2,".",$4,$5,".",".",".","GT:GQ:DP","0/1:50:100"}' - | cat ~/git/variant_prioritization/dev/vcf.header.hg38 - | bgzip -c > /lscratch/$SLURM_JOBID/gene.indel.vcf.gz
+bcftools view --no-header -Ov /fdb/spliceai/spliceai_scores.masked.indel.hg38.vcf.gz -R /lscratch/$SLURM_JOBID/gene.nochr.bed | awk -F"\t" 'BEGIN{OFS="\t"} {print "chr"$1,$2,".",$4,$5,"30","PASS",".","GT:GQ:DP","0/1:50:100"}' - | cat ~/git/variant_prioritization/dev/vcf.header.hg38 - | bgzip -c > /lscratch/$SLURM_JOBID/gene.indel.vcf.gz
 tabix -p vcf /lscratch/$SLURM_JOBID/gene.indel.vcf.gz
 
-bcftools view --no-header -Ov /data/OGL/resources/gnomad/release-2.1.1/gnomad.exomes.r2.1.1.noVEP.sites.liftover_grch38.vcf.gz -R /lscratch/$SLURM_JOBID/gene.wchr.bed | awk -F"\t" 'BEGIN{OFS="\t"} {print $1,$2,".",$4,$5,".",".",".","GT:GQ:DP","0/1:50:100"}' - | cat ~/git/variant_prioritization/dev/vcf.header.hg38 - | bgzip -c > /lscratch/$SLURM_JOBID/gene.gnomad.e2.vcf.gz
+bcftools view --no-header -Ov /data/OGL/resources/gnomad/release-2.1.1/gnomad.exomes.r2.1.1.noVEP.sites.liftover_grch38.vcf.gz -R /lscratch/$SLURM_JOBID/gene.wchr.bed | awk -F"\t" 'BEGIN{OFS="\t"} {print $1,$2,".",$4,$5,"30","PASS",".","GT:GQ:DP","0/1:50:100"}' - | cat ~/git/variant_prioritization/dev/vcf.header.hg38 - | bgzip -c > /lscratch/$SLURM_JOBID/gene.gnomad.e2.vcf.gz
 tabix -p vcf /lscratch/$SLURM_JOBID/gene.gnomad.e2.vcf.gz
 
-bcftools view --no-header -Ov /data/OGL/resources/gnomad/release-3.1.2/gnomad.genomes.v3.1.2.selectedINFO.sites.vcf.gz -R /lscratch/$SLURM_JOBID/gene.wchr.bed | awk -F"\t" 'BEGIN{OFS="\t"} {print $1,$2,".",$4,$5,".",".",".","GT:GQ:DP","0/1:50:100"}' - | cat ~/git/variant_prioritization/dev/vcf.header.hg38 - | bgzip -c > /lscratch/$SLURM_JOBID/gene.gnomad.g3.vcf.gz
+bcftools view --no-header -Ov /data/OGL/resources/gnomad/release-3.1.2/gnomad.genomes.v3.1.2.selectedINFO.sites.vcf.gz -R /lscratch/$SLURM_JOBID/gene.wchr.bed | awk -F"\t" 'BEGIN{OFS="\t"} {print $1,$2,".",$4,$5,"30","PASS",".","GT:GQ:DP","0/1:50:100"}' - | cat ~/git/variant_prioritization/dev/vcf.header.hg38 - | bgzip -c > /lscratch/$SLURM_JOBID/gene.gnomad.g3.vcf.gz
 tabix -p vcf /lscratch/$SLURM_JOBID/gene.gnomad.g3.vcf.gz
 
+bcftools view --no-header -Ov /data/OGL/resources/HGMD/hgmd-download/2022.3/HGMD_Pro_2022.3_hg38.bgzf.vcf.gz -R /lscratch/$SLURM_JOBID/gene.nochr.bed | grep -v "<DEL>" | awk -F"\t" 'BEGIN{OFS="\t"} {print "chr"$1,$2,".",$4,$5,"30","PASS",".","GT:GQ:DP","0/1:50:100"}' - | cat ~/git/variant_prioritization/dev/vcf.header.hg38 - | bgzip -c > /lscratch/$SLURM_JOBID/gene.hgmd.vcf.gz
+tabix -f -p vcf /lscratch/$SLURM_JOBID/gene.hgmd.vcf.gz
+#hgmd ABCA4: 1732 variants including 6 <DEL> (big del SV) i
+
+bcftools view --no-header -Ov /data/OGL/resources/clinvar/clinvar.vcf.gz -R /lscratch/$SLURM_JOBID/gene.nochr.bed | awk -F"\t" 'BEGIN{OFS="\t"} { if (length($4) > 999 || length($5) > 999 || $5 == ".") {next} else {print "chr"$1,$2,".",$4,$5,"30","PASS",".","GT:GQ:DP","0/1:50:100"}}' - | cat ~/git/variant_prioritization/dev/vcf.header.hg38 - | bgzip -c > /lscratch/$SLURM_JOBID/gene.clinvar.vcf.gz
+tabix -f -p vcf /lscratch/$SLURM_JOBID/gene.clinvar.vcf.gz
+#clinvar ABCA4: 2702 variants, clinvar could have variant ALT as ".", remove, also remove the REF or ALT fields that have more nt than 2x500 as set in spliceAI. NNNNNNN in ALT did not affect annotation so far.
+
+bcftools concat -a --output-type u /lscratch/$SLURM_JOBID/gene.clinvar.vcf.gz /lscratch/$SLURM_JOBID/gene.hgmd.vcf.gz | bcftools norm --check-ref s --fasta-ref /data/OGL/resources/genomes/NCBI/GRCh38Decoy/genome.fa --output-type u - | bcftools norm -d exact --output-type u | bcftools annotate --set-id '%CHROM\:%POS%REF\>%ALT' -Ou | bcftools sort -T /lscratch/$SLURM_JOB_ID/ -m 28G -O z -o gene.hgmd.clinvar.vcf.gz
+tabix -f -p vcf gene.hgmd.clinvar.vcf.gz
+#hgmd+clinvar ABCA4: 3425 variants
+
 bcftools concat -a --output-type u /lscratch/$SLURM_JOBID/gene.snv.vcf.gz /lscratch/$SLURM_JOBID/gene.indel.vcf.gz /lscratch/$SLURM_JOBID/gene.gnomad.e2.vcf.gz /lscratch/$SLURM_JOBID/gene.gnomad.g3.vcf.gz | bcftools norm --check-ref s --fasta-ref /data/OGL/resources/genomes/NCBI/GRCh38Decoy/genome.fa --output-type u - \
-	| bcftools norm -d exact --output-type u | bcftools sort -T /lscratch/$SLURM_JOB_ID/ -m 28G -O z -o gene.vcf.gz
+	| bcftools norm -d exact --output-type u | bcftools annotate --set-id '%CHROM\:%POS%REF\>%ALT' -Ou | bcftools sort -T /lscratch/$SLURM_JOB_ID/ -m 28G -O z -o gene.vcf.gz
+#ABCA4: 1140289 variants
 
 tabix -f -p vcf gene.vcf.gz
+
 
 region_size=10000 #~10 pieces
 awk -v region_size="$region_size" -F"\t" 'BEGIN{OFS="\t"} {start=$2; chunk=int(($3-$2)/region_size+1); size=int(($3-$2)/chunk)+1;  for(m=0; m<chunk; m++){start=$2+size*m; end=start+size-1; if (end < $3) {print $1":"start"-"end} else {print $1":"start"-"$3} } }' /lscratch/$SLURM_JOBID/gene.wchr.bed > abca4.10.region
@@ -35,6 +52,8 @@ awk -v region_size="$region_size" -F"\t" 'BEGIN{OFS="\t"} {start=$2; chunk=int((
 #chunk=10
 #awk -v chunk="$chunk" -F"\t" 'BEGIN{OFS="\t"} {start=$2; size=int(($3-$2)/chunk)+1; for(m=0; m<10; m++){start=$2+size*m; end=start+size-1; if (end < $3) {print $1":"start"-"end} else {print $1":"start"-"$3} } }' gene.wchr.bed
 
+#ABCA4 SNV+INDEL+gnomAD annotate with current version of ClinVar
+bcftools annotate --threads 8 -x INFO/CLNALLELEID,INFO/CLNDN,INFO/CLNDISDB,INFO/CLNREVSTAT,INFO/CLNSIG -Oz -o abca4.SORTED.VT.VEP.VCFANNO.vcf.gz gene.SORTED.VT.VEP.VCFANNO.vcf.gz 
 
 #ABCA4
 #Lines   total/split/realigned/skipped:  1445347/0/273027/0

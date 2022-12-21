@@ -8,13 +8,14 @@
 ## other_pred_score is not added to priority score if maxaf > 0.02
 ## if impact == "missense_variant" & mis_z >= 3.09 & SigmaAF_Missense_0001 < 0.005 & pmaxaf < 0.0005, priority socre += 2
 ## inframe indels are added by intervar (3 pts); (protein_altering in vep impact could include mean "inframe indel" if delins): priority score += 3 if pmaxaf < 0.01 & Priority_Score_intervar < 5 (PM)
-
+## max of (splice_score + in_silico score) = 8, max of in silico is 6: pmin(8, ifelse(PVS1 == 1 | pmaxaf >= 0.03, 0, splice_score) + ifelse(pmaxaf >= 0.02, 0, pmin(6, insilico_score)) ))
 library(tidyverse)
 #library(vroom)
 
 args <- commandArgs(trailingOnly=TRUE)
 #When testing, comment out line above and use the line below.
-#args <- c("broad__MT_contigs.tsv", "squirls.broad__MT_contigs.csv", "temp/crossmap.hg19.broad__MT_contigs.tsv", "MT.ps.output.tsv")
+#setwd("W:/abca4/clinvar.hgmd/temp")
+#args <- c("gene.hgmd.clinvar__chr1.for.ps.tsv", "squirls.gene.hgmd.clinvar__chr1.csv", "crossmap.hg19.gene.hgmd.clinvar__chr1.tsv", "test.gene.hgmd.clinvar__chr1.ps.tsv")
 
 psInput_file <- args[1]
 squirls_file <- args[2]
@@ -24,7 +25,7 @@ psOutput_file <- args[4]
 input_df <- read_tsv(psInput_file, col_names = TRUE, na = c("NA", "", "None", "NONE", "."), col_types = cols(.default = col_character())) %>%
   type_convert() %>% 
   mutate(CHROM = as.factor(CHROM)) %>% 
-  mutate(across(where(is.character), ~na_if(., "1"))) %>% #bcftools query outputted "1" for blank.
+  mutate(across(where(is.character), ~na_if(., "1"))) %>% #bcftools query outputted "1" for blank for character column.
   type_convert()
 
 squirls_annotation <-  read_csv(squirls_file,  col_names = TRUE, na = c("NA", "", "None", "NONE", ".", "NaN"), col_types = "ficccdc") %>%
@@ -72,8 +73,8 @@ ps_df <-  left_join(ps_df_crossmap, squirls_annotation, by=c('CHROM', 'POS', 'RE
   mutate(gno3_expected_an = case_when(CHROM %in% c("X", "chrX") & gno3_nonpar == "1" ~ 116830,
                                        CHROM %in% c("Y", "chrY") & gno3_nonpar == "1" ~ 35482,
                                        TRUE ~ 152312)) %>%
-  mutate(gno2x_filter = ifelse(gno2x_an_all > 0 & is.na(gno2x_filter) & gno2x_an_all < gno2x_expected_an/2, "AN<half", gno2x_filter),
-         gno3_filter = ifelse(gno3_an_all > 0 & is.na(gno3_filter) & gno3_an_all < gno3_expected_an/2, "AN<half", gno3_filter) ) %>% 
+  mutate(gno2x_filter = ifelse(gno2x_an_all > 0 & is.na(gno2x_filter) & gno2x_an_all < gno2x_expected_an/2, "Less50", gno2x_filter),
+         gno3_filter = ifelse(gno3_an_all > 0 & is.na(gno3_filter) & gno3_an_all < gno3_expected_an/2, "Less50", gno3_filter) ) %>% 
   replace_na(list(gno2x_af_all=0, gno3_af_all=0, gno2x_af_popmax=0, gno3_maxaf = 0, max_af=0, esp6500siv2_all = 0, f1000g2015aug_all = 0)) %>% 
   mutate(pmaxaf = case_when(is.na(gno2x_filter) & !is.na(gno3_filter) ~ pmax(gno2x_af_all, gno2x_af_popmax, max_af, na.rm = TRUE),
                             !is.na(gno2x_filter) & is.na(gno3_filter) ~ pmax(gno3_af_all, gno3_maxaf, na.rm = TRUE),

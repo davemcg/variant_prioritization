@@ -43,8 +43,7 @@ print("###gemini tsv loaded### 10%")
 gemini <-  gemini_input %>% mutate( start_vcf = start + 1 ) %>% 
   unite("chr_variant_id", chrom, start_vcf, ref, alt, sep = "-", remove = FALSE ) %>% 
   mutate(sample = sampleName) %>%
-  mutate(ref_gene = ifelse(is.na(ref_gene), gene, ref_gene)) %>% 
-  mutate(temp_gene = toupper(ref_gene))
+  mutate(ref_gene = ifelse(is.na(ref_gene), gene, ref_gene)) 
 rm(gemini_input)
 
 #mutate(temp_genes_bed = pmap_chr(list(eyeintegration_gene, gene_gnomad, omim_gene, gene, gene_refgenewithver), ~toString(unique(na.omit(c(...)))) )) %>%
@@ -72,7 +71,8 @@ rm(gemini_input)
 #panelGene <- read.delim(args[2], sep = "\t", header = T, colClasses = c("character","character","character") ) %>% 
 #  select('gene', 'panel_class') %>% rename(ref_gene = gene)
 panelGene <- read_xlsx(geneCategory_file, sheet = "analysis", na = c("NA", "", "None", "NONE", ".")) %>%
-  mutate(ref_gene = toupper(gene)) %>% 
+  #mutate(ref_gene = toupper(gene)) %>%
+  rename(ref_gene = gene) %>% 
   select(ref_gene, panel_class) %>% distinct()
 blacklistGene <- read_xlsx(geneCategory_file, sheet = "IVA", na = c("NA", "", "None", "NONE", "."))  %>% filter(Blacklist == "Excluded") %>% pull(Gene)
 
@@ -83,7 +83,7 @@ print("###max priority score### 20%")
 gemini_max_priority_score <- left_join(gemini, max_priority_score, by=c("ref_gene"))
 rm(gemini)
 #VEP hg19 version's gene names are the same as in the IDT ordering design sheets. This is what used for left_join
-gemini_rearrangeCol <- left_join(gemini_max_priority_score, panelGene, by = c("temp_gene" = "ref_gene")) %>% 
+gemini_rearrangeCol <- left_join(gemini_max_priority_score, panelGene, by = c("ref_gene")) %>% 
   mutate(note = "") %>% separate(vcf_id, c('caller', 'hg38_id'), sep = "_") %>% 
   mutate(hg38_pos = sub("[ACGT]*>[ACGT]*", "", hg38_id)) %>% 
   mutate(gno2e3g_hom = ifelse(is.na(gno2x_hom) & is.na(gno3_nhomalt), NA, ifelse(is.na(gno2x_hom), 0, gno2x_hom) + ifelse(is.na(gno3_nhomalt), 0, gno3_nhomalt) ), 
@@ -97,15 +97,15 @@ gemini_rearrangeCol <- left_join(gemini_max_priority_score, panelGene, by = c("t
   mutate(gno3_expected_an = case_when(chrom %in% c("X", "chrX") & gno3_nonpar == "1" ~ 116830,
                                       chrom %in% c("Y", "chrY") & gno3_nonpar == "1" ~ 35482,
                                       TRUE ~ 152312)) %>%
-  mutate(gno2x_filter = ifelse(gno2x_an_all > 0 & is.na(gno2x_filter) & gno2x_an_all < gno2x_expected_an/2, "AN<half", gno2x_filter),
-         gno3_filter = ifelse(gno3_an_all > 0 & is.na(gno3_filter) & gno3_an_all < gno3_expected_an/2, "AN<half", gno3_filter) ) %>%
+  mutate(gno2x_filter = ifelse(gno2x_an_all > 0 & is.na(gno2x_filter) & gno2x_an_all < gno2x_expected_an/2, "Less50", gno2x_filter),
+         gno3_filter = ifelse(gno3_an_all > 0 & is.na(gno3_filter) & gno3_an_all < gno3_expected_an/2, "Less50", gno3_filter) ) %>%
   mutate(eyeGene = case_when(panel_class == "Dx" ~ 2,
                              panel_class == "Candidate" ~ 1,
                              TRUE ~ 0)) %>% 
-  select(-temp_gene) %>% 
+  select(-gno2x_expected_an, -gno3_expected_an) %>% 
   select('ref_gene','sample', 'chr_variant_id','grch37variant_id','chrom', 'start_vcf', 'qual', 'filter', starts_with('gts'), starts_with('gt_'), 'aaf', 'caller','hg38_pos',
          'panel_class', 'priority_score', 'prscore_intervar', 'clinvar_hgmd_score', 'splice_score', 'insilico_score', 'gno2e3g_af', 'gno2e3g_acan', 'pmaxaf',gno2x_af_all,gno2x_filter,gno3_af_all,gno3_filter,'max_af', 'max_af_pops', 'gno2e3g_hom', 'note', func_refgenewithver, exonicfunc_refgenewithver, 
-         'refgenewithver', 'gene', mane_select, 'hgvsc', 'hgvsp', 'exon', 'intron', 'aa_length', 'omim_gene', 'omim_inheritance', 'omim_phen', 'pvs1', 'truncating_vep', 'hgmd_id', 'hgmd_class', 'hgmd_phen', hgmd_overlap4aa, 'existing_variation', clnalleleid,clnsig,'clin_sig', clnrevstat, clndn, clndisdb, 
+         'refgenewithver', 'gene', mane_select, 'hgvsc', 'hgvsp', 'exon', 'intron', 'aa_length', 'omim_gene', 'omim_inheritance', 'omim_phen', 'pvs1', 'truncating_vep', 'hgmd_id', 'hgmd_class', 'hgmd_phen', hgmd_overlap4aa, 'existing_variation',clnid, clnalleleid,clnsig,'clin_sig',clnsigconf, clnrevstat, clndn, clndisdb, 
          af_oglx, ac_oglx, ac_hom_oglx, an_oglx, af_oglg, ac_oglg, ac_hom_oglg, an_oglg, intervar_and_evidence, 'interpro_domain', 'pfam_domain', 'rmsk', 'existing_inframe_oorfs','existing_outofframe_oorfs','existing_uorfs','five_prime_utr_variant_annotation','five_prime_utr_variant_consequence',
          'spliceai', 'spliceai_maxscore', 'spliceaimasked50', 'spliceaimasked50max', 'squirls_interpretation', 'squirls_maxscore', 'squirls_score', 'dbscsnv_ada_score', 'dbscsnv_rf_score', 'regsnp_fpr','regsnp_disease','regsnp_splicing_site','dpsi_max_tissue', 'dpsi_zscore', 'genesplicer', 'maxentscan_diff', 'branchpoint_prob', 'regsnp_fpr','regsnp_disease','regsnp_splicing_site',  
          'sift_pred', 'polyphen_pred', 'mutscore', 'mutationassessor_pred', 'mutationtaster_pred', 'metasvm_pred','metasvm_score', 'clinpred_score', 'primateai_rankscore', 'revel_score', hmc_score, 'ccr_pct','mpc_score', 'mtr_score', 'mtr_fdr', 'mtr_pct', 'cadd_raw', 'cadd_phred','remm', 'fathmm_xf_coding_score','fathmm_xf_noncoding','eigen_pc_raw_coding', 'gerpplus_rs', 'phylop100way_vertebrate', 
@@ -117,7 +117,7 @@ gemini_rearrangeCol <- left_join(gemini_max_priority_score, panelGene, by = c("t
 print("###gemini_rearranged###")
 write_tsv(gemini_rearrangeCol, file.path('.', rearrangedGemini_file), na="")
 print("###rearranged file written### 30%")
-
+# mastermind_counts       mastermind_mmid3 are in the VEP output
 #nrow(df) == 0 or dim(df)[1] == 0
 gemini_ref_var_input <- read_tsv(gemini_ref_var_file, col_names = TRUE, na = c("NA", "", "None", "NONE", ".", "FALSE", "False"), col_types = cols(.default = col_character())) 
 
@@ -130,13 +130,11 @@ if (nrow(gemini_ref_var_input) == 0) {
     mutate( start_vcf = start + 1 ) %>% 
     unite("chr_variant_id", chrom, start_vcf, ref, alt, sep = "-", remove = FALSE ) %>%
     mutate(sample = sampleName) %>%
-    mutate(temp_genes_bed = pmap_chr(list(eyeintegration_gene, gene_gnomad, omim_gene, gene, gene_refgenewithver), ~toString(unique(na.omit(c(...)))) )) %>%
-    mutate(temp_genes_bed = na_if(temp_genes_bed, "") ) %>% 
-    mutate(ref_gene = ifelse(is.na(ref_gene), temp_genes_bed, ref_gene)) %>% 
-    mutate(temp_gene = toupper(ref_gene)) %>% 
-    select(-temp_genes_bed) 
+    mutate(ref_gene = ifelse(is.na(ref_gene), gene, ref_gene)) #%>% 
+    #mutate(temp_gene = toupper(ref_gene)) %>% 
+    #select(-temp_genes_bed) 
   
-  gemini_ref_var_rearrangeCol <- left_join(gemini_ref_var_input, panelGene, by = c("temp_gene" = "ref_gene")) %>% 
+  gemini_ref_var_rearrangeCol <- left_join(gemini_ref_var_input, panelGene, by = c("ref_gene")) %>% 
     mutate(note = "") %>% separate(vcf_id, c('caller', 'hg38_id'), sep = "_") %>% 
     mutate(hg38_pos = sub("[ACGT]*>[ACGT]*", "", hg38_id)) %>% 
     mutate(gno2e3g_hom = ifelse(is.na(gno2x_hom) & is.na(gno3_nhomalt), NA, ifelse(is.na(gno2x_hom), 0, gno2x_hom) + ifelse(is.na(gno3_nhomalt), 0, gno3_nhomalt) ), 
@@ -151,12 +149,12 @@ if (nrow(gemini_ref_var_input) == 0) {
     mutate(gno3_expected_an = case_when(chrom %in% c("X", "chrX") & gno3_nonpar == "1" ~ 116830,
                                         chrom %in% c("Y", "chrY") & gno3_nonpar == "1" ~ 35482,
                                         TRUE ~ 152312)) %>%
-    mutate(gno2x_filter = ifelse(gno2x_an_all > 0 & is.na(gno2x_filter) & gno2x_an_all < gno2x_expected_an/2, "AN<half", gno2x_filter),
-           gno3_filter = ifelse(gno3_an_all > 0 & is.na(gno3_filter) & gno3_an_all < gno3_expected_an/2, "AN<half", gno3_filter) ) %>%
+    mutate(gno2x_filter = ifelse(gno2x_an_all > 0 & is.na(gno2x_filter) & gno2x_an_all < gno2x_expected_an/2, "Less50", gno2x_filter),
+           gno3_filter = ifelse(gno3_an_all > 0 & is.na(gno3_filter) & gno3_an_all < gno3_expected_an/2, "Less50", gno3_filter) ) %>%
     mutate(eyeGene = case_when(panel_class == "Dx" ~ 2,
                                panel_class == "Candidate" ~ 1,
                                TRUE ~ 0)) %>% 
-    select(-temp_gene) %>% 
+    select(-gno2x_expected_an, -gno3_expected_an) %>% 
     select('ref_gene','sample', 'chr_variant_id','grch37variant_id','chrom', 'start_vcf', 'qual', 'filter', starts_with('gts'), starts_with('gt_'), 'aaf', 'caller','hg38_pos',
            'panel_class', 'priority_score', 'prscore_intervar', 'clinvar_hgmd_score', 'splice_score', 'insilico_score', 'gno2e3g_af', 'gno2e3g_acan', 'pmaxaf',gno2x_af_all,gno2x_filter,gno3_af_all,gno3_filter,'max_af', 'max_af_pops', 'gno2e3g_hom', 'note', func_refgenewithver, exonicfunc_refgenewithver, 
            'refgenewithver', 'gene', mane_select, 'hgvsc', 'hgvsp', 'exon', 'intron', 'aa_length', 'omim_gene', 'omim_inheritance', 'omim_phen', 'pvs1', 'truncating_vep', 'hgmd_id', 'hgmd_class', 'hgmd_phen', hgmd_overlap4aa, 'existing_variation', clnalleleid,clnsig,'clin_sig', clnrevstat, clndn, clndisdb, 
@@ -169,8 +167,10 @@ if (nrow(gemini_ref_var_input) == 0) {
            'f1000g2015aug_all','esp6500siv2_all',gno2_xg_ratio:gno3_popmax, 'syn_z', everything()) %>%  
     arrange(desc(eyeGene), ref_gene)
 }
- 
 
+# mutate(temp_genes_bed = pmap_chr(list(eyeintegration_gene, gene_gnomad, omim_gene, gene, gene_refgenewithver), ~toString(unique(na.omit(c(...)))) )) %>%
+#   mutate(temp_genes_bed = na_if(temp_genes_bed, "") ) %>% 
+#   mutate(ref_gene = ifelse(is.na(ref_gene), temp_genes_bed, ref_gene)) %>%  
 
 gemini_filtered <- gemini_rearrangeCol %>% mutate(temp_group = ifelse(priority_score >= 3, 3, ifelse(priority_score >= -3, -3, -4))) %>% # checked OPA1 non-coding regions, the AF for some of variants with score -3 are around 0.01.
   filter(!ref_gene %in% blacklistGene, priority_score >= 15 | (temp_group >= -3 & pmaxaf < 0.1 & aaf < aafCutoff & af_oglg < 0.05 & af_oglx < 0.05) ) %>%
