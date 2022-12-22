@@ -5,7 +5,7 @@ output_type: ['geminiDB', 'family_query', 'individual_query'] #list, delete the 
 family_name: [] # empty list or One or more family names in the list ['family_1', 'family_2']. If it's blank and output_type includes family_query, then it will take ped file and make a family list.
 seeGEM: 'FALSE' #TRUE or FALSE
 ped: 'example.ped' # has to be \t delimited. Keep as is and cp the example.ped for vcf annotation only
-regions: '/home/$USER/git/variant_prioritization/src_hg38/vcf_region_split_1_coords.txt' # hg19 version delete _hg38
+regions: '/home/$USER/git/variant_prioritization/src_hg38/vcf_region_split_chr_coords.txt' # hg19 version delete _hg38
 #regions, 1 for panel (only 1,2,..,22,X); "chr" for exome if needed;
 #regions, 25 or 100 for WGS of 50 cases. Use chr, 24, 99, 499 for genome.
 datatype: 'exome' #panel, exome, wgs, blank
@@ -32,7 +32,7 @@ vt_version: 'vt/0.57721'
 VCF-kit_version: 'VCF-kit/0.1.6'
 annovar_version: 'annovar/2020-06-08' #previous ver 2019-10-24
 InterVar_version: 'InterVar2.2.1' # OGL/resources/git hardcoded in Snakemake
-hgmd_version: '2022.3'
+hgmd_version: '2022.4'
 annovar_clinvar_version: 'clinvar_20220320'
 OGLexome_version: '/data/OGL/resources/OGLsample/OGL.exome.gl.fb.v2.2022-09.vcf.gz'
 OGLgenome_version: '/data/OGL/resources/OGLsample/OGL.genome.gl.fb.v2.index.2022-09.vcf.gz'
