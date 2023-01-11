@@ -146,13 +146,19 @@ rule madeline:
 	shell:
 		"""
 		module load madeline
+		projectdir=$PWD
+		cd madeline
+		header=$(echo -e "FamilyId\tIndividualId\tFather\tMother\tGender\tAffected")
 		for family in {params.family}; do
-			grep $family config['ped'] > madeline/$family.txt;
-			madeline -bknS --font-size 16 madeline/$family.txt;
+			grep $family {config[ped]} \
+			| sed -e 's/\t0\t/\t\.\t/g' -e 's/\t0\t/\t\.\t/g' \
+			| awk -F"\t" 'BEGIN{{OFS="\t"}} {{if($5=="1") {{$5="M"}} else {{$5="F"}}; if($6=="2") {{$6="Affected"}} else {{$6="."}}; print $0}}' \
+			| cat $header - > $family.txt;
+			madeline -bknS --font-size 16 $family.txt;
 		done
+		cd $projectdir
 		touch {output}
 		"""
-
 
 if config['datatype'].upper() in ["PANEL", "EXOME", "WES"]:
 	localrules: n_split_vcf
