@@ -148,14 +148,15 @@ rule madeline:
 		module load madeline
 		projectdir=$PWD
 		cd madeline
-		header=$(echo -e "FamilyId\tIndividualId\tFather\tMother\tGender\tAffected")
+		echo -e "FamilyId\tIndividualId\tFather\tMother\tGender\tAffected" > header.txt
 		for family in {params.family}; do
-			grep $family {config[ped]} \
+			grep $family $projectdir/{config[ped]} \
 			| sed -e 's/\t0\t/\t\.\t/g' -e 's/\t0\t/\t\.\t/g' \
 			| awk -F"\t" 'BEGIN{{OFS="\t"}} {{if($5=="1") {{$5="M"}} else {{$5="F"}}; if($6=="2") {{$6="Affected"}} else {{$6="."}}; print $0}}' \
-			| cat $header - > $family.txt;
+			| cat header.txt - > $family.txt;
 			madeline -bknS --font-size 16 $family.txt;
 		done
+		rm header.txt
 		cd $projectdir
 		touch {output}
 		"""
