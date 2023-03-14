@@ -54,21 +54,34 @@ sortFilterGemini <- function(fileName) {
       mutate(eyeGene = case_when(panel_class == "Dx" ~ 2,
                                  panel_class == "Candidate" ~ 1,
                                  TRUE ~ 0)) %>% 
-      select(-gno2x_expected_an, -gno3_expected_an) %>% 
-      select('ref_gene', 'chr_variant_id','grch37variant_id','chrom', 'start_vcf', 'qual', 'filter', 'family_id','family_members', 'family_genotypes', 'samples','aaf', 'caller','hg38_pos',
-             'panel_class', 'priority_score', 'prscore_intervar', 'clinvar_hgmd_score', 'splice_score', 'insilico_score', 'gno2e3g_af', 'gno2e3g_acan', 'pmaxaf',gno2x_af_all,gno2x_filter,gno3_af_all,gno3_filter,'max_af', 'max_af_pops', 'gno2e3g_hom', 'note', func_refgenewithver, exonicfunc_refgenewithver, 
-             'refgenewithver', 'gene', mane_select, 'hgvsc', 'hgvsp', 'exon', 'intron', 'aa_length', 'omim_gene', 'omim_inheritance', 'omim_phen', 'pvs1', 'truncating_vep', 'hgmd_id', 'hgmd_class', 'hgmd_phen', hgmd_overlap4aa, 'existing_variation', clnid, clnalleleid,clnsig,'clin_sig',clnsigconf, clnrevstat, clndn, clndisdb, 
-             af_oglx, ac_oglx, ac_hom_oglx, an_oglx, af_oglg, ac_oglg, ac_hom_oglg, an_oglg, intervar_and_evidence, 'interpro_domain', 'pfam_domain', 'rmsk', 'existing_inframe_oorfs','existing_outofframe_oorfs','existing_uorfs','five_prime_utr_variant_annotation','five_prime_utr_variant_consequence',
-             'spliceai', 'spliceai_maxscore', 'spliceaimasked50', 'spliceaimasked50max', 'squirls_interpretation', 'squirls_maxscore', 'squirls_score', 'dbscsnv_ada_score', 'dbscsnv_rf_score', 'regsnp_fpr','regsnp_disease','regsnp_splicing_site','dpsi_max_tissue', 'dpsi_zscore', 'genesplicer', 'maxentscan_diff', 'branchpoint_prob', 'regsnp_fpr','regsnp_disease','regsnp_splicing_site',  
+      select(-gno2x_expected_an, -gno3_expected_an) %>%
+      mutate(aaf = round(aaf, 3),
+             gno2x_af_all = round(gno2x_af_all, 5),
+             gno3_af_all = round(gno3_af_all, 5),
+             max_af = round(max_af, 5),
+             af_oglx = round(af_oglx, 5),
+             af_oglg = round(af_oglg, 5),
+             pli = round(pli, 3),
+             loeuf = round(loeuf, 2),
+             mis_z = round(mis_z, 2),
+             gno2e3g_af = round(gno2e3g_af,5) ) %>%
+      select('ref_gene', 'chr_variant_id','grch37variant_id', 'family_id','family_members', 'family_genotypes', 'samples','aaf', 'caller',
+             'panel_class', 'priority_score', 'prscore_intervar', 'clinvar_hgmd_score', 'splice_score', 'insilico_score', gno2x_af_all,gno3_af_all,'gno2e3g_acan', 'gno2e3g_hom','max_af', 'max_af_pops',af_oglx,af_oglg,'refgenewithver',
+             'exon','aa_length','intron','omim_inheritance', 'omim_phen','hgmd_id',clnsig,clnsigconf,'oe_lof_upper_bin','pli','loeuf','mis_z', 'interpro_domain', 'pfam_domain', 'rmsk','note', 'spliceai', 'spliceai_maxscore', 'spliceaimasked50', 'spliceaimasked50max','hg38_pos', 'qual',
+             gno2x_filter,gno3_filter,'gene', mane_select, 'hgvsc', 'hgvsp',func_refgenewithver, exonicfunc_refgenewithver, 'pnull','prec', 'omim_gene',  
+             'hgmd_class', 'hgmd_phen', hgmd_overlap4aa, 'existing_variation',clnid, clnalleleid,'clin_sig', clnrevstat, clndn, clndisdb, 
+             intervar_and_evidence, 'pvs1', 'truncating_vep', 'gno2e3g_af','pmaxaf', ac_oglx, ac_hom_oglx, an_oglx, ac_oglg, ac_hom_oglg, an_oglg, 'existing_inframe_oorfs','existing_outofframe_oorfs','existing_uorfs','five_prime_utr_variant_annotation','five_prime_utr_variant_consequence',
+             'squirls_interpretation', 'squirls_maxscore', 'squirls_score', 'dbscsnv_ada_score', 'dbscsnv_rf_score', 'regsnp_fpr','regsnp_disease','regsnp_splicing_site','dpsi_max_tissue', 'dpsi_zscore', 'genesplicer', 'maxentscan_diff', 'branchpoint_prob', 'regsnp_fpr','regsnp_disease','regsnp_splicing_site',  
              'sift_pred', 'polyphen_pred', 'mutscore', 'mutationassessor_pred', 'mutationtaster_pred', 'metasvm_pred','metasvm_score', 'clinpred_score', 'primateai_rankscore', 'revel_score', hmc_score, 'ccr_pct','mpc_score', 'mtr_score', 'mtr_fdr', 'mtr_pct', 'cadd_raw', 'cadd_phred','remm', 'fathmm_xf_coding_score','fathmm_xf_noncoding','eigen_pc_raw_coding', 'gerpplus_rs', 'phylop100way_vertebrate', 
-             'atac_rpe_score','atac_rpe_itemrgb', 'ft_ret_rpe_score', cherry_sum_score, 'gene_refgenewithver', 'avsnp150', 'tfbs', 'pli','pnull', 'prec', 'mis_z', 'sigmaaf_lof_0001', 'sigmaaf_lof_01', 'sigmaaf_missense_0001', 'sigmaaf_missense_01', 'atac_rpe_itemrgb', 'atac_rpe_score', 
+             'atac_rpe_score','atac_rpe_itemrgb', 'ft_ret_rpe_score', cherry_sum_score, 'gene_refgenewithver', 'avsnp150', 'tfbs',  'sigmaaf_lof_0001', 'sigmaaf_lof_01', 'sigmaaf_missense_0001', 'sigmaaf_missense_01', 'atac_rpe_itemrgb', 'atac_rpe_score', 
              'eyeintegration_rpe_adulttissue', 'eyeintegration_rpe_cellline', 'eyeintegration_rpe_fetaltissue', 'eyeintegration_rpe_stemcellline', 'eyeintegration_retina_adulttissue', 'eyeintegration_retina_stemcellline', 'eyeintegration_wholeblood', 
              'pubmed','sift_score', 'polyphen_score', 'metasvm_rankscore', 'metasvm_score', 'provean_score', 'provean_converted_rankscore',	'provean_pred',
-             'f1000g2015aug_all','esp6500siv2_all',gno2_xg_ratio:gno3_popmax, 'syn_z', everything()) %>%
+             'f1000g2015aug_all','esp6500siv2_all',gno2_xg_ratio:gno3_popmax, 'syn_z', everything() ) %>%
       arrange(desc(eyeGene), desc(maxpriorityscore), ref_gene, desc(priority_score)) %>% select(-maxpriorityscore, -eyeGene) 
     return(InheritanceTest_rearrangeCol)
   }
 }
+
 
 #mutate(temp_genes_bed = pmap_chr(list(eyeintegration_gene, gene_gnomad, omim_gene, gene, gene_refgenewithver), ~toString(unique(na.omit(c(...)))) )) %>%
 #mutate(temp_genes_bed = na_if(temp_genes_bed, "") ) %>% 
@@ -148,7 +161,12 @@ summaryInfo <- data.frame("family_id" = family_name, "PatientDxPhenotype" = NA, 
   add_row("family_id" = family_name, "PatientDxPhenotype" = NA, "DxOutcome"= NA, "variant" = NA, "reviewer" = NA, "date" = NA)
 
 acmg_genes <- read_xlsx(geneCategory_file, sheet = "ACMG", na = c("NA", "", "None", "NONE", ".")) %>% pull(Gene) %>% unique()
-acmg <- all %>% filter(ref_gene %in% acmg_genes, priority_score > 4) %>% distinct(chr_variant_id, .keep_all = TRUE)
+if (dim(all)[1] == 0) {
+  acmg <- data.frame("family_id" = family_name, "note" = "Empty ACMG")
+} else {
+  acmg <- all %>% filter(ref_gene %in% acmg_genes, priority_score > 4) %>% distinct(chr_variant_id, .keep_all = TRUE)
+}
+
 #in the next version, consider TTN truncating, HFE C..Y hmz etc.
 config <- read_tsv(config_file, col_names = FALSE, na = c("NA", ""), col_types = cols(.default = col_character())) %>% 
   separate("X1", c("tool", "version", "note"), sep = "\\:|\\#", remove = TRUE)

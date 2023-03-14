@@ -1058,9 +1058,15 @@ if config['datatype'].upper() == "PANEL":
 		shell:
 			"""
 			if [[ $(module list 2>&1 | grep "R/" | wc -l) < 1 ]]; then module load {config[R_version]}; fi
-			Rscript /home/$USER/git/variant_prioritization/src_hg38/sortGeminiTSV_v1.R \
-				{input.tsv} {input.ref_tsv} {config[OGL_Dx_research_genes]} {output.rearranged_tsv} {output.filtered_tsv} {wildcards.sampleid} {output.filtered_xlsx} {config[aaf_change]} ../manta/manta.{wildcards.sampleid}.annotated.tsv {config[manta_freq]} filePlaceholder ../scramble_anno/{wildcards.sampleid}.scramble.xlsx ../scramble_anno/{wildcards.sampleid}.scramble.del.tsv {config[configuration_file]} ../CoNVaDING/CNV_hiSens/{wildcards.sampleid}.markDup.aligned.only.best.score.shortlist.txt gemini_xlsx/{wildcards.sampleid}.geneLAF.pdf
-	 		"""
+			if [ {config[NGS_genotype_calling]} == OGL ]
+			then
+				Rscript /home/$USER/git/variant_prioritization/src_hg38/sortGeminiTSV_v1.R \
+					{input.tsv} {input.ref_tsv} {config[OGL_Dx_research_genes]} {output.rearranged_tsv} {output.filtered_tsv} {wildcards.sampleid} {output.filtered_xlsx} {config[aaf_change]} ../manta/manta.{wildcards.sampleid}.annotated.tsv {config[manta_freq]} filePlaceholder ../scramble_anno/{wildcards.sampleid}.scramble.xlsx ../scramble_anno/{wildcards.sampleid}.scramble.del.tsv {config[configuration_file]} ../CoNVaDING/CNV_hiSens/{wildcards.sampleid}.markDup.aligned.only.best.score.shortlist.txt gemini_xlsx/{wildcards.sampleid}.geneLAF.pdf
+			else
+				Rscript /home/$USER/git/variant_prioritization/src_hg38/sortGeminiTSV_v1.R \
+					{input.tsv} {input.ref_tsv} {config[OGL_Dx_research_genes]} {output.rearranged_tsv} {output.filtered_tsv} {wildcards.sampleid} {output.filtered_xlsx} {config[aaf_change]} filePlaceholder {config[manta_freq]} filePlaceholder filePlaceholder filePlaceholder {config[configuration_file]} filePlaceholder filePlaceholder
+			fi
+			"""
 elif config['datatype'].upper() in ["EXOME", "WES"]:
 	rule sortGemini:
 		input:
@@ -1073,9 +1079,15 @@ elif config['datatype'].upper() in ["EXOME", "WES"]:
 		shell:
 			"""
 			if [[ $(module list 2>&1 | grep "R/" | wc -l) < 1 ]]; then module load {config[R_version]}; fi
-			Rscript /home/$USER/git/variant_prioritization/src_hg38/sortGeminiTSV_v1.R \
-				{input.tsv} {input.ref_tsv} {config[OGL_Dx_research_genes]} {output.rearranged_tsv} {output.filtered_tsv} {wildcards.sampleid} {output.filtered_xlsx} {config[aaf_change]} ../manta/manta.{wildcards.sampleid}.annotated.tsv {config[manta_freq]} ../AutoMap/{wildcards.sampleid}/{wildcards.sampleid}.HomRegions.annot.tsv ../scramble_anno/{wildcards.sampleid}.scramble.xlsx ../scramble_anno/{wildcards.sampleid}.scramble.del.tsv {config[configuration_file]}
-	 		"""
+			if [ {config[NGS_genotype_calling]} == "OGL" ]
+			then
+				Rscript /home/$USER/git/variant_prioritization/src_hg38/sortGeminiTSV_v1.R \
+					{input.tsv} {input.ref_tsv} {config[OGL_Dx_research_genes]} {output.rearranged_tsv} {output.filtered_tsv} {wildcards.sampleid} {output.filtered_xlsx} {config[aaf_change]} ../manta/manta.{wildcards.sampleid}.annotated.tsv {config[manta_freq]} ../AutoMap/{wildcards.sampleid}/{wildcards.sampleid}.HomRegions.annot.tsv ../scramble_anno/{wildcards.sampleid}.scramble.xlsx ../scramble_anno/{wildcards.sampleid}.scramble.del.tsv {config[configuration_file]}
+			else
+				Rscript /home/$USER/git/variant_prioritization/src_hg38/sortGeminiTSV_v1.R \
+					{input.tsv} {input.ref_tsv} {config[OGL_Dx_research_genes]} {output.rearranged_tsv} {output.filtered_tsv} {wildcards.sampleid} {output.filtered_xlsx} {config[aaf_change]} filePlaceholder {config[manta_freq]}  filePlaceholder filePlaceholder filePlaceholder {config[configuration_file]}
+			fi
+			"""
 else:
 	rule sortGemini:
 		input:
@@ -1089,10 +1101,16 @@ else:
 			"""
 			mkdir -p gemini_tsv_filtered gemini_xlsx
 			module load {config[R_version]}
-			Rscript /home/$USER/git/variant_prioritization/src_hg38/sortGeminiTSV_v1.R \
-				{input.tsv} {input.ref_tsv} {config[OGL_Dx_research_genes]} {output.rearranged_tsv} {output.filtered_tsv} {wildcards.sampleid} {output.filtered_xlsx} {config[aaf_change]} ../manta/manta.{wildcards.sampleid}.annotated.tsv {config[manta_freq]} ../AutoMap/{wildcards.sampleid}/{wildcards.sampleid}.HomRegions.annot.tsv ../scramble_anno/{wildcards.sampleid}.scramble.xlsx filePlaceholder {config[configuration_file]}
+			if [ {config[NGS_genotype_calling]} == "OGL" ]
+			then
+				Rscript /home/$USER/git/variant_prioritization/src_hg38/sortGeminiTSV_v1.R \
+					{input.tsv} {input.ref_tsv} {config[OGL_Dx_research_genes]} {output.rearranged_tsv} {output.filtered_tsv} {wildcards.sampleid} {output.filtered_xlsx} {config[aaf_change]} ../manta/manta.{wildcards.sampleid}.annotated.tsv {config[manta_freq]} ../AutoMap/{wildcards.sampleid}/{wildcards.sampleid}.HomRegions.annot.tsv ../scramble_anno/{wildcards.sampleid}.scramble.xlsx filePlaceholder {config[configuration_file]}
+			else
+				Rscript /home/$USER/git/variant_prioritization/src_hg38/sortGeminiTSV_v1.R \
+					{input.tsv} {input.ref_tsv} {config[OGL_Dx_research_genes]} {output.rearranged_tsv} {output.filtered_tsv} {wildcards.sampleid} {output.filtered_xlsx} {config[aaf_change]} filePlaceholder {config[manta_freq]} filePlaceholder filePlaceholder filePlaceholder {config[configuration_file]}
+			fi
 			"""
-
+# [] or [[]] are both fine in biowulf2, the space is more important.
 
 localrules: LesserAlleleFreq
 rule LesserAlleleFreq:

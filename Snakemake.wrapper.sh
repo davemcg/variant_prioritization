@@ -43,10 +43,10 @@ fi
 
 snakemake -s $snakefile \
 -pr --local-cores 2 --jobs 1999 \
---configfile $1 \
 --cluster-config $json \
 --cluster "$sbcmd"  --latency-wait 120 --rerun-incomplete \
--k --restart-times 0 --resources res=1 $2
+-k --restart-times 0 --resources res=1 \
+--configfile $@
 
 # --notemp Ignore temp() declaration;
 # --dryrun
