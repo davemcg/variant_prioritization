@@ -223,6 +223,7 @@ else:
 			vcf = temp('temp/vt.{sample}__{region}.vcf.gz'),
 			index = temp('temp/vt.{sample}__{region}.vcf.gz.tbi')
 		threads: 8
+		resources: res=1
 		shell:
 			"""
 			if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
