@@ -259,7 +259,7 @@ if ( !file.exists(manta_file)) {
 
 if ( roh_file == "filePlaceholder") {
   roh <- data.frame("sample" = sampleName, "note" = "Roh not analyzed.")
-} else if ( file.size(roh_file) == 0) { roh <- data.frame("sample" = sampleName, "note" = "Empty roh") 
+} else if (file.size(roh_file) == 0) { roh <- data.frame("sample" = sampleName, "note" = "Empty roh") 
 } else {
   roh <- read_tsv(roh_file, col_names = TRUE, na = c("NA", "", "None", "NONE", "."), col_types = cols(.default = col_character())) %>%
     type_convert() %>% 
@@ -267,6 +267,8 @@ if ( roh_file == "filePlaceholder") {
                                            "1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22" ), "autosome", "X")) %>% 
     group_by(autosome) %>% 
     mutate(pct = sum(`Size(Mb)`)/2900) %>% 
+    ungroup() %>% 
+    mutate(pct = round(pct, digits = 3)) %>% 
     select(-autosome)
 }
 
@@ -371,14 +373,14 @@ summaryInfo <- data.frame("sample" = sampleName, "PatientDxPhenotype" = NA, "DxO
   add_row("sample" = sampleName, "PatientDxPhenotype" = NA, "DxOutcome"= NA, "variant" = NA, "reviewer" = NA, "date" = NA)
 
 if (scramble_del_file == "filePlaceholder") {
-  openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG" = acmg, "all" = gemini_filtered1, "rareRef" = gemini_ref_var_rearrangeCol, "manta" = manta_sort, "scramble_mei" = scramble_mei, "roh" = roh, "config" = config, "summary" = summaryInfo), file = gemini_xlsx_file, firstRow = TRUE, firstCol = TRUE)
+  openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG" = acmg, "all" = gemini_filtered1, "rareRef" = gemini_ref_var_rearrangeCol, "manta" = manta_sort, "scramble_mei" = scramble_mei, "roh" = roh, "config" = config, "summary" = summaryInfo), file = gemini_xlsx_file, firstRow = TRUE, firstCol = TRUE, keepNA = FALSE)
 } else if (is.na(convading_file)) {
-  openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG" = acmg, "all" = gemini_filtered1, "rareRef" = gemini_ref_var_rearrangeCol, "manta" = manta_sort, "scramble_mei" = scramble_mei, "scramble_del" = scramble_del_sort, "roh" = roh, "config" = config, "summary" = summaryInfo), file = gemini_xlsx_file, firstRow = TRUE, firstCol = TRUE)
+  openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG" = acmg, "all" = gemini_filtered1, "rareRef" = gemini_ref_var_rearrangeCol, "manta" = manta_sort, "scramble_mei" = scramble_mei, "scramble_del" = scramble_del_sort, "roh" = roh, "config" = config, "summary" = summaryInfo), file = gemini_xlsx_file, firstRow = TRUE, firstCol = TRUE, keepNA = FALSE)
 } else {
     cnv <- read_tsv(convading_file, col_names = TRUE, na = c("NA", "", "None", "NONE", "."), col_types = cols(.default = col_character())) %>%
       type_convert() 
     if (dim(cnv)[1] == 0) {
-      openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG" = acmg, "all" = gemini_filtered1, "rareRef" = gemini_ref_var_rearrangeCol, "manta" = manta_sort, "scramble_mei" = scramble_mei, "scramble_del" = scramble_del_sort, "config" = config, "summary" = summaryInfo), file = gemini_xlsx_file, firstRow = TRUE, firstCol = TRUE)
+      openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG" = acmg, "all" = gemini_filtered1, "rareRef" = gemini_ref_var_rearrangeCol, "manta" = manta_sort, "scramble_mei" = scramble_mei, "scramble_del" = scramble_del_sort, "config" = config, "summary" = summaryInfo), file = gemini_xlsx_file, firstRow = TRUE, firstCol = TRUE, keepNA = FALSE)
     } else {
       cnv_gene <- as.list(distinct(cnv, GENE)[[1]])
       #cnv_gene <- dplyr::pull(cnv, GENE) #pull column as a vector
@@ -389,7 +391,7 @@ if (scramble_del_file == "filePlaceholder") {
         select('chr_variant_id', 'chrom', 'start', 'qual', 'filter', starts_with('gts'), starts_with('gt_'), 'LAF', 'ref_gene', 'exon', 'ref_gene',  
               'refgenewithver', 'exonicfunc_refgenewithver', 'hgvsc', 'hgvsp', 'type') %>% 
         rename(gene = ref_gene)
-      openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG" = acmg, "all" = gemini_filtered1, "rareRef" = gemini_ref_var_rearrangeCol, "CoNVaDING" = cnv, "CNV-variant" = cnv_variant, "manta" = manta_sort, "scramble_mei" = scramble_mei, "scramble_del" = scramble_del_sort, "config" = config, "summary" = summaryInfo), file = gemini_xlsx_file, firstRow = TRUE, firstCol = TRUE)
+      openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG" = acmg, "all" = gemini_filtered1, "rareRef" = gemini_ref_var_rearrangeCol, "CoNVaDING" = cnv, "CNV-variant" = cnv_variant, "manta" = manta_sort, "scramble_mei" = scramble_mei, "scramble_del" = scramble_del_sort, "config" = config, "summary" = summaryInfo), file = gemini_xlsx_file, firstRow = TRUE, firstCol = TRUE, keepNA = FALSE)
       cnv_edit <- cnv %>% 
         mutate(START = START - 100, STOP = STOP + 100, type = "snp") %>% #padding of 100 nt
         gather(START:STOP, key = "datatype", value = "position") %>% 
