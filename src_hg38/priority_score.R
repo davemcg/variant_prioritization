@@ -113,7 +113,8 @@ ps_df <-  left_join(ps_df_crossmap, squirls_annotation, by=c('CHROM', 'POS', 'RE
            ifelse(is.na(remm), 0, ifelse(remm > 0.6 & pmaxaf < 0.02, 0.5, 0)) + 
            ifelse(is.na(fathmm_XF_coding_score), 0, ifelse(fathmm_XF_coding_score > 0.6 & pmaxaf < 0.02, 0.5, 0)) +
            ifelse(is.na(fathmm_xf_noncoding), 0, ifelse(fathmm_xf_noncoding > 0.6 & pmaxaf < 0.02, 0.5, 0)) +
-           ifelse(is.na(hmc_score), 0, ifelse(hmc_score < 0.8, 0.5, 0))) %>% 
+           ifelse(is.na(hmc_score), 0, ifelse(hmc_score < 0.8, 0.5, 0)) +
+           ifelse(is.na(gnomad_nc_constraint), 0, ifelse(gnomad_nc_constraint > 4 & pmaxaf < 0.01, 0.5, 0)) ) %>% 
   replace_na(list(clinvar_hgmd_score=0, insilico_score=0)) %>% 
   mutate(temp_genesplicer = case_when(grepl("High", genesplicer) ~ 3,
                                       grepl("Medium", genesplicer) ~ 1,

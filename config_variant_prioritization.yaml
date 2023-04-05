@@ -33,7 +33,7 @@ vt_version: 'vt/0.57721'
 VCF-kit_version: 'VCF-kit/0.1.6'
 annovar_version: 'annovar/2020-06-08' #previous ver 2019-10-24
 InterVar_version: 'InterVar2.2.1' # OGL/resources/git hardcoded in Snakemake
-hgmd_version: '2022.4'
+hgmd_version: '2023.1'
 annovar_clinvar_version: 'clinvar_20220320'
 OGLexome_version: '/data/OGL/resources/OGLsample/OGL.exome.gl.fb.v2.2022-09.vcf.gz'
 OGLgenome_version: '/data/OGL/resources/OGLsample/OGL.genome.gl.fb.v2.index.2022-09.vcf.gz'
