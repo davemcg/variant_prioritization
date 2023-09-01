@@ -19,8 +19,9 @@ args <- commandArgs(trailingOnly=TRUE)
 
 psInput_file <- args[1]
 squirls_file <- args[2]
-crossmap_file <- args[3]
-psOutput_file <- args[4]
+pangolin_file <- args[3]
+crossmap_file <- args[4]
+psOutput_file <- args[5]
 
 input_df <- read_tsv(psInput_file, col_names = TRUE, na = c("NA", "", "None", "NONE", "."), col_types = cols(.default = col_character())) %>%
   type_convert() %>% 
@@ -32,9 +33,27 @@ squirls_annotation <-  read_csv(squirls_file,  col_names = TRUE, na = c("NA", ""
   rename(squirls_interpretation = INTERPRETATION, squirls_maxscore = MAX_SCORE, squirls_score = SCORES) %>%
   unite("variantkey", CHROM:ALT, sep = "-", remove = FALSE) %>% 
   group_by(variantkey) %>%
-  replace_na(list(squirls_maxscore = 0, squirls_score = 0)) %>%
+  replace_na(list(squirls_maxscore = 0)) %>%
   slice(which.max(squirls_maxscore)) %>% 
+  ungroup(variantkey) 
+
+pangolin <- read_tsv(pangolin_file, col_names = TRUE, na = c("NA", "", "None", "NONE", "."), col_types = "ficcc") %>%
+  mutate(pangolin = Pangolin) %>% 
+  mutate(across(where(is.character), ~na_if(., "1"))) %>% #bcftools query outputted "1" for blank for character column.
+  type_convert() %>% 
+  unite("variantkey", CHROM:ALT, sep = "-", remove = TRUE) %>% 
+  separate_rows(Pangolin, sep = "ENSG") %>%
+  separate(Pangolin, c("temp_pangolin_gene", "temp_pangolin_increase", "temp_pangolin_decrease","temp_warning"), sep = "\\|", remove = FALSE) %>% 
+  separate(temp_pangolin_increase, c("temp_pangolin_incr_pos", "temp_pangolin_incr_score"), sep = ":", remove = TRUE, convert = TRUE) %>% 
+  separate(temp_pangolin_decrease, c("temp_pangolin_decr_pos", "temp_pangolin_decr_score"), sep = ":", remove = TRUE, convert = TRUE) %>%
+  mutate(pangolin_max = pmax(abs(temp_pangolin_incr_score), abs(temp_pangolin_decr_score), na.rm = TRUE)) %>%
+  replace_na(list(pangolin_max = 0)) %>% 
+  group_by(variantkey) %>%
+  slice(which.max(pangolin_max)) %>% 
   ungroup(variantkey) %>% 
+  select(-Pangolin, -starts_with("temp_")) 
+
+squirls_pangolin_annotation <- left_join(squirls_annotation, pangolin, by = "variantkey") %>% 
   select(-variantkey)
 
 pickMaxScore <- function(x, y){
@@ -51,7 +70,7 @@ pickMaxScore <- function(x, y){
   }
 }
 
-squirls_annotation$squirls_score <- mapply(pickMaxScore, squirls_annotation$squirls_score, squirls_annotation$squirls_maxscore)
+squirls_pangolin_annotation$squirls_score <- mapply(pickMaxScore, squirls_pangolin_annotation$squirls_score, squirls_pangolin_annotation$squirls_maxscore)
 
 crossmap <- read_tsv(crossmap_file, col_names = TRUE, na = c("NA", "", "None", "NONE", "."), col_types = cols(.default = col_character())) %>%
   type_convert() %>% 
@@ -63,7 +82,7 @@ rm(input_df)
 rm(crossmap)
 
 ##The following line was meant to add 3 to Priority_Score when CSQ fields has truncating and PVS1 == 0 and pmaxaf < 0.01 & Priority_Score_intervar < 6
-ps_df <-  left_join(ps_df_crossmap, squirls_annotation, by=c('CHROM', 'POS', 'REF', 'ALT')) %>% mutate(truncating_vep = ifelse(grepl("frameshift_variant|splice_acceptor_variant|splice_donor_variant|start_lost|stop_gained|stop_lost", CSQ, ignore.case = TRUE), 1, 0)) %>% 
+ps_df <-  left_join(ps_df_crossmap, squirls_pangolin_annotation, by=c('CHROM', 'POS', 'REF', 'ALT')) %>% mutate(truncating_vep = ifelse(grepl("frameshift_variant|splice_acceptor_variant|splice_donor_variant|start_lost|stop_gained|stop_lost", CSQ, ignore.case = TRUE), 1, 0)) %>% 
   mutate(temp_CSQ = sub(",.*", "", CSQ)) %>%
   separate(temp_CSQ, c('allele','consequence','codons','amino_acids','gene','symbol','MANE_SELECT','feature','exon','intron','hgvsc','hgvsp','max_af','max_af_pops','protein_position','biotype','canonical','domains','existing_variation','clin_sig','pick','pubmed','phenotypes','sift','polyphen','cadd_raw','cadd_phred','genesplicer','spliceregion','MaxEntScan_alt','maxentscan_diff','MaxEntScan_ref','existing_inframe_oorfs','existing_outofframe_oorfs','existing_uorfs','five_prime_utr_variant_annotation','five_prime_utr_variant_consequence','Mastermind_counts','Mastermind_MMID3','MOTIF_NAME','MOTIF_POS','HIGH_INF_POS','MOTIF_SCORE_CHANGE'), sep = "\\|", remove = TRUE, convert = TRUE) %>% 
   #gno2x_af_all,gno3_af_all,maxaf_annovar,gno2x_af_popmax,gno3_popmax,gno_gx_ratio,gno2x_an_all,gno3_an_all,gno2x_filter,gno3_filter AND max_af above from VEP.
@@ -89,7 +108,8 @@ ps_df <-  left_join(ps_df_crossmap, squirls_annotation, by=c('CHROM', 'POS', 'RE
   mutate(temp_clinvar_score = ifelse(grepl("pathogenic", temp_clinvar, ignore.case = TRUE), 6, 0) - 
            ifelse(grepl("benign", temp_clinvar, ignore.case = TRUE) & grepl("pathogenic", temp_clinvar, ignore.case = TRUE), 3, 0) ) %>%
   mutate(temp_hgmd_score = case_when( hgmd_class == "DM" ~ 3,
-                                      hgmd_class == "DM\\?" | grepl("[A-Z]", temp_existing_variant) | (!is.na(HGMD_Overlap4aa) & pmaxaf < 0.005) ~ 1,
+                                      grepl("[A-Z]", temp_existing_variant) | !is.na(HGMD_Overlap4aa) & pmaxaf < 0.005 ~ 1,
+                                      hgmd_class == "DM\\?" ~ 0.5, 
                                       TRUE ~ 0)) %>% 
   mutate(clinvar_hgmd_score = pmin(6, temp_clinvar_score + temp_hgmd_score) ) %>% 
   mutate(insilico_score = ifelse(is.na(ClinPred_score), 0, ifelse(ClinPred_score > 0.5, 0.5, 0)) + 
@@ -133,8 +153,12 @@ ps_df <-  left_join(ps_df_crossmap, squirls_annotation, by=c('CHROM', 'POS', 'RE
   mutate(temp_dbscSNV_score = ifelse((pmaxaf < 0.02 & temp_dbscsnv_ada_score>0.8 & temp_dbscsnv_rf_score>0.5), 3, 0)) %>% 
   mutate(temp_squirl_score = case_when(squirls_interpretation == "pathogenic" & squirls_maxscore > 0.8 ~ 3, #according to squirls paper Fig. S4.
                                        squirls_interpretation == "pathogenic" & squirls_maxscore > 0.2 ~ 0.5,
-                                       TRUE ~ 0)) %>% 
-  mutate(splice_score = pmin(8, (spliceai_rank + temp_genesplicer + temp_maxentscan_diff + temp_dpsi_score + temp_dbscSNV_score + temp_squirl_score + ifelse(pmaxaf < 0.02 & !is.na(branchpoint_prob), 2, 0))) ) %>% 
+                                       TRUE ~ 0)) %>%
+  mutate(temp_pangolin_score = case_when( pangolin_max > 0.5 ~ 6,
+                                          pangolin_max > 0.2 ~ 3,
+                                          TRUE ~ 0)) %>% 
+  mutate(splice_score = pmin(8, (spliceai_rank + temp_genesplicer + temp_maxentscan_diff + temp_dpsi_score + temp_dbscSNV_score + temp_squirl_score + 
+                                   temp_pangolin_score + ifelse(pmaxaf < 0.02 & !is.na(branchpoint_prob), 2, 0))) ) %>% 
   mutate(priority_score = PrScore_intervar + ifelse(pmaxaf < 0.03, clinvar_hgmd_score, 0) +  
            ifelse(PVS1 == 1 | pmaxaf >= 0.005 | PrScore_intervar > 6 | splice_score > 2, 0, truncating_vep*3) +
            pmin(8, ifelse(PVS1 == 1 | pmaxaf >= 0.03, 0, splice_score) + ifelse(pmaxaf >= 0.02, 0, pmin(6, insilico_score)) )) %>% 
@@ -152,7 +176,7 @@ ps_df <-  left_join(ps_df_crossmap, squirls_annotation, by=c('CHROM', 'POS', 'RE
   mutate(priority_score = case_when(priority_score < 5 & pmaxaf < 0.001 & Ref_Gene %in% c("MIR184","MIR204") ~ 5,
                                     priority_score < 4.5 & pmaxaf < 0.001 & grepl("^MIR", Ref_Gene, ignore.case = TRUE) ~ 4,
                                     TRUE ~ priority_score)) %>% 
-  select(CHROM, POS, REF, ALT, priority_score, clinvar_hgmd_score, splice_score, insilico_score, pmaxaf, truncating_vep, squirls_interpretation, squirls_maxscore, squirls_score, grch37variant_id)
+  select(CHROM, POS, REF, ALT, priority_score, clinvar_hgmd_score, splice_score, insilico_score, pmaxaf, truncating_vep, squirls_interpretation, squirls_maxscore, squirls_score, pangolin, grch37variant_id)
 
 #pmaxaf cutoff increased to 0.005 from 0.0005; 4/14/2020
 #http://web.corral.tacc.utexas.edu/WGSAdownload/resources/dbNSFP/dbNSFP4.0b2c.readme.txt

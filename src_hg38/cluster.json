@@ -29,20 +29,28 @@
 	"spliceai" :
 	{
 		"partition" : "gpu",
-		"extra" : "--constraint='[gpuv100|gpup100|gpuv100x]' --gres=gpu:1,lscratch:100 ",
+		"extra" : "--constraint='[gpuv100|gpup100|gpuv100x|gpua100]' --gres=gpu:1,lscratch:100 ",
 		"mem" : "16g",
 		"time" : "8:00:00",
-		"threads" : "8"
+		"threads" : "14"
+	},
+	"pangolin":
+	{
+		"partition" : "gpu",
+		"extra" : "--constraint='[gpuv100|gpup100|gpuv100x|gpua100]' --gres=gpu:1,lscratch:100 ",
+		"mem" : "16g",
+		"time" : "12:00:00",
+		"threads" : "14"
 	},
 	"VEP_annotate" :
 	{
 		"partition" : "norm",
-		"time" : "24:00:00"
+		"time" : "12:00:00"
 	},
 	"annovar_intervar" :
 	{
 		"partition" : "norm",
-		"time" : "24:00:00",
+		"time" : "12:00:00",
 		"mem" : "16g"
 	},
 	"spliceai_intervar_edit" :

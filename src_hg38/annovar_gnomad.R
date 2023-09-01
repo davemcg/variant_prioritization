@@ -12,6 +12,7 @@ annovar <- read_tsv(annovar_file, col_names = TRUE, na = c("NA", "", "None", "."
   mutate(Chr = as.factor(Chr), CHROM = as.factor(CHROM))
 
 gnomad <- read_tsv(gnomad_file, col_names = TRUE, na = c("NA", "", "None", "."), col_types = cols(.default = col_character())) %>% type_convert() %>%
+  #rename(CHROM = `#CHROM`) %>% ##samtools 1.17 output as #CHROM instead of # CHROM. Fixed in sed
   mutate(CHROM = as.factor(CHROM))
 
 annovar_gnomad <- left_join(annovar, gnomad, by = c("CHROM", "POS", "REF", "ALT")) 
