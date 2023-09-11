@@ -21,13 +21,21 @@ psInput_file <- args[1]
 squirls_file <- args[2]
 pangolin_file <- args[3]
 crossmap_file <- args[4]
-psOutput_file <- args[5]
+gnomad_metrics_file <- args[5]
+psOutput_file <- args[6]
 
 input_df <- read_tsv(psInput_file, col_names = TRUE, na = c("NA", "", "None", "NONE", "."), col_types = cols(.default = col_character())) %>%
   type_convert() %>% 
   mutate(CHROM = as.factor(CHROM)) %>% 
   mutate(across(where(is.character), ~na_if(., "1"))) %>% #bcftools query outputted "1" for blank for character column.
   type_convert()
+
+gnomad_metrics <- read_tsv(gnomad_metrics_file, col_names = TRUE, na = c("NA", "", "None", "NONE", "."), col_types = cols(.default = col_character())) %>%
+  type_convert() %>%
+  select('gene','pLI','pNull','pRec','oe_lof_upper','syn_z','mis_z','oe_lof_upper_bin','classic_caf','max_af','p') %>% 
+  rename(Ref_Gene = gene, LOEUF = oe_lof_upper, sum_lof_af_gnomad = classic_caf, max_lof_af_gnomad = max_af, proportion_pLoF_haplotypes = p)
+
+input_df <- left_join(input_df, gnomad_metrics, by = "Ref_Gene")
 
 squirls_annotation <-  read_csv(squirls_file,  col_names = TRUE, na = c("NA", "", "None", "NONE", ".", "NaN"), col_types = "ficccdc") %>%
   rename(squirls_interpretation = INTERPRETATION, squirls_maxscore = MAX_SCORE, squirls_score = SCORES) %>%
@@ -176,7 +184,8 @@ ps_df <-  left_join(ps_df_crossmap, squirls_pangolin_annotation, by=c('CHROM', '
   mutate(priority_score = case_when(priority_score < 5 & pmaxaf < 0.001 & Ref_Gene %in% c("MIR184","MIR204") ~ 5,
                                     priority_score < 4.5 & pmaxaf < 0.001 & grepl("^MIR", Ref_Gene, ignore.case = TRUE) ~ 4,
                                     TRUE ~ priority_score)) %>% 
-  select(CHROM, POS, REF, ALT, priority_score, clinvar_hgmd_score, splice_score, insilico_score, pmaxaf, truncating_vep, squirls_interpretation, squirls_maxscore, squirls_score, pangolin, grch37variant_id)
+  select(CHROM, POS, REF, ALT, priority_score, clinvar_hgmd_score, splice_score, insilico_score, pmaxaf, truncating_vep, squirls_interpretation, squirls_maxscore, squirls_score, pangolin, grch37variant_id,
+         'pLI','pNull','pRec','LOEUF','syn_z','mis_z','oe_lof_upper_bin','sum_lof_af_gnomad','max_lof_af_gnomad','proportion_pLoF_haplotypes')
 
 #pmaxaf cutoff increased to 0.005 from 0.0005; 4/14/2020
 #http://web.corral.tacc.utexas.edu/WGSAdownload/resources/dbNSFP/dbNSFP4.0b2c.readme.txt

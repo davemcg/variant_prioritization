@@ -6,3 +6,4 @@ for file in gemini_tsv_filtered/*.tsv; do grep -e $'^'$geneName$'\t' -e $'\t'$ge
 
 #while read -r gene; do bash ~/git/variant_prioritization/geneSearch.sh $gene; done < genelist.tsv
 #geneList.tsv file may require Unix file EOL symbols.
+#for gene in X,Y,Z; do bash ~/git/variant_prioritization/geneSearch.sh $gene; done
