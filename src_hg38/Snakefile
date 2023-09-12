@@ -960,7 +960,7 @@ rule make_gemini_db:
 #	threads: 8
 	shell:
 		"""
-		module load {gemini_version}
+		module load {config[gemini_version]}
 		vcf2db.py {input.vcf} {PEDbase}{wildcards.ped}.ped {output}
 		"""
 
