@@ -6,7 +6,7 @@
 # to run snakemake as batch job
 # run in the data folder for this project
 # $1 - configfile
-# $2 - --notemp --dryrun --unlock
+# $2 - --notemp --dryrun --unlock  --rerun-triggers mtime (rerun-triggers mtime options will not rerun previously successful jobs)
 # $3 non-default json file # currently not used
 
 module load snakemake/5.24.1 || exit 1

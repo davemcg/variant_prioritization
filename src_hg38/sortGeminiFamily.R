@@ -68,7 +68,7 @@ sortFilterGemini <- function(fileName) {
              gnomad_nc_constraint = round(gnomad_nc_constraint,2)) %>%
       select('ref_gene', 'chr_variant_id','grch37variant_id', 'family_id','family_members', 'family_genotypes', 'samples','aaf', 'caller',
              'panel_class', 'priority_score', 'prscore_intervar', 'clinvar_hgmd_score', 'splice_score', 'insilico_score', gno2x_af_all,gno3_af_all,'gno2e3g_acan', 'gno2e3g_hom','max_af', 'max_af_pops',af_oglx,af_oglg,'refgenewithver',
-             'exon','aa_length','intron','omim_inheritance', 'omim_phen','hgmd_id',clnsig,clnsigconf,'oe_lof_upper_bin','pli','loeuf','mis_z', 'interpro_domain', 'pfam_domain', 'rmsk','note', 'spliceai', 'spliceai_maxscore', 'spliceaimasked50', 'spliceaimasked50max','hg38_pos', 'qual',
+             'exon','aa_length','intron','omim_inheritance', 'omim_phen','hgmd_id',clnsig,clnsigconf,'oe_lof_upper_bin','pli','loeuf','mis_z', 'interpro_domain', 'pfam_domain', 'rmsk','note','am_pathogenicity','am_class','spliceai', 'spliceai_maxscore', 'spliceaimasked50', 'spliceaimasked50max','hg38_pos', 'qual',
              gno2x_filter,gno3_filter,'gene', mane_select, 'hgvsc', 'hgvsp',func_refgenewithver, exonicfunc_refgenewithver, 'pnull','prec', 'omim_gene',  
              'hgmd_class', 'hgmd_phen', hgmd_overlap4aa, 'existing_variation',clnid, clnalleleid,'clin_sig', clnrevstat, clndn, clndisdb, 
              intervar_and_evidence, 'pvs1', 'truncating_vep', 'gno2e3g_af','pmaxaf', ac_oglx, ac_hom_oglx, an_oglx, ac_oglg, ac_hom_oglg, an_oglg, 'existing_inframe_oorfs','existing_outofframe_oorfs','existing_uorfs','five_prime_utr_variant_annotation','five_prime_utr_variant_consequence',

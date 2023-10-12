@@ -754,6 +754,7 @@ rule VEP_annotate:
 			$CADD_PLUGIN \
 			--plugin UTRannotator,$VEPCACHEDIR/uORF_5UTR_{config[genomeBuild]}_PUBLIC.txt \
 			--plugin Mastermind,{config[mastermind_vcf]} \
+			--plugin AlphaMissense,file=$VEPCACHEDIR/AlphaMissense_hg38.tsv.gz \
 			--sift b --polyphen b \
 			--regulatory \
 			--canonical \
@@ -771,7 +772,7 @@ rule VEP_annotate:
 			--gene_phenotype \
 			--max_af \
 			{params.pick} \
-            --fields Allele,Consequence,Codons,Amino_acids,Gene,SYMBOL,MANE_SELECT,Feature,EXON,INTRON,HGVSc,HGVSp,MAX_AF,MAX_AF_POPS,Protein_position,BIOTYPE,CANONICAL,DOMAINS,Existing_variation,CLIN_SIG,PICK,PUBMED,Phenotypes,SIFT,PolyPhen,CADD_RAW,CADD_PHRED,GeneSplicer,SpliceRegion,MaxEntScan_alt,MaxEntScan_diff,MaxEntScan_ref,existing_InFrame_oORFs,existing_OutOfFrame_oORFs,existing_uORFs,five_prime_UTR_variant_annotation,five_prime_UTR_variant_consequence,Mastermind_counts,Mastermind_MMID3,MOTIF_NAME,MOTIF_POS,HIGH_INF_POS,MOTIF_SCORE_CHANGE \
+            --fields Allele,Consequence,Codons,Amino_acids,Gene,SYMBOL,MANE_SELECT,Feature,EXON,INTRON,HGVSc,HGVSp,MAX_AF,MAX_AF_POPS,Protein_position,BIOTYPE,CANONICAL,DOMAINS,Existing_variation,CLIN_SIG,PICK,PUBMED,Phenotypes,SIFT,PolyPhen,CADD_RAW,CADD_PHRED,GeneSplicer,SpliceRegion,MaxEntScan_alt,MaxEntScan_diff,MaxEntScan_ref,existing_InFrame_oORFs,existing_OutOfFrame_oORFs,existing_uORFs,five_prime_UTR_variant_annotation,five_prime_UTR_variant_consequence,Mastermind_counts,Mastermind_MMID3,MOTIF_NAME,MOTIF_POS,HIGH_INF_POS,MOTIF_SCORE_CHANGE,am_class,am_pathogenicity \
 			--vcf --compress_output bgzip --force_overwrite
 		# tabix
 		tabix -f -p vcf {output.vcf}
