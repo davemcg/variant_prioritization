@@ -167,7 +167,7 @@ ps_df <-  left_join(ps_df_crossmap, squirls_pangolin_annotation, by=c('CHROM', '
                                           pangolin_max > 0.2 ~ 3,
                                           TRUE ~ 0)) %>% 
   mutate(splice_score = pmin(8, (spliceai_rank + temp_genesplicer + temp_maxentscan_diff + temp_dpsi_score + temp_dbscSNV_score + temp_squirl_score + 
-                                   temp_pangolin_score + ifelse(pmaxaf < 0.02 & !is.na(branchpoint_prob), 2, 0))) ) %>% 
+                                   temp_pangolin_score + ifelse(pmaxaf < 0.02 & !is.na(branchpoint_prob), 2, 0) + ifelse(pmaxaf < 0.02 & !is.na(labranchor_score), 2, 0) )) ) %>% 
   mutate(priority_score = PrScore_intervar + ifelse(pmaxaf < 0.03, clinvar_hgmd_score, 0) +  
            ifelse(PVS1 == 1 | pmaxaf >= 0.005 | PrScore_intervar > 6 | splice_score > 2, 0, truncating_vep*3) +
            pmin(8, ifelse(PVS1 == 1 | pmaxaf >= 0.03, 0, splice_score) + ifelse(pmaxaf >= 0.02, 0, pmin(6, insilico_score)) )) %>% 
