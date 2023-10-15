@@ -6,11 +6,13 @@
 # to run snakemake as batch job
 # run in the data folder for this project
 # $1 - configfile
-# $2 - --notemp --dryrun --unlock  --rerun-triggers mtime (rerun-triggers mtime options will not rerun previously successful jobs)
+# $2 - --notemp --dryrun --unlock
 # $3 non-default json file # currently not used
 
-module load snakemake/5.24.1 || exit 1
-#previous version 5.7.4/5.24.1, intervar/2.1.3 does not work with snakemake/6.0.5 version.
+module load snakemake/7.7.0 || exit 1
+#7.19.1 works with InterVar, but does not work with crossmap/0.6.5
+#7.7.0 does not have --rerun-triggers mtime option.
+#previous version 5.24.1, intervar/2.1.3 does not work with snakemake/6.0.5 version.
 
 echo "variant_prioritization.git: '$(cat /data/OGL/resources/variant_prioritization.git.log | head -n 1)'" >> $1
 echo "variant_prioritization.git.date: '$(cat /data/OGL/resources/variant_prioritization.git.log | head -n 3 | tail -n 1 | sed s/"^Date:   "//)'" >> $1
