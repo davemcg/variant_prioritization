@@ -34,7 +34,7 @@ vt_version: 'vt/0.57721'
 VCF-kit_version: 'VCF-kit/0.2.9' #no longer used
 annovar_version: 'annovar/2020-06-08' #previous ver 2019-10-24
 InterVar_version: 'InterVar2.2.1' # OGL/resources/git hardcoded in Snakemake
-hgmd_version: '2023.2'
+hgmd_version: '2023.3'
 annovar_clinvar_version: 'clinvar_20220320' #clinv is downloaded every run
 pangolin-splice_version: 'pangolin-splice/1.0.1'
 OGLexome_version: '/data/OGL/resources/OGLsample/OGL.exome.gl.fb.v2.2022-09.vcf.gz'

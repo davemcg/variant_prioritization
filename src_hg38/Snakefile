@@ -39,7 +39,7 @@ if '/home/$USER' in REGIONS_file:
 	REGIONS_file = os.environ['HOME'] + REGIONS_file.split('$USER')[-1]
 REGIONS = open(REGIONS_file).readlines()
 REGIONS = [r.strip() for r in REGIONS]
-
+twentyFourChr="chr1,chr2,chr3,chr4,chr5,chr6,chr7,chr8,chr9,chr10,chr11,chr12,chr13,chr14,chr15,chr16,chr17,chr18,chr19,chr20,chr21,chr22,chrX,chrY"
 
 def list_duplicates(seq):
   seen = set()
@@ -185,11 +185,17 @@ rule n_split_vcf:
 		"""
 		export REF_CACHE=/lscratch/$SLURM_JOB_ID/
 		if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
-		if [[ {wildcards.region} != "MT_contigs" ]]; then
-			bcftools view --threads 8 -Oz -r {wildcards.region} {input.vcf} -o {output.vcf}
-		else
-			bcftools view --threads 8 -Oz -r {MT_CONTIGS} {input.vcf} -o {output.vcf}
-		fi
+		case "{wildcards.region}" in
+			"24chr")
+				bcftools view --threads 8 -Oz -r {twentyFourChr} {input.vcf} -o {output.vcf}
+				;;
+			"MT_contigs")
+				bcftools view --threads 8 -Oz -r {MT_CONTIGS} {input.vcf} -o {output.vcf}
+				;;
+			*)
+				bcftools view --threads 8 -Oz -r {wildcards.region} {input.vcf} -o {output.vcf}
+				;;
+		esac
 		tabix -p vcf {output.vcf}
 		"""
 

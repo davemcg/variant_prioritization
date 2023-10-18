@@ -30,9 +30,9 @@
 	{
 		"partition" : "gpu",
 		"extra" : "--constraint='[gpuv100|gpup100|gpuv100x|gpua100]' --gres=gpu:1,lscratch:100 ",
-		"mem" : "16g",
+		"mem" : "8g",
 		"time" : "8:00:00",
-		"threads" : "14"
+		"threads" : "8"
 	},
 	"pangolin":
 	{

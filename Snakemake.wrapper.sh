@@ -6,11 +6,11 @@
 # to run snakemake as batch job
 # run in the data folder for this project
 # $1 - configfile
-# $2 - --notemp --dryrun --unlock
+# $2 - --notemp --dryrun --unlock --rerun-triggers mtime
 # $3 non-default json file # currently not used
 
-module load snakemake/7.7.0 || exit 1
-#7.19.1 works with InterVar, but does not work with crossmap/0.6.5
+module load snakemake/7.19.1 || exit 1
+#7.19.1 works with InterVar, but does not work with crossmap/0.6.5 if region has ","
 #7.7.0 does not have --rerun-triggers mtime option.
 #previous version 5.24.1, intervar/2.1.3 does not work with snakemake/6.0.5 version.
 
@@ -47,7 +47,7 @@ snakemake -s $snakefile \
 -pr --local-cores 2 --jobs 1999 \
 --cluster-config $json \
 --cluster "$sbcmd"  --latency-wait 120 --rerun-incomplete \
--k --restart-times 0 --resources res=1 \
+-k --restart-times 1 --resources res=1 \
 --configfile $@
 
 # --notemp Ignore temp() declaration;
