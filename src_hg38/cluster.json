@@ -6,7 +6,7 @@
 		"mem" : "8g",
 		"output"  : "00log/{rule}_{wildcards}.out",
 		"error" : "00log/{rule}_{wildcards}.err",
-		"extra" : "--gres=lscratch:50"
+		"extra" : "--gres=lscratch:100"
 	},
 	"query_gemini_individual" :
 	{

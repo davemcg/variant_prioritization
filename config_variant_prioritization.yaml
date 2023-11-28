@@ -9,7 +9,7 @@ ped: 'example.ped' # has to be \t delimited. Keep as is and cp the example.ped f
 regions: '/home/$USER/git/variant_prioritization/src_hg38/vcf_region_split_chr_coords.txt' # hg19 version delete _hg38
 #regions, 1 for panel (only 1,2,..,22,X); "chr" for exome if needed;
 #regions, 25 or 100 for WGS of 50 cases. Use chr, 24, 99, 499 for genome.
-datatype: 'exome' #panel, exome, wgs, blank
+datatype: 'exome' #panel, wes, exome, wgs, genome, blank
 configuration_file: 'config_variant_prioritization.yaml'
 genomeBuild: 'GRCh38' # GRCh37 or GRCh38, case sensitive
 spliceai: 'spliceai' # choose from 'spliceai', 'vcfanno', or 'wrapper'; choose vcfanno if variants already added to the spliceai depot file.

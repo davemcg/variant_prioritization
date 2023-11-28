@@ -31,3 +31,4 @@ chr19:29308809-58617616
 chr20
 chr21-22
 chrXY
+MT_contigs

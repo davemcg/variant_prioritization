@@ -40,6 +40,8 @@ if '/home/$USER' in REGIONS_file:
 REGIONS = open(REGIONS_file).readlines()
 REGIONS = [r.strip() for r in REGIONS]
 twentyFourChr="chr1,chr2,chr3,chr4,chr5,chr6,chr7,chr8,chr9,chr10,chr11,chr12,chr13,chr14,chr15,chr16,chr17,chr18,chr19,chr20,chr21,chr22,chrX,chrY"
+chr21_22="chr21,chr22"
+chrXY="chrX,chrY"
 
 def list_duplicates(seq):
   seen = set()
@@ -188,6 +190,12 @@ rule n_split_vcf:
 		case "{wildcards.region}" in
 			"24chr")
 				bcftools view --threads 8 -Oz -r {twentyFourChr} {input.vcf} -o {output.vcf}
+				;;
+			"chr21-22")
+				bcftools view --threads 8 -Oz -r {chr21_22} {input.vcf} -o {output.vcf}
+				;;
+			"chrXY")
+				bcftools view --threads 8 -Oz -r {chrXY} {input.vcf} -o {output.vcf}
 				;;
 			"MT_contigs")
 				bcftools view --threads 8 -Oz -r {MT_CONTIGS} {input.vcf} -o {output.vcf}
@@ -383,14 +391,13 @@ rule crossmap:
 		WORK_DIR=/lscratch/$SLURM_JOB_ID
 		if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
 		if [[ $(module list 2>&1 | grep "crossmap" | wc -l) < 1 ]]; then module load {config[crossmap_version]}; fi
-		module load
 		hg19refM=/data/OGL/resources/1000G_phase2_GRCh37/human_g1k_v37_decoyM.fasta
 		hg19ref=/data/OGL/resources/1000G_phase2_GRCh37/human_g1k_v37_decoy.fasta
 		crossmap vcf /data/OGL/resources/ucsc/hg38ToHg19.over.chain.gz \
 			{input.vcf} \
 			$hg19refM \
 			$WORK_DIR/$(basename {output.tsv}).vcf
-		sed -e 's/^chrM/MT/' -e 's/<ID=chrM/<ID=MT/' $WORK_DIR/$(basename {output.tsv}).vcf \
+		sed -e 's/^chrM/MT/' -e 's/<ID=M,/<ID=MT,/' $WORK_DIR/$(basename {output.tsv}).vcf \
 				| sed -e 's/^chr//' -e 's/<ID=chr/<ID=/' - \
 			 	| bcftools norm --check-ref s --fasta-ref $hg19ref --output-type u - \
 				| bcftools sort -m 60G -T $WORK_DIR/ -Ou - \
@@ -482,7 +489,7 @@ else:
 			module load {config[pangolin-splice_version]} {config[samtools_version]}
 			zcat {input.pangolin_input} > {input.pangolin_input}.vcf
 			pangolin {input.pangolin_input}.vcf \
-				/data/OGL/resources/genomes/NCBI/GRCh38Decoy/genome.fa \
+				/data/OGL/resources/genomes/NCBI/GRCh38Decoy/genome.AGTCNonly.fa \
 				/data/OGL/resources/pangolin/gencode.v38.annotation.db \
 				{output.new_anno_pangolin}
 			bgzip --threads $(({threads}-2)) -c {output.new_anno_pangolin}.vcf > {output.new_anno_pangolin}
@@ -760,7 +767,6 @@ rule VEP_annotate:
 			--plugin MaxEntScan,/data/OGL/resources/variant_annotation/data/MaxEntScan \
 			$CADD_PLUGIN \
 			--plugin UTRannotator,$VEPCACHEDIR/uORF_5UTR_{config[genomeBuild]}_PUBLIC.txt \
-			--plugin Mastermind,{config[mastermind_vcf]} \
 			--plugin AlphaMissense,file=$VEPCACHEDIR/AlphaMissense_hg38.tsv.gz \
 			--sift b --polyphen b \
 			--regulatory \
@@ -779,11 +785,13 @@ rule VEP_annotate:
 			--gene_phenotype \
 			--max_af \
 			{params.pick} \
-            --fields Allele,Consequence,Codons,Amino_acids,Gene,SYMBOL,MANE_SELECT,Feature,EXON,INTRON,HGVSc,HGVSp,MAX_AF,MAX_AF_POPS,Protein_position,BIOTYPE,CANONICAL,DOMAINS,Existing_variation,CLIN_SIG,PICK,PUBMED,Phenotypes,SIFT,PolyPhen,CADD_RAW,CADD_PHRED,GeneSplicer,SpliceRegion,MaxEntScan_alt,MaxEntScan_diff,MaxEntScan_ref,existing_InFrame_oORFs,existing_OutOfFrame_oORFs,existing_uORFs,five_prime_UTR_variant_annotation,five_prime_UTR_variant_consequence,Mastermind_counts,Mastermind_MMID3,MOTIF_NAME,MOTIF_POS,HIGH_INF_POS,MOTIF_SCORE_CHANGE,am_class,am_pathogenicity \
+            --fields Allele,Consequence,Codons,Amino_acids,Gene,SYMBOL,MANE_SELECT,Feature,EXON,INTRON,HGVSc,HGVSp,MAX_AF,MAX_AF_POPS,Protein_position,BIOTYPE,CANONICAL,DOMAINS,Existing_variation,CLIN_SIG,PICK,PUBMED,Phenotypes,SIFT,PolyPhen,CADD_RAW,CADD_PHRED,GeneSplicer,SpliceRegion,MaxEntScan_alt,MaxEntScan_diff,MaxEntScan_ref,existing_InFrame_oORFs,existing_OutOfFrame_oORFs,existing_uORFs,five_prime_UTR_variant_annotation,five_prime_UTR_variant_consequence,MOTIF_NAME,MOTIF_POS,HIGH_INF_POS,MOTIF_SCORE_CHANGE,am_class,am_pathogenicity \
 			--vcf --compress_output bgzip --force_overwrite
 		# tabix
 		tabix -f -p vcf {output.vcf}
 		"""
+#			--plugin Mastermind,{config[mastermind_vcf]} \
+#Mastermind_counts,Mastermind_MMID3,
 #after updating the --fields, edit priority_score.R
 #--mane --> --mane_slect; --fields: MANE_SELECT, MANE_PLUS_CLINICAL --> MANE_SELECT
 #--ccds \ removed 6/10/22, --fields: CCDS (not included)
