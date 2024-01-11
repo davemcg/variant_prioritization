@@ -173,10 +173,18 @@ if config['datatype'].upper() in ["PANEL", "EXOME", "WES"]:
 	localrules: bcftools_norm
 	localrules: spliceai_intervar_edit
 	localrules: priority_scores
+	localrules: VEP_annotate
+	localrules: annovar_intervar
+	localrules: crossmap
+	localrules: pangolin_depot
+	localrules: spliceai_depot
+	localrules: spliceai_edit
+	localrules: vcfanno_annotate
 else:
 	localrules: n_split_vcf
 	localrules: priority_scores
 
+#localrules: VEP_annotate panel above.
 rule n_split_vcf:
 	input:
 		vcf = config['input_vcf']
@@ -937,6 +945,7 @@ rule merge_spliceai_vcf:
 	threads: 16
 	shell:
 		"""
+		set -e
 		export REF_CACHE=/lscratch/$SLURM_JOB_ID/
 		if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
 		bcftools concat --threads {threads} -a --rm-dups none {input.vcf} -Oz -o /lscratch/$SLURM_JOB_ID/new.spliceai.vcf.gz
@@ -944,10 +953,14 @@ rule merge_spliceai_vcf:
 		TIMESTAMP=$(date "+%Y%m%d-%H%M%S")
 		cp /lscratch/$SLURM_JOB_ID/new.spliceai.vcf.gz /data/OGL/resources/spliceai/temp/$TIMESTAMP.spliceai500.newAnnotation.GRCh38.vcf.gz
 		cp /lscratch/$SLURM_JOB_ID/new.spliceai.vcf.gz.tbi /data/OGL/resources/spliceai/temp/$TIMESTAMP.spliceai500.newAnnotation.GRCh38.vcf.gz.tbi
-		( bcftools concat --threads {threads} -a --rm-dups none --no-version \
+		cp /data/OGL/resources/spliceai/spliceai500.depot.GRCh38.vcf.gz /data/OGL/resources/spliceai/backup/$TIMESTAMP.spliceai500.depot.GRCh38.vcf.gz
+		cp /data/OGL/resources/spliceai/spliceai500.depot.GRCh38.vcf.gz.tbi /data/OGL/resources/spliceai/backup/$TIMESTAMP.spliceai500.depot.GRCh38.vcf.gz.tbi
+		chgrp OGL /data/OGL/resources/spliceai/temp/$TIMESTAMP.spliceai500.newAnnotation.GRCh38.vcf.gz*
+		chgrp OGL /data/OGL/resources/spliceai/backup/$TIMESTAMP.spliceai500.depot.GRCh38.vcf.gz*
+		bcftools concat --threads {threads} -a --rm-dups none --no-version \
 			/data/OGL/resources/spliceai/spliceai500.depot.GRCh38.vcf.gz /lscratch/$SLURM_JOB_ID/new.spliceai.vcf.gz \
-			-Oz -o /lscratch/$SLURM_JOB_ID/spliceai500.depot.GRCh38.vcf.gz ) || exit 1
-		tabix -f -p vcf /lscratch/$SLURM_JOB_ID/spliceai500.depot.GRCh38.vcf.gz || exit 1
+			-Oz -o /lscratch/$SLURM_JOB_ID/spliceai500.depot.GRCh38.vcf.gz
+		tabix -f -p vcf /lscratch/$SLURM_JOB_ID/spliceai500.depot.GRCh38.vcf.gz
 		cp /lscratch/$SLURM_JOB_ID/spliceai500.depot.GRCh38.vcf.gz* /data/OGL/resources/spliceai
 		touch {output}
 		"""
