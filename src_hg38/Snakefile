@@ -182,7 +182,7 @@ if config['datatype'].upper() in ["PANEL", "EXOME", "WES"]:
 	# localrules: vcfanno_annotate
 else:
 	localrules: n_split_vcf
-	localrules: priority_scores
+	# localrules: priority_scores
 
 #localrules: VEP_annotate panel above.
 rule n_split_vcf:

@@ -203,7 +203,8 @@ ps_df <-  left_join(ps_df_crossmap, squirls_pangolin_annotation, by=c('CHROM', '
                                     priority_score < 4.5 & pmaxaf < 0.001 & grepl("^MIR", Ref_Gene, ignore.case = TRUE) ~ 4,
                                     TRUE ~ priority_score)) %>% 
   select(CHROM, POS, REF, ALT, priority_score, clinvar_hgmd_score, splice_score, insilico_score, pmaxaf, truncating_vep, squirls_interpretation, squirls_maxscore, squirls_score, pangolin, grch37variant_id,
-         'pLI','pNull','pRec','LOEUF','syn_z','mis_z','oe_lof_upper_bin','sum_lof_af_gnomad','max_lof_af_gnomad','proportion_pLoF_haplotypes')
+         'pLI','pNull','pRec','LOEUF','syn_z','mis_z','oe_lof_upper_bin','sum_lof_af_gnomad','max_lof_af_gnomad','proportion_pLoF_haplotypes') %>% 
+  arrange(CHROM, POS)
 
 #pmaxaf cutoff increased to 0.005 from 0.0005; 4/14/2020
 #http://web.corral.tacc.utexas.edu/WGSAdownload/resources/dbNSFP/dbNSFP4.0b2c.readme.txt
