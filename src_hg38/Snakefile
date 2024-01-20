@@ -173,13 +173,13 @@ if config['datatype'].upper() in ["PANEL", "EXOME", "WES"]:
 	localrules: bcftools_norm
 	localrules: spliceai_intervar_edit
 	localrules: priority_scores
-	localrules: VEP_annotate
-	localrules: annovar_intervar
-	localrules: crossmap
-	localrules: pangolin_depot
-	localrules: spliceai_depot
-	localrules: spliceai_edit
-	localrules: vcfanno_annotate
+	# localrules: VEP_annotate
+	# localrules: annovar_intervar
+	# localrules: crossmap
+	# localrules: pangolin_depot
+	# localrules: spliceai_depot
+	# localrules: spliceai_edit
+	# localrules: vcfanno_annotate
 else:
 	localrules: n_split_vcf
 	localrules: priority_scores

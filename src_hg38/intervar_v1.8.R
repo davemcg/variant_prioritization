@@ -12,9 +12,14 @@
 ## implemented after gemini: if PVS = 0 & |dpsi_max_tissue+dpsi_zscore| > 5, score=+3; > 2.5, score=+1 make a histogram of dpsi of WGS set and determine the cut-off
 ## implemented after gemini: if PVS = 0 & spliceai_rank >0.8, score=+8; >0.5, score=+6; >0.2, score=+3; >0.15, score=+1; make a histogram of splicai score and determine the cut-off
 ## Intervar - select one gene for each variant
+## If InterVar Likely path, then at least 9 pts; if InterVar Path, then at least 12 pts.
 
 args <- commandArgs(trailingOnly=TRUE)
-#args <- c("temp/Prasov22-1__chr1,chr2,chr3,chr4,chr5,chr6,chr7,chr8,chr9,chr10,chr11,chr12,chr13,chr14,chr15,chr16,chr17,chr18,chr19,chr20,chr21,chr22,chrX,chrY.avinput.hg38_multianno.txt.intervar", "temp/Prasov22-1__chr1,chr2,chr3,chr4,chr5,chr6,chr7,chr8,chr9,chr10,chr11,chr12,chr13,chr14,chr15,chr16,chr17,chr18,chr19,chr20,chr21,chr22,chrX,chrY.avinput.hg38_multianno.modified.txt", "temp/spliceai.Prasov22-1__chr1,chr2,chr3,chr4,chr5,chr6,chr7,chr8,chr9,chr10,chr11,chr12,chr13,chr14,chr15,chr16,chr17,chr18,chr19,chr20,chr21,chr22,chrX,chrY.tsv.cut", "Z:/resources/HGMD/HGMDtranscript.txt", "temp/20200422.freebayes__1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,X,Y.spliceai_annovar_intervar")
+# args <- c("Z:/genome/USUHS/prioritization/temp/mini__24chr.avinput.hg38_multianno.txt.intervar",
+#           "Z:/genome/USUHS/prioritization/temp/mini__24chr.avinput.hg38_multianno.modified.txt", 
+#           "Z:/genome/USUHS/prioritization/temp/spliceai.mini__24chr.tsv.cut",
+#           "Z:/resources/HGMD/HGMDtranscript.txt", 
+#           "Z:/genome/USUHS/prioritization/temp/mini__24chr.spliceai_annovar_intervar")
 
 library(tidyverse)
 #library(vroom)
