@@ -69,7 +69,7 @@
 	},
 	"priority_scores" :
 	{
-		"mem" : "32g"
+		"mem" : "16g"
 	},
 	"vcfanno2" :
 	{

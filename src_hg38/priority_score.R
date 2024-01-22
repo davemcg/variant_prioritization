@@ -15,10 +15,10 @@ library(tidyverse)
 args <- commandArgs(trailingOnly=TRUE)
 #When testing, use the line below.
 # setwd("Z:/genome/USUHS/prioritization/temp")
-# args <- c("mini__24chr.for.ps.tsv", "squirls.mini__24chr.csv",
-#           "pangolin.mini__24chr.tsv", "crossmap.hg19.mini__24chr.tsv", 
+# args <- c("for.ps.tsv", "squirls.csv",
+#           "pangolin.tsv", "crossmap.hg19.tsv",
 #           "Z:/resources/gnomad/release-2.1.1/gnomad.v2.1.1.lof_metrics.by_gene.txt",
-#           "mini__24chr.ps.tsv")
+#           "usuhs44__chr1:1-124478211.ps.tsv")
 
 psInput_file <- args[1]
 squirls_file <- args[2]
@@ -93,22 +93,25 @@ rm(input_df)
 rm(crossmap)
 
 ##The following line was meant to add 3 to Priority_Score when CSQ fields has truncating and PVS1 == 0 and pmaxaf < 0.01 & Priority_Score_intervar < 6
+##Empty fields showed as "" for character columns after separate(). Possibly use mutate(across(where(is.character), ~na_if(., "")))
 ps_df <-  left_join(ps_df_crossmap, squirls_pangolin_annotation, by=c('CHROM', 'POS', 'REF', 'ALT')) %>%
   mutate(truncating_vep = ifelse(grepl("frameshift_variant|splice_acceptor_variant|splice_donor_variant|start_lost|stop_gained|stop_lost", CSQ, ignore.case = TRUE), 1, 0)) %>% 
   mutate(temp_CSQ = CSQ) %>% 
   separate_rows(temp_CSQ, sep = "\\,") %>%
   separate(temp_CSQ, c('allele','consequence','codons','amino_acids','gene','symbol','MANE_SELECT','feature','exon','intron','hgvsc','hgvsp','max_af','max_af_pops','protein_position','biotype','canonical','domains','existing_variation','clin_sig','pick','pubmed','phenotypes','sift','polyphen','cadd_raw','cadd_phred','genesplicer','spliceregion','MaxEntScan_alt','maxentscan_diff','MaxEntScan_ref','existing_inframe_oorfs','existing_outofframe_oorfs','existing_uorfs','five_prime_utr_variant_annotation','five_prime_utr_variant_consequence','MOTIF_NAME','MOTIF_POS','HIGH_INF_POS','MOTIF_SCORE_CHANGE','am_class','am_pathogenicity'), sep = "\\|", remove = TRUE, convert = TRUE) %>% 
   #gno2x_af_all,gno3_af_all,maxaf_annovar,gno2x_af_popmax,gno3_popmax,gno_gx_ratio,gno2x_an_all,gno3_an_all,gno2x_filter,gno3_filter AND max_af above from VEP.
+  mutate(temp_genesplicer = case_when(grepl("High", genesplicer) ~ 3,
+                                      grepl("Medium", genesplicer) ~ 1,
+                                      TRUE ~ 0)) %>% 
+  mutate(temp_maxentscan_diff =  case_when(abs(maxentscan_diff) > 6 ~ 6,
+                                           abs(maxentscan_diff) > 3 ~ 3,
+                                           TRUE ~ 0)) %>%
+  replace_na(list(max_af=0)) %>%
   mutate(temp_csq_score = ifelse(grepl("deleterious", sift), 0.5, 0) +
            ifelse(grepl("damaging", polyphen), 0.5, 0) +
            ifelse(is.na(cadd_phred), 0, ifelse(cadd_phred > 15, 0.5, 0) ) +
-           case_when(grepl("High", genesplicer) ~ 3,
-                     grepl("Medium", genesplicer) ~ 1,
-                     TRUE ~ 0) +
-           case_when(abs(maxentscan_diff) > 6 ~ 6,
-                     abs(maxentscan_diff) > 3 ~ 3,
-                     TRUE ~ 0) + 
-           ifelse(is.na(five_prime_utr_variant_consequence) | max_af > 0.001, 0, 1) +
+           temp_genesplicer + temp_maxentscan_diff +
+           ifelse(five_prime_utr_variant_consequence == "" | max_af > 0.001, 0, 1) +
            ifelse(am_class == "likely_pathogenic", 0.5, 0) ) %>% 
   group_by(ID) %>% slice(which.max(temp_csq_score)) %>% ungroup() %>% 
   mutate(gno2x_expected_an = case_when(CHROM %in% c("X", "chrX") & gno2x_nonpar == "1" ~ 183653,
@@ -119,7 +122,7 @@ ps_df <-  left_join(ps_df_crossmap, squirls_pangolin_annotation, by=c('CHROM', '
                                        TRUE ~ 152312)) %>%
   mutate(gno2x_filter = ifelse(gno2x_an_all > 0 & is.na(gno2x_filter) & gno2x_an_all < gno2x_expected_an/2, "Less50", gno2x_filter),
          gno3_filter = ifelse(gno3_an_all > 0 & is.na(gno3_filter) & gno3_an_all < gno3_expected_an/2, "Less50", gno3_filter) ) %>% 
-  replace_na(list(gno2x_af_all=0, gno3_af_all=0, gno2x_af_popmax=0, gno3_maxaf = 0, max_af=0, esp6500siv2_all = 0, f1000g2015aug_all = 0)) %>% 
+  replace_na(list(gno2x_af_all=0, gno3_af_all=0, gno2x_af_popmax=0, gno3_maxaf = 0, esp6500siv2_all = 0, f1000g2015aug_all = 0)) %>% 
   mutate(pmaxaf = case_when(is.na(gno2x_filter) & !is.na(gno3_filter) ~ pmax(gno2x_af_all, gno2x_af_popmax, max_af, na.rm = TRUE),
                             !is.na(gno2x_filter) & is.na(gno3_filter) ~ pmax(gno3_af_all, gno3_maxaf, na.rm = TRUE),
                             !is.na(gno2x_filter) & !is.na(gno3_filter) ~ pmax(esp6500siv2_all,f1000g2015aug_all, na.rm = TRUE),
@@ -162,12 +165,6 @@ ps_df <-  left_join(ps_df_crossmap, squirls_pangolin_annotation, by=c('CHROM', '
            ifelse(is.na(gnomad_nc_constraint), 0, ifelse(gnomad_nc_constraint > 4 & pmaxaf < 0.01, 0.5, 0)) +
            ifelse(am_class == "likely_pathogenic", 0.5, 0)) %>% 
   replace_na(list(clinvar_hgmd_score=0, insilico_score=0)) %>% 
-  mutate(temp_genesplicer = case_when(grepl("High", genesplicer) ~ 3,
-                                      grepl("Medium", genesplicer) ~ 1,
-                                      TRUE ~ 0)) %>% 
-  mutate(temp_maxentscan_diff =  case_when(abs(maxentscan_diff) > 6 ~ 6,
-                                           abs(maxentscan_diff) > 3 ~ 3,
-                                           TRUE ~ 0)) %>%
   mutate(temp_dpsi_max_tissue = dpsi_max_tissue) %>% 
   mutate(temp_dpsi_zscore = dpsi_zscore) %>%
   mutate(temp_dbscsnv_ada_score = dbscSNV_ADA_SCORE) %>% 
@@ -191,7 +188,7 @@ ps_df <-  left_join(ps_df_crossmap, squirls_pangolin_annotation, by=c('CHROM', '
   mutate(other_modification = ifelse(grepl("protein_altering_variant|inframe", CSQ, ignore.case = TRUE) & pmaxaf < 0.01 & PrScore_intervar < 5 & insilico_score < 3, 3, 0) +
            ifelse(grepl("missense_variant", CSQ, ignore.case = TRUE) & mis_z >= 3.09 & SigmaAF_Missense_0001 < 0.005 & pmaxaf < 0.005 & insilico_score < 4, 2, 0) +
            ifelse(grepl("upstream|downstream|UTR", Func_refGeneWithVer) & pmaxaf < 0.005, 0.5, 0) +
-           ifelse(is.na(five_prime_utr_variant_consequence) | pmaxaf > 0.001, 0, 1) +
+           ifelse(five_prime_utr_variant_consequence == "" | pmaxaf > 0.001, 0, 1) +
            ifelse(is.na(regsnp_disease) | regsnp_disease == "B" | pmaxaf > 0.001, 0, ifelse(regsnp_disease == "D", 1, 0.5)) +
            ifelse(grepl("0,255,0|255,0,0", atac_rpe_itemRgb) & pmaxaf < 0.001 & priority_score < 5, 1, 0) + 
            ifelse(is.na(ft_ret_rpe_score), 0, ifelse(pmaxaf < 0.001 & priority_score < 5, 0.5, 0)) +

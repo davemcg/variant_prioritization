@@ -164,22 +164,29 @@ rule madeline:
 		touch {output}
 		"""
 
-if config['datatype'].upper() in ["PANEL", "EXOME", "WES"]:
+if config['datatype'].upper() in ["PANEL"]:
 	localrules: squirls
 	localrules: n_split_vcf
 	localrules: vcfanno2
-	localrules: merge_sample_vcf
 	localrules: sortGemini
 	localrules: bcftools_norm
 	localrules: spliceai_intervar_edit
 	localrules: priority_scores
-	# localrules: VEP_annotate
-	# localrules: annovar_intervar
-	# localrules: crossmap
-	# localrules: pangolin_depot
-	# localrules: spliceai_depot
-	# localrules: spliceai_edit
-	# localrules: vcfanno_annotate
+	localrules: VEP_annotate
+	localrules: annovar_intervar
+	localrules: crossmap
+	localrules: pangolin_depot
+	localrules: spliceai_depot
+	localrules: spliceai_edit
+	localrules: vcfanno_annotate
+elif config['datatype'].upper() in ["EXOME", "WES"]:
+	localrules: squirls
+	localrules: n_split_vcf
+	localrules: vcfanno2
+	localrules: sortGemini
+	localrules: bcftools_norm
+	localrules: spliceai_intervar_edit
+	localrules: priority_scores
 else:
 	localrules: n_split_vcf
 	# localrules: priority_scores
@@ -843,31 +850,57 @@ rule vcfanno_annotate:
 		tabix -f -p vcf {output.vcf}
 		"""
 #-lua {config[vcfanno_lua]}
+#single job running "resources: res=1". Cannot have if condition inside the rule.
+if config['datatype'].upper() in ["PANEL", "EXOME", "WES"]:
+	rule priority_scores:
+		input:
+			vcf = 'temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.vcf.gz',
+			index = 'temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.vcf.gz.tbi',
+			csv = 'temp/squirls.{sample}__{region}.csv',
+			pangolin = 'temp/pangolin.{sample}__{region}.tsv',
+			hg19 = 'temp/crossmap.hg19.{sample}__{region}.tsv'
+		output:
+			tsv = temp('temp/{sample}__{region}.for.ps.tsv'),
+			ps_tsv = temp('temp/{sample}__{region}.ps.tsv'),
+			bgzip = temp('temp/{sample}__{region}.ps.tsv.gz'),
+			index = temp('temp/{sample}__{region}.ps.tsv.gz.tbi')
+		resources: res=1
+		shell:
+			"""
+			if [[ $(module list 2>&1 | grep "R/" | wc -l) < 1 ]]; then module load {config[R_version]}; fi
+			if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
+			bcftools query -H -f '%CHROM\t%POS\t%ID\t%REF\t%ALT\t%INFO/CSQ\t%INFO/Ref_Gene\t%INFO/Func_refGeneWithVer\t%INFO/ExonicFunc_refGeneWithVer\t%INFO/gno2x_af_all\t%INFO/gno2g_af_all\t%INFO/gno2x_af_popmax\t%INFO/gno2g_af_popmax\t%INFO/gno2_xg_ratio\t%INFO/gno2x_an_all\t%INFO/gno2g_an_all\t%INFO/gno2x_nonpar\t%INFO/gno2g_nonpar\t%INFO/gno2x_filter\t%INFO/gno2g_filter\t%INFO/gno3_af_all\t%INFO/gno3_an_all\t%INFO/gno3_nonpar\t%INFO/gno3_filter\t%INFO/gno3_maxaf\t%INFO/esp6500siv2_all\t%INFO/f1000g2015aug_all\t%INFO/CLNSIG\t%INFO/HGMD_Overlap4aa\t%INFO/hgmd_class\t%INFO/ClinPred_score\t%INFO/MetaSVM_pred\t%INFO/REVEL_score\t%INFO/MPC_score\t%INFO/MutationAssessor_pred\t%INFO/MutationTaster_pred\t%INFO/PROVEAN_pred\t%INFO/Eigen_PC_raw_coding\t%INFO/phyloP100way_vertebrate\t%INFO/GERPplus_RS\t%INFO/dpsi_max_tissue\t%INFO/dpsi_zscore\t%INFO/dbscSNV_ADA_SCORE\t%INFO/dbscSNV_RF_SCORE\t%INFO/spliceai_rank\t%INFO/branchpoint_prob\t%INFO/labranchor_score\t%INFO/PrScore_intervar\t%INFO/PVS1\t%INFO/SigmaAF_Missense_0001\t%INFO/PrimateAI_score\t%INFO/ccr_pct\t%INFO/remm\t%INFO/fathmm_XF_coding_score\t%INFO/fathmm_xf_noncoding\t%INFO/mutscore\t%INFO/atac_rpe_itemRgb\t%INFO/ft_ret_rpe_score\t%INFO/cherry_sum_score\t%INFO/eyeIntegration_gene\t%INFO/omim_Gene\t%INFO/regsnp_disease\t%INFO/hmc_score\t%INFO/gnomad_nc_constraint\n' {input.vcf} \
+				| sed -e '1 s/^#//' -e '1 s/\[[0-9]*\]//g' > {output.tsv}
+			Rscript /home/$USER/git/variant_prioritization/src_hg38/priority_score.R {output.tsv} {input.csv} {input.pangolin} {input.hg19} \
+				/data/OGL/resources/gnomad/release-2.1.1/gnomad.v2.1.1.lof_metrics.by_gene.txt {output.ps_tsv}
+			bgzip -c {output.ps_tsv} > {output.bgzip}
+			tabix -b 2 -e 2 -S 1 {output.bgzip}
+			"""
+else:
+	rule priority_scores:
+		input:
+			vcf = 'temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.vcf.gz',
+			index = 'temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.vcf.gz.tbi',
+			csv = 'temp/squirls.{sample}__{region}.csv',
+			pangolin = 'temp/pangolin.{sample}__{region}.tsv',
+			hg19 = 'temp/crossmap.hg19.{sample}__{region}.tsv'
+		output:
+			tsv = temp('temp/{sample}__{region}.for.ps.tsv'),
+			ps_tsv = temp('temp/{sample}__{region}.ps.tsv'),
+			bgzip = temp('temp/{sample}__{region}.ps.tsv.gz'),
+			index = temp('temp/{sample}__{region}.ps.tsv.gz.tbi')
+		shell:
+			"""
+			if [[ $(module list 2>&1 | grep "R/" | wc -l) < 1 ]]; then module load {config[R_version]}; fi
+			if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
+			bcftools query -H -f '%CHROM\t%POS\t%ID\t%REF\t%ALT\t%INFO/CSQ\t%INFO/Ref_Gene\t%INFO/Func_refGeneWithVer\t%INFO/ExonicFunc_refGeneWithVer\t%INFO/gno2x_af_all\t%INFO/gno2g_af_all\t%INFO/gno2x_af_popmax\t%INFO/gno2g_af_popmax\t%INFO/gno2_xg_ratio\t%INFO/gno2x_an_all\t%INFO/gno2g_an_all\t%INFO/gno2x_nonpar\t%INFO/gno2g_nonpar\t%INFO/gno2x_filter\t%INFO/gno2g_filter\t%INFO/gno3_af_all\t%INFO/gno3_an_all\t%INFO/gno3_nonpar\t%INFO/gno3_filter\t%INFO/gno3_maxaf\t%INFO/esp6500siv2_all\t%INFO/f1000g2015aug_all\t%INFO/CLNSIG\t%INFO/HGMD_Overlap4aa\t%INFO/hgmd_class\t%INFO/ClinPred_score\t%INFO/MetaSVM_pred\t%INFO/REVEL_score\t%INFO/MPC_score\t%INFO/MutationAssessor_pred\t%INFO/MutationTaster_pred\t%INFO/PROVEAN_pred\t%INFO/Eigen_PC_raw_coding\t%INFO/phyloP100way_vertebrate\t%INFO/GERPplus_RS\t%INFO/dpsi_max_tissue\t%INFO/dpsi_zscore\t%INFO/dbscSNV_ADA_SCORE\t%INFO/dbscSNV_RF_SCORE\t%INFO/spliceai_rank\t%INFO/branchpoint_prob\t%INFO/labranchor_score\t%INFO/PrScore_intervar\t%INFO/PVS1\t%INFO/SigmaAF_Missense_0001\t%INFO/PrimateAI_score\t%INFO/ccr_pct\t%INFO/remm\t%INFO/fathmm_XF_coding_score\t%INFO/fathmm_xf_noncoding\t%INFO/mutscore\t%INFO/atac_rpe_itemRgb\t%INFO/ft_ret_rpe_score\t%INFO/cherry_sum_score\t%INFO/eyeIntegration_gene\t%INFO/omim_Gene\t%INFO/regsnp_disease\t%INFO/hmc_score\t%INFO/gnomad_nc_constraint\n' {input.vcf} \
+				| sed -e '1 s/^#//' -e '1 s/\[[0-9]*\]//g' > {output.tsv}
+			Rscript /home/$USER/git/variant_prioritization/src_hg38/priority_score.R {output.tsv} {input.csv} {input.pangolin} {input.hg19} \
+				/data/OGL/resources/gnomad/release-2.1.1/gnomad.v2.1.1.lof_metrics.by_gene.txt {output.ps_tsv}
+			bgzip -c {output.ps_tsv} > {output.bgzip}
+			tabix -b 2 -e 2 -S 1 {output.bgzip}
+			"""
 
-rule priority_scores:
-	input:
-		vcf = 'temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.vcf.gz',
-		index = 'temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.vcf.gz.tbi',
-		csv = 'temp/squirls.{sample}__{region}.csv',
-		pangolin = 'temp/pangolin.{sample}__{region}.tsv',
-		hg19 = 'temp/crossmap.hg19.{sample}__{region}.tsv'
-	output:
-		tsv = temp('temp/{sample}__{region}.for.ps.tsv'),
-		ps_tsv = temp('temp/{sample}__{region}.ps.tsv'),
-		bgzip = temp('temp/{sample}__{region}.ps.tsv.gz'),
-		index = temp('temp/{sample}__{region}.ps.tsv.gz.tbi')
-	resources: res=1
-	shell:
-		"""
-		if [[ $(module list 2>&1 | grep "R/" | wc -l) < 1 ]]; then module load {config[R_version]}; fi
-		if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
-		bcftools query -H -f '%CHROM\t%POS\t%ID\t%REF\t%ALT\t%INFO/CSQ\t%INFO/Ref_Gene\t%INFO/Func_refGeneWithVer\t%INFO/ExonicFunc_refGeneWithVer\t%INFO/gno2x_af_all\t%INFO/gno2g_af_all\t%INFO/gno2x_af_popmax\t%INFO/gno2g_af_popmax\t%INFO/gno2_xg_ratio\t%INFO/gno2x_an_all\t%INFO/gno2g_an_all\t%INFO/gno2x_nonpar\t%INFO/gno2g_nonpar\t%INFO/gno2x_filter\t%INFO/gno2g_filter\t%INFO/gno3_af_all\t%INFO/gno3_an_all\t%INFO/gno3_nonpar\t%INFO/gno3_filter\t%INFO/gno3_maxaf\t%INFO/esp6500siv2_all\t%INFO/f1000g2015aug_all\t%INFO/CLNSIG\t%INFO/HGMD_Overlap4aa\t%INFO/hgmd_class\t%INFO/ClinPred_score\t%INFO/MetaSVM_pred\t%INFO/REVEL_score\t%INFO/MPC_score\t%INFO/MutationAssessor_pred\t%INFO/MutationTaster_pred\t%INFO/PROVEAN_pred\t%INFO/Eigen_PC_raw_coding\t%INFO/phyloP100way_vertebrate\t%INFO/GERPplus_RS\t%INFO/dpsi_max_tissue\t%INFO/dpsi_zscore\t%INFO/dbscSNV_ADA_SCORE\t%INFO/dbscSNV_RF_SCORE\t%INFO/spliceai_rank\t%INFO/branchpoint_prob\t%INFO/labranchor_score\t%INFO/PrScore_intervar\t%INFO/PVS1\t%INFO/SigmaAF_Missense_0001\t%INFO/PrimateAI_score\t%INFO/ccr_pct\t%INFO/remm\t%INFO/fathmm_XF_coding_score\t%INFO/fathmm_xf_noncoding\t%INFO/mutscore\t%INFO/atac_rpe_itemRgb\t%INFO/ft_ret_rpe_score\t%INFO/cherry_sum_score\t%INFO/eyeIntegration_gene\t%INFO/omim_Gene\t%INFO/regsnp_disease\t%INFO/hmc_score\t%INFO/gnomad_nc_constraint\n' {input.vcf} \
-			| sed -e '1 s/^#//' -e '1 s/\[[0-9]*\]//g' > {output.tsv}
-		Rscript /home/$USER/git/variant_prioritization/src_hg38/priority_score.R {output.tsv} {input.csv} {input.pangolin} {input.hg19} \
-			/data/OGL/resources/gnomad/release-2.1.1/gnomad.v2.1.1.lof_metrics.by_gene.txt {output.ps_tsv}
-		bgzip -c {output.ps_tsv} > {output.bgzip}
-		tabix -b 2 -e 2 -S 1 {output.bgzip}
-		"""
 #removed \t%INFO/gene_gnomad and \t%INFO/mis_z 9/8/23
 #if [[ $(module list 2>&1 | grep "vt/" | wc -l) < 1 ]]; then module load {config[vt_version]}; fi
 # vt info2tab -t CSQ,Ref_Gene,Func_refGeneWithVer,ExonicFunc_refGeneWithVer,gno2x_af_all,gno2g_af_all,maxaf_annovar,gno2x_af_popmax,gno2g_af_popmax,gno_xg_ratio,gno2x_an_all,gno2g_an_all,gno2x_nonpar,gno2g_nonpar,gno2x_filter,gno2g_filter,mis_z,CLNSIG,HGMD_Overexlap4aa,hgmd_class,SIFT_pred,Polyphen2_HVAR_pred,ClinPred_score,MetaSVM_pred,REVEL_score,MPC_score,MutationAssessor_pred,MutationTaster_pred,PROVEAN_pred,Eigen-PC-raw_coding,phyloP100way_vertebrate,GERPplus_RS,dpsi_max_tissue,dpsi_zscore,dbscSNV_ADA_SCORE,dbscSNV_RF_SCORE,spliceai_rank,PrScore_intervar,PVS1,SigmaAF_Missense_0001,PrimateAI_score,ccr_pct,remm,fathmm-XF_coding_score,fathmm_xf_noncoding,mutscore,atac_rpe_itemRgb,ft_ret_rpe_score,cherry_sum_score,gene_gnomad,eyeIntegration_gene,omim_Gene {input.vcf} \
@@ -920,7 +953,7 @@ rule vcfanno2:
 # 		"""
 
 
-# merge vcfs into one again
+localrules: merge_sample_vcf
 rule merge_sample_vcf:
 	input:
 		vcf = expand('temp/{{sample}}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz', region=REGIONS),
