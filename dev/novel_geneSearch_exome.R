@@ -1,0 +1,53 @@
+library(tidyverse)
+#library(readxl)
+
+args <- commandArgs(trailingOnly=TRUE)
+#setwd("W:/abca4/clinvar.hgmd")
+#args <- c("ABCA4.clinvar.hgmd.OGLanno.tsv", "ABCA4.clinvar.hgmd.OGLanno.select.xlsx", "crossmap.hg19.gene.hgmd.clinvar__chr1.tsv", "test.gene.hgmd.clinvar__chr1.ps.tsv")
+
+Input_file <- args[1]
+geneNames <- args[2]
+sampleName <- args[3]
+output_file <- args[4]
+#psOutput_file <- args[4]
+
+OGLanno <- read_tsv(Input_file, col_names = TRUE, na = c("NA", "", "None", "NONE", ".", "FALSE", "False"), col_types = cols(.default = col_character())) %>%
+  type_convert() %>% 
+  rename_with(., ~ sub(paste0("\\.", sampleName, "$"), "", .x)) %>% 
+  select('gene', 'sample', 'chr_variant_id', 'grch37variant_id', 'gts', 'gt_types',
+         'gt_depths', 'gt_alt_freqs', 'gt_quals', 'aaf', 'caller', 'panel_class',
+         'priority_score', 'prscore_intervar', 'clinvar_hgmd_score', 'splice_score',
+          'gno2e3g_af', 'gno2e3g_acan', 'pmaxaf', 'gno2x_af_all',
+         'gno2x_filter', 'gno3_af_all', 'gno3_filter', 'max_af', 'max_af_pops',
+         'gno2e3g_hom', 'ref_gene', 'func_refgenewithver', 'exonicfunc_refgenewithver',
+         'refgenewithver', 'mane_select', 'hgvsc', 'hgvsp', 'exon', 'intron', 'aa_length',
+         'omim_gene', 'omim_inheritance', 'omim_phen', 'pvs1', 'truncating_vep', 'hgmd_id',
+         'hgmd_class', 'hgmd_phen', 'hgmd_overlap4aa', 'existing_variation', 'clnalleleid',
+         'clnsig', 'clin_sig', 'clnrevstat', 'clndn', 'clndisdb', 'gno3_ac_all', 'gno3_an_all', 'pli', 'mis_z') %>% 
+  mutate(insilico_score = priority_score - prscore_intervar - clinvar_hgmd_score - splice_score) %>% 
+  replace_na(list(max_af = -1, pli = -1, mis_z = -1))
+
+HighImpact_variant <-  OGLanno %>% 
+  filter(truncating_vep == 1 | pvs1 ==1 | splice_score >= 6 | insilico_score >= 3)  %>% 
+  filter(pmaxaf < 0.03 & max_af < 0.03) %>% 
+  filter(!is.na(gene))
+
+highImpact_count <- HighImpact_variant %>% group_by(gene) %>% 
+  summarise(highImpact_sum = sum(gt_types))
+
+LoF_count <- HighImpact_variant %>%
+  filter(truncating_vep == 1 | pvs1 ==1 | splice_score >= 6) %>% 
+  group_by(gene) %>% 
+  summarise(LoF_sum = sum(gt_types))
+LoF_gene <- LoF_count %>% select(gene) %>% pull()
+
+highImpact_gene <- left_join(HighImpact_variant, highImpact_count, by = "gene" ) %>% 
+  left_join(., LoF_count, by = "gene") %>% 
+  replace_na(list(LoF_sum = -1)) %>% 
+  filter( (gene %in% LoF_gene & (highImpact_sum > 1 | pli > 0.8)) |
+            ( grepl("nonsynonymous|nonframeshift", exonicfunc_refgenewithver) & (highImpact_sum > 1 | pmaxaf < 0.00001 ) & mis_z > 3 ) ) 
+
+write_tsv(highImpact_gene, output_file, na = ".")
+
+#openxlsx::write.xlsx(list("OGLanno" = OGLanno), file = output_file, firstRow = TRUE, firstCol = TRUE)
+

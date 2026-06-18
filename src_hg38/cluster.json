@@ -1,0 +1,134 @@
+{
+	"__default__" :
+	{
+		"partition" : "quick",
+		"time" : "4:00:00",
+		"mem" : "8g",
+		"output"  : "00log/{rule}_{wildcards}.out",
+		"error" : "00log/{rule}_{wildcards}.err",
+		"extra" : "--gres=lscratch:100"
+	},
+	"query_gemini_individual" :
+	{
+		"extra" : "--gres=lscratch:150"
+	},
+	"query_gemini_family" :
+	{
+		"partition" : "norm",
+		"time" : "16:00:00",
+		"mem" : "16g",
+		"extra" : "--gres=lscratch:150"
+	},
+	"squirls" :
+	{
+		"extra" : "--gres=lscratch:100"
+	},
+	"spliceai_wrapper" :
+  {
+    "partition" : "gpu",
+    "extra" : "--gres=gpu:p100:1",
+    "mem" : "32g",
+    "time" : "12:00:00"
+  },
+	"spliceai" :
+	{
+		"partition" : "gpu",
+		"extra" : "--constraint='[gpuv100|gpup100|gpuv100x|gpua100]' --gres=gpu:1,lscratch:100 ",
+		"mem" : "8g",
+		"time" : "8:00:00",
+		"threads" : "8"
+	},
+	"pangolin":
+	{
+		"partition" : "gpu",
+		"extra" : "--constraint='[gpuv100|gpup100|gpuv100x|gpua100]' --gres=gpu:1,lscratch:100 ",
+		"mem" : "16g",
+		"time" : "32:00:00",
+		"threads" : "14"
+	},
+	"VEP_annotate" :
+	{
+		"partition" : "norm",
+		"time" : "12:00:00"
+	},
+	"annovar_intervar" :
+	{
+		"partition" : "norm",
+		"time" : "12:00:00",
+		"mem" : "16g"
+	},
+	"spliceai_intervar_edit" :
+	{
+		"mem" : "32g"
+	},
+	"vcfanno_annotate" :
+	{
+		"threads" : "4",
+		"mem" : "16g"
+	},
+	"crossmap" :
+	{
+		"time" : "2:0:0",
+		"mem" : "32g"
+	},
+	"priority_scores" :
+	{
+		"mem" : "32g"
+	},
+	"vcfanno2" :
+	{
+		"mem" : "16g"
+	},
+	"merge_vcf" :
+	{
+		"partition" : "norm",
+		"time" : "8:00:00",
+		"mem" : "164g",
+		"extra" : "--gres=lscratch:200"
+	},
+	"merge_sample_vcf" :
+	{
+		"partition" : "norm",
+		"time" : "8:00:00",
+		"mem" : "164g",
+		"extra" : "--gres=lscratch:200"
+	},
+	"merge_spliceai_vcf" :
+	{
+		"partition" : "norm",
+		"time" : "8:00:00",
+		"mem" : "164g",
+		"extra" : "--gres=lscratch:200"
+	},
+	"merge_squirls_vcf":
+	{
+		"partition" : "norm",
+		"time" : "8:00:00",
+		"mem" : "164g",
+		"extra" : "--gres=lscratch:200"
+	},
+	"sort_tabix" :
+	{
+		"partition" : "norm",
+		"time" : "24:00:00",
+		"mem" : "64g"
+	},
+	"make_gemini_db" :
+	{
+		"partition" : "norm",
+		"time" : "12:00:00",
+		"mem" : "32g"
+	},
+	"sortGemini" :
+	{
+		"partition" : "quick",
+		"time" : "1:00:00",
+		"mem" : "32g"
+	},
+	"LesserAlleleFreq" :
+	{
+		"partition" : "quick",
+		"time" : "1:00:00",
+		"mem" : "32g"
+	}
+}

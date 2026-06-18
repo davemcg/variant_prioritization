@@ -1,0 +1,1420 @@
+import os
+
+#grab SAMPLE name from vcf input
+SAMPLE = str(config['input_vcf']).split('.vcf')[0]
+# logic to parse ped for families
+# can either be  multiple families (a list) in the yaml as below
+# need to grab the family names from it
+# better to obtain family name from ped file directly to save one step.
+if type(config['ped']) == list:
+	PEDfile = [x.split('.ped')[0].split('/')[-1] for x in config['ped']]
+	PEDbase = '/'.join(config['ped'][0].split('.ped')[0].split('/')[:-1]) + '/'
+# otherwise just one family can be provided, which would be a str as below:
+else:
+	PEDfile = config['ped'].split('.ped')[0].split('/')[-1]
+	PEDbase = '/'.join(config['ped'].split('.ped')[0].split('/')[:-1]) + '/'
+
+if PEDbase == '/':
+	PEDbase = ''
+
+# if type(config['family_name']) == str:
+# 	family_name_con = config['family_name']
+# else:
+# 	family_name_con = '|'.join(config['family_name'])
+
+def pick():
+	# modifies VEP call to either pick most canonical tx or
+	# return all tx possibilities
+	if config['pick'].upper() == 'RANK':
+		out = '--pick_allele_gene  --pick_order rank, mane_select, mane_plus_clinical, canonical, tsl, biotype, ccds, length'
+	if config['pick'].upper() == 'CANONICAL':
+		out = '--pick_allele_gene  --pick_order canonical, tsl, biotype, ccds, length'
+	if config['pick'].upper() == 'ALL':
+		out = '--flag_pick_allele_gene '
+	if config['pick'].upper() == 'PICK':
+		out = '--pick '
+	return(out)
+
+# import regions
+REGIONS_file = config['regions']
+if '/home/$USER' in REGIONS_file:
+	REGIONS_file = os.environ['HOME'] + REGIONS_file.split('$USER')[-1]
+REGIONS = open(REGIONS_file).readlines()
+REGIONS = [r.strip() for r in REGIONS]
+twentyFourChr="chr1,chr2,chr3,chr4,chr5,chr6,chr7,chr8,chr9,chr10,chr11,chr12,chr13,chr14,chr15,chr16,chr17,chr18,chr19,chr20,chr21,chr22,chrX,chrY"
+chr21_22="chr21,chr22"
+chrXY="chrX,chrY"
+
+def list_duplicates(seq):
+  seen = set()
+  seen_add = seen.add
+  # adds all elements it doesn't know yet to seen and all other to seen_twice
+  seen_twice = set( x for x in seq if x in seen or seen_add(x) )
+  # turn the set into a list (as requested)
+  return list( seen_twice )
+
+if not config['family_name']:
+#if (config['family_name']) == '':
+	Family_Name = list()
+	with open(config['ped']) as PED_file:
+		for line in PED_file:
+			if line.startswith("#"):
+				continue
+			else:
+				Family_Name.append(line.split("\t")[0])
+	Family_Name = list_duplicates(Family_Name)
+#list_duplicates only returns the duplicated value, thus only multiple family members will run family queries.
+# elif type(config['family_name']) == str:
+# 	Family_Name = config['family_name']
+else:
+	Family_Name = config['family_name']
+	#Family_Name = '|'.join(config['family_name'])
+#if sampleid field has "-", convert it to "_", because gemini converts "-" this to "_".
+SampleID = list()
+#Family_Name = list()
+with open(config['ped']) as PED_file:
+	for line in PED_file:
+		if line.startswith("#"):
+			continue
+		else:
+#			Family_Name.append(line.split("\t")[0])
+			SampleID.append(line.split("\t")[1].replace("-", "_"))
+
+#print(Family_Name)
+#print(SampleID)
+#unique values of family_name
+#Family_Name = list(set(Family_Name))
+#print(Family_Name)
+#name = '|'.join(open({config['ped']}).readlines().split('\t')[1])
+
+# set global Snakemake wildcard constraints
+wildcard_constraints:
+	sample=SAMPLE,
+	region = '|'.join(REGIONS),
+#	region = '^[0-9a-zA-Z]+:\d+-\d+'
+#	family_name=family_name_con,
+	family_name = '|'.join(Family_Name),
+	sampleid = '|'.join(SampleID)
+
+if config['genomeBuild'].upper() in ['GRCH37', 'HG19']:
+	config['ref_genome'] = '/data/OGL/resources/1000G_phase2_GRCh37/human_g1k_v37_decoy.fasta'
+	config['vcfanno_conf'] = '/home/$USER/git/variant_prioritization/src/vcfanno_v4.conf'
+	MT_CONTIGS="MT,GL000207.1,GL000226.1,GL000229.1,GL000231.1,GL000210.1,GL000239.1,GL000235.1,GL000201.1,GL000247.1,GL000245.1,GL000197.1,GL000203.1,GL000246.1,GL000249.1,GL000196.1,GL000248.1,GL000244.1,GL000238.1,GL000202.1,GL000234.1,GL000232.1,GL000206.1,GL000240.1,GL000236.1,GL000241.1,GL000243.1,GL000242.1,GL000230.1,GL000237.1,GL000233.1,GL000204.1,GL000198.1,GL000208.1,GL000191.1,GL000227.1,GL000228.1,GL000214.1,GL000221.1,GL000209.1,GL000218.1,GL000220.1,GL000213.1,GL000211.1,GL000199.1,GL000217.1,GL000216.1,GL000215.1,GL000205.1,GL000219.1,GL000224.1,GL000223.1,GL000195.1,GL000212.1,GL000222.1,GL000200.1,GL000193.1,GL000194.1,GL000225.1,GL000192.1,NC_007605"
+elif config['genomeBuild'].upper() in ['GRCH38', 'HG38']:
+	config['ref_genome'] = '/data/OGL/resources/genomes/NCBI/GRCh38Decoy/genome.fa'
+	config['vcfanno_conf'] = '/home/$USER/git/variant_prioritization/src_hg38/vcfanno_v4.conf'
+	MT_CONTIGS="chrM,chr1_KI270706v1_random,chr1_KI270707v1_random,chr1_KI270708v1_random,chr1_KI270709v1_random,chr1_KI270710v1_random,chr1_KI270711v1_random,chr1_KI270712v1_random,chr1_KI270713v1_random,chr1_KI270714v1_random,chr2_KI270715v1_random,chr2_KI270716v1_random,chr3_GL000221v1_random,chr4_GL000008v2_random,chr5_GL000208v1_random,chr9_KI270717v1_random,chr9_KI270718v1_random,chr9_KI270719v1_random,chr9_KI270720v1_random,chr11_KI270721v1_random,chr14_GL000009v2_random,chr14_GL000225v1_random,chr14_KI270722v1_random,chr14_GL000194v1_random,chr14_KI270723v1_random,chr14_KI270724v1_random,chr14_KI270725v1_random,chr14_KI270726v1_random,chr15_KI270727v1_random,chr16_KI270728v1_random,chr17_GL000205v2_random,chr17_KI270729v1_random,chr17_KI270730v1_random,chr22_KI270731v1_random,chr22_KI270732v1_random,chr22_KI270733v1_random,chr22_KI270734v1_random,chr22_KI270735v1_random,chr22_KI270736v1_random,chr22_KI270737v1_random,chr22_KI270738v1_random,chr22_KI270739v1_random,chrY_KI270740v1_random,chrUn_KI270302v1,chrUn_KI270304v1,chrUn_KI270303v1,chrUn_KI270305v1,chrUn_KI270322v1,chrUn_KI270320v1,chrUn_KI270310v1,chrUn_KI270316v1,chrUn_KI270315v1,chrUn_KI270312v1,chrUn_KI270311v1,chrUn_KI270317v1,chrUn_KI270412v1,chrUn_KI270411v1,chrUn_KI270414v1,chrUn_KI270419v1,chrUn_KI270418v1,chrUn_KI270420v1,chrUn_KI270424v1,chrUn_KI270417v1,chrUn_KI270422v1,chrUn_KI270423v1,chrUn_KI270425v1,chrUn_KI270429v1,chrUn_KI270442v1,chrUn_KI270466v1,chrUn_KI270465v1,chrUn_KI270467v1,chrUn_KI270435v1,chrUn_KI270438v1,chrUn_KI270468v1,chrUn_KI270510v1,chrUn_KI270509v1,chrUn_KI270518v1,chrUn_KI270508v1,chrUn_KI270516v1,chrUn_KI270512v1,chrUn_KI270519v1,chrUn_KI270522v1,chrUn_KI270511v1,chrUn_KI270515v1,chrUn_KI270507v1,chrUn_KI270517v1,chrUn_KI270529v1,chrUn_KI270528v1,chrUn_KI270530v1,chrUn_KI270539v1,chrUn_KI270538v1,chrUn_KI270544v1,chrUn_KI270548v1,chrUn_KI270583v1,chrUn_KI270587v1,chrUn_KI270580v1,chrUn_KI270581v1,chrUn_KI270579v1,chrUn_KI270589v1,chrUn_KI270590v1,chrUn_KI270584v1,chrUn_KI270582v1,chrUn_KI270588v1,chrUn_KI270593v1,chrUn_KI270591v1,chrUn_KI270330v1,chrUn_KI270329v1,chrUn_KI270334v1,chrUn_KI270333v1,chrUn_KI270335v1,chrUn_KI270338v1,chrUn_KI270340v1,chrUn_KI270336v1,chrUn_KI270337v1,chrUn_KI270363v1,chrUn_KI270364v1,chrUn_KI270362v1,chrUn_KI270366v1,chrUn_KI270378v1,chrUn_KI270379v1,chrUn_KI270389v1,chrUn_KI270390v1,chrUn_KI270387v1,chrUn_KI270395v1,chrUn_KI270396v1,chrUn_KI270388v1,chrUn_KI270394v1,chrUn_KI270386v1,chrUn_KI270391v1,chrUn_KI270383v1,chrUn_KI270393v1,chrUn_KI270384v1,chrUn_KI270392v1,chrUn_KI270381v1,chrUn_KI270385v1,chrUn_KI270382v1,chrUn_KI270376v1,chrUn_KI270374v1,chrUn_KI270372v1,chrUn_KI270373v1,chrUn_KI270375v1,chrUn_KI270371v1,chrUn_KI270448v1,chrUn_KI270521v1,chrUn_GL000195v1,chrUn_GL000219v1,chrUn_GL000220v1,chrUn_GL000224v1,chrUn_KI270741v1,chrUn_GL000226v1,chrUn_GL000213v1,chrUn_KI270743v1,chrUn_KI270744v1,chrUn_KI270745v1,chrUn_KI270746v1,chrUn_KI270747v1,chrUn_KI270748v1,chrUn_KI270749v1,chrUn_KI270750v1,chrUn_KI270751v1,chrUn_KI270752v1,chrUn_KI270753v1,chrUn_KI270754v1,chrUn_KI270755v1,chrUn_KI270756v1,chrUn_KI270757v1,chrUn_GL000214v1,chrUn_KI270742v1,chrUn_GL000216v2,chrUn_GL000218v1,chrEBV"
+else:
+	print("ref_genome is ", config['ref_genome'])
+	print("vcfanno_conf is ", config['vcfann_conf'])
+
+
+rule all:
+	input:
+		expand('{sample}.vcf.annotation.done', sample=SAMPLE) if 'vcf' in config['output_type'] else 'dummy.txt',
+		expand('{sample}.gemini.db', sample=SAMPLE) if 'geminiDB' in config['output_type'] else 'dummy.txt',
+		expand('{sample}_PEDDY.ped_check.csv', sample=SAMPLE) if 'peddy' in config['output_type'] else 'dummy.txt',
+		'madeline/madeline.done' if 'family_query' in config['output_type'] else 'dummy.txt',
+		expand('sample_reports/{sample}.{family_name}.PED_{ped}.lenient{gemini_lenient}.SeeGEM.report.html', \
+			sample=SAMPLE, \
+			ped=PEDfile, \
+			family_name=Family_Name, \
+			gemini_lenient = config['gemini_lenient']) if ('family_query' in config['output_type'] and config['seeGEM'].upper() == 'TRUE') else 'dummy.txt',
+		expand('gemini_xlsx/{family_name}.{sample}.lenient{gemini_lenient}.xlsx', \
+			sample=SAMPLE, \
+			family_name=Family_Name, \
+			gemini_lenient = config['gemini_lenient']) if ('family_query' in config['output_type'] and config['seeGEM'].upper() != 'TRUE') else 'dummy.txt',
+		expand('gemini_xlsx/{sampleid}.{sample}.gemini.filtered.xlsx', sample=SAMPLE, sampleid=SampleID) if ('individual_query' in config['output_type']) else 'dummy.txt',
+		expand('LesserAlleleFreq/{sampleid}.{sample}.LAF.jpeg', sample=SAMPLE, sampleid=SampleID) if config['LAFplot'] == 'TRUE' else 'dummy.txt',
+		'dummy.txt' if config['spliceai'].upper() in ['WRAPPER', 'VCFANNO'] else expand('temp/{sample}.spliceai.new.vcf.depot.merged', sample=SAMPLE),
+		'dummy.txt' if config['pangolin'].upper() in ['WRAPPER', 'VCFANNO'] else expand('temp/{sample}.pangolin.new.vcf.depot.merged', sample=SAMPLE)
+
+
+localrules: dummy
+rule dummy:
+	input:
+		config['input_vcf']
+	output:
+		temp('dummy.txt')
+	shell:
+		"""
+		touch {output}
+		"""
+
+localrules: madeline
+rule madeline:
+	input:
+		config['ped']
+	output:
+		'madeline/madeline.done'
+	params:
+		family = Family_Name
+	shell:
+		"""
+		module load Madeline/2.0
+		projectdir=$PWD
+		cd madeline
+		echo -e "FamilyId\tIndividualId\tFather\tMother\tGender\tAffected" > header.txt
+		for family in {params.family}; do
+			grep $family $projectdir/{config[ped]} \
+			| sed -e 's/\t0\t/\t\.\t/g' -e 's/\t0\t/\t\.\t/g' \
+			| awk -F"\t" 'BEGIN{{OFS="\t"}} {{if($5=="1") {{$5="M"}} else {{$5="F"}}; if($6=="2") {{$6="Affected"}} else {{$6="."}}; print $0}}' \
+			| cat header.txt - > $family.txt;
+			madeline -bknS --font-size 16 $family.txt;
+		done
+		rm header.txt
+		cd $projectdir
+		touch {output}
+		"""
+
+if config['datatype'].upper() in ["PANEL"]:
+	localrules: squirls
+	localrules: n_split_vcf
+	localrules: vcfanno2
+	localrules: sortGemini
+	localrules: bcftools_norm
+	localrules: spliceai_intervar_edit
+	localrules: priority_scores
+	localrules: VEP_annotate
+	localrules: annovar_intervar
+	localrules: crossmap
+	localrules: pangolin_depot
+	localrules: spliceai_edit
+	localrules: vcfanno_annotate
+	localrules: peddy_QC
+elif config['datatype'].upper() in ["EXOME", "WES"]:
+	localrules: squirls
+	localrules: n_split_vcf
+	localrules: crossmap
+	localrules: vcfanno2
+	localrules: sortGemini
+	localrules: bcftools_norm
+	localrules: spliceai_intervar_edit
+	localrules: priority_scores
+else:
+	localrules: n_split_vcf
+	localrules: crossmap
+	localrules: bcftools_norm
+	# localrules: priority_scores
+
+#localrules: VEP_annotate panel above.
+localrules: intervar_evidence_omim
+rule intervar_evidence_omim:
+	input:
+		vcf = config['input_vcf']
+	output:
+		evidenceInput = temp('temp/evidence.input'),
+		InterVarEvidence = temp('temp/InterVarEvidence.txt'),
+		omim = temp('temp/omim.vcfanno.file.done'),
+		clinvar = temp('temp/clinvar.file.done')
+	shell:
+		"""
+		if [[ $(module list 2>&1 | grep "R/" | wc -l) < 1 ]]; then module load {config[R_version]}; fi
+		if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
+		if [[ $(module list 2>&1 | grep "annovar" | wc -l) < 1 ]]; then module load {config[annovar_version]}; fi
+		Rscript /home/$USER/git/variant_prioritization/src_hg38/intervar_evidence.R /data/OGL/resources/OGLvariantsClassification_hg38.xlsx {output.evidenceInput}
+		# bcftools norm --check-ref s --fasta-ref {config[ref_genome]} --output-type v evidence.input  # needs true vcf style file for normalizaiton.
+		convert2annovar.pl -format vcf4old {output.evidenceInput} -includeinfo | cut -f 1,2,4,5,8,13 > {output.InterVarEvidence}
+		projectdir=$PWD
+		cd /data/OGL/resources/omim/
+		bash buildOMIM1.sh
+		cd /data/OGL/resources/clinvar
+		bash download.clinvar.sh
+		cd $projectdir
+		echo "ClinVar_vcf: '$(zcat /data/OGL/resources/clinvar/clinvar.vcf.gz | head -n 2 | tail -n 1 | sed s/##// )'"  \
+			>> $(grep "configuration_file:" {config[configuration_file]} | cut -d"'" -f 2)
+		touch {output.omim}
+		touch {output.clinvar}
+		"""
+
+rule n_split_vcf:
+	input:
+		vcf = config['input_vcf']
+	output:
+		vcf = temp('temp/{sample}__{region}.vcf.gz'),
+		index = temp('temp/{sample}__{region}.vcf.gz.tbi')
+	threads: 2
+	shell:
+		"""
+		export REF_CACHE=/lscratch/$SLURM_JOB_ID/
+		if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
+		case "{wildcards.region}" in
+			"24chr")
+				bcftools view --threads {threads} -Oz -r {twentyFourChr} {input.vcf} -o {output.vcf}
+				;;
+			"chr21-22")
+				bcftools view --threads {threads} -Oz -r {chr21_22} {input.vcf} -o {output.vcf}
+				;;
+			"chrXY")
+				bcftools view --threads {threads} -Oz -r {chrXY} {input.vcf} -o {output.vcf}
+				;;
+			"MT_contigs")
+				bcftools view --threads {threads} -Oz -r {MT_CONTIGS} {input.vcf} -o {output.vcf}
+				;;
+			*)
+				bcftools view --threads {threads} -Oz -r {wildcards.region} {input.vcf} -o {output.vcf}
+				;;
+		esac
+		tabix -p vcf {output.vcf}
+		"""
+
+if config['gatk3'] == 'TRUE':
+	localrules: vt_bgzip_and_tabix_vcf
+	rule vt_bgzip_and_tabix_vcf:
+		input:
+			vcf = 'temp/{sample}__{region}.vcf.gz',
+			index = 'temp/{sample}__{region}.vcf.gz.tbi',
+			clinvar = 'temp/clinvar.file.done'
+		output:
+			vcf = temp('temp/vt.{sample}__{region}.vcf.gz'),
+			index = temp('temp/vt.{sample}__{region}.vcf.gz.tbi')
+		shell:
+			"""
+			export REF_CACHE=/lscratch/$SLURM_JOB_ID/
+			module load {config[samtools_version]}
+			module load {config[vt_version]}
+			zcat {input.vcf} \
+				| sed 's/ID=AD,Number=./ID=AD,Number=R/' \
+				| vt decompose -s - \
+				| vt normalize -r {config[ref_genome]} - \
+				| bgzip -c > {output.vcf}
+			tabix -f -p vcf {output.vcf}
+			"""
+else:
+	rule bcftools_norm:
+		input:
+			vcf = 'temp/{sample}__{region}.vcf.gz',
+			index = 'temp/{sample}__{region}.vcf.gz.tbi',
+			clinvar = 'temp/clinvar.file.done'
+		output:
+			bcf = temp('temp/vt.{sample}__{region}.bcf'),
+			vcf = temp('temp/vt.{sample}__{region}.vcf.gz'),
+			index = temp('temp/vt.{sample}__{region}.vcf.gz.tbi')
+		threads: 4
+#		resources: res=1
+		shell:
+			"""
+			if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
+			bcftools norm --multiallelics -any --output-type u --no-version {input.vcf} \
+				| bcftools norm --check-ref s --fasta-ref {config[ref_genome]} --output-type u --no-version - \
+				| bcftools norm --threads $(({threads}-2)) -d exact --output-type b -o {output.bcf}
+			/data/OGL/resources/git/slivar expr \
+				--gnotate /data/OGL/resources/git/topmed.hg38.dbsnp.151.zip \
+				-v {output.bcf}	\
+				| sed 's#0/0:10:10:10,0,#0/0:10:10:10,#g' \
+				| bgzip -f > /lscratch/$SLURM_JOB_ID/$(basename {output.vcf})
+			tabix -f -p vcf /lscratch/$SLURM_JOB_ID/$(basename {output.vcf})
+			if [[ $(module list 2>&1 | grep "vcfanno" | wc -l) < 1 ]]; then module load {config[vcfanno_version]}; fi
+			vcfanno -p 4 ~/git/variant_prioritization/src_hg38/vcfanno_gnomad_clinvar.conf \
+				/lscratch/$SLURM_JOB_ID/$(basename {output.vcf}) \
+			 	| sed 's/Number=A/Number=1/g' | bgzip > {output.vcf}
+			tabix -f -p vcf {output.vcf}
+			"""
+#sed 's#0/0:10:10:10,0,#0/0:10:10:10,#g' added on 5/22/2025 to fix an error in the variant_calling step.
+#clinvar in this step by vcfanno
+#slivar annotated
+#INFO=<ID=gnomad_popmax_af,Number=1,Type=Float,Description="field from from gnotate VCF">
+##INFO=<ID=gnomad_popmax_af_filter,Number=0,Type=Flag,Description="non-passing flag in gnotate source VCF">
+##INFO=<ID=gnomad_nhomalt,Number=1,Type=Float,Description="field from from gnotate VCF">
+##INFO=<ID=gnomad_nhomalt_filter,Number=0,Type=Flag,Description="non-passing flag in gnotate source VCF">
+##INFO=<ID=topmed_af,Number=1,Type=Float,Description="field from from gnotate VCF">
+##INFO=<ID=topmed_af_filter,Number=0,Type=Flag,Description="non-passing flag in gnotate source VCF">
+#-e "s|1/.|0/1|" -e "s|./1|0/1|" \ 2/14/2020, removed this for GATK combineVariants
+# 		| sed 's/ID=AC,Number=./ID=AC,Number=A/' \ 1/20/20 vcf-merge of freebayes had problem for one of the position with 6 variants. GATK combine worked.
+# freebayes vcf fixed by vt immediately after freebayes.
+# vt normalize did not work as well as bcftools norm, which keeps all formats fields and properly decompose AF and AQ in the INFO field.
+
+
+#if threads 8 then requires 32G memory.
+
+rule annovar_intervar:
+	input:
+		vcf = 'temp/vt.{sample}__{region}.vcf.gz',
+		index = 'temp/vt.{sample}__{region}.vcf.gz.tbi',
+		InterVarEvidence = 'temp/InterVarEvidence.txt'
+	output:
+		avinput = temp('temp/{sample}__{region}.avinput'),
+		annovar_out = temp('temp/{sample}__{region}.avinput.hg38_multianno.txt'),
+		annovar_grlp = temp('temp/{sample}__{region}.avinput.hg38_multianno.txt.grl_p'),
+		gnomadAF = temp('temp/{sample}__{region}.gnomad3.tsv'),
+		intervar_out = temp('temp/{sample}__{region}.avinput.hg38_multianno.txt.intervar')
+	threads: 4
+	shell:
+		"""
+		if [[ $(module list 2>&1 | grep "annovar" | wc -l) < 1 ]]; then module load {config[annovar_version]}; fi
+		if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
+		convert2annovar.pl -format vcf4old {input.vcf} -includeinfo --outfile {output.avinput}
+		if [[ {config[genomeBuild]} == "GRCh38" ]]; then
+			ver=hg38
+		else
+			ver=hg19
+		fi
+		table_annovar.pl {output.avinput} \
+			$ANNOVAR_DATA/$ver \
+			-buildver $ver \
+			-remove \
+			-out {output.avinput} \
+			--protocol refGene,esp6500siv2_all,1000g2015aug_all,dbnsfp42a,dbscsnv11,rmsk,ensGene,knownGene,refGeneWithVer,spidex,avsnp150,mutscore,regsnpintron \
+			-operation  g,f,f,f,f,r,g,g,g,f,f,f,f \
+			--argument '-hgvs',,,,,,,,'-hgvs -splicing 50',,,, \
+			--polish -nastring . \
+			--thread {threads} \
+			--otherinfo \
+			--tempdir /lscratch/$SLURM_JOB_ID
+		cut -f -150 {output.annovar_out} \
+			| sed -e "1 s/Otherinfo1\tOtherinfo2\tOtherinfo3\tOtherinfo4\tOtherinfo5\tOtherinfo6/CHROM\tPOS\tID\tREF\tALT\tQUAL/" \
+				-e "1 s/avsnp150/avsnp147/" \
+			> /lscratch/$SLURM_JOB_ID/$(basename {output.annovar_out})
+		bcftools query -H -f '%CHROM\t%POS\t%REF\t%ALT\t%INFO/gno3_af_all\t%INFO/gno3_af_afr\t%INFO/gno3_af_amr\t%INFO/gno3_af_eas\t%INFO/gno3_af_nfe\t%INFO/gno3_af_sas\t%INFO/gno3_af_asj\t%INFO/gno3_af_ami\t%INFO/gno3_af_fin\t%INFO/gno3_af_mid\t%INFO/gno3_af_oth\t%INFO/CLNALLELEID\t%INFO/CLNDN\t%INFO/CLNDISDB\t%INFO/CLNREVSTAT\t%INFO/CLNSIG\n' {input.vcf} \
+			| sed -e '1 s/^#//' -e '1 s/\[[0-9]*\]//g' -e "1 s/\tgno3_af_all\t/\tgnomAD_genome_ALL\t/" -e "1 s/\tgno3_af_\w\+/\\U&/g" -e "1 s/\tGNO3_AF_/\tgnomAD_genome_/g" \
+			> {output.gnomadAF}
+		if [[ $(module list 2>&1 | grep "R/" | wc -l) < 1 ]]; then module load {config[R_version]}; fi
+		Rscript ~/git/variant_prioritization/src_hg38/annovar_gnomad.R \
+			/lscratch/$SLURM_JOB_ID/$(basename {output.annovar_out}) {output.gnomadAF} {output.annovar_out}.gnomad && mv {output.annovar_out}.gnomad {output.annovar_out}
+		python /data/OGL/resources/git/{config[InterVar_version]}/InterVar/Intervar.py \
+			-t /data/OGL/resources/git/{config[InterVar_version]}/InterVar/intervardb \
+			-c /data/OGL/resources/git/{config[InterVar_version]}/InterVar/config_hg38.ini \
+			-i {output.avinput} \
+			--input_type=AVinput \
+			-d $ANNOVAR_DATA/$ver \
+			--evidence_file={input.InterVarEvidence} \
+			-o {output.avinput} \
+			--skip_annovar
+		"""
+#{config[annovar_clinvar_version]}, removed after dbnsfp42a on 11/11/2022
+#editing 5/26/2022
+# table_annovar.pl {output.avinput} \
+# 	$ANNOVAR_DATA/$ver \
+# 	-buildver $ver \
+# 	-remove \
+# 	-out {output.avinput} \
+# 	--protocol refGene,esp6500siv2_all,1000g2015aug_all,dbnsfp42a,clinvar_20220320,gnomad30_genome,dbscsnv11,rmsk,ensGene,knownGene,refGeneWithVer,spidex,avsnp150,mutscore,regsnpintron \
+# 	-operation  g,f,f,f,f,f,f,r,g,g,g,f,f,f,f \
+# 	--argument '-hgvs',,,,,,,,,,'-hgvs -splicing 50',,,, \
+# 	--polish -nastring . \
+# 	--thread {threads} \
+# 	--otherinfo \
+# 	--tempdir /lscratch/$SLURM_JOB_ID
+# sed -i -e "1 s/avsnp150/avsnp147/" -e "1 s/\tAF\t/\tgnomAD_genome_ALL\t/" -e "1 s/\tAF_\w\+/\\U&/g" -e "1 s/\tAF_/\tgnomAD_genome_/g"  {output.annovar_out}
+
+#InterVar output does not have "chr" in the first column while annovar's first column, fixed in rule spliceai_intervar_edit:
+#"1 s/\tAF_\w\+/\\U&/g" needed \\U in snakemake. \U in bash command line.
+# module load {config[InterVar_version]}
+# InterVar \
+# 	-i {output.avinput} \
+# 	--input_type=AVinput \
+# 	-d $ANNOVAR_DATA/hg19 \
+# 	--evidence_file={input.InterVarEvidence} \
+# 	-o {output.avinput} \
+# 	--skip_annovar
+
+
+rule crossmap:
+	input:
+		vcf = 'temp/vt.{sample}__{region}.vcf.gz',
+		index = 'temp/vt.{sample}__{region}.vcf.gz.tbi'
+	output:
+		tsv = temp('temp/crossmap.hg19.{sample}__{region}.tsv')
+	threads: 4
+#	resources: res=1
+	shell:
+		"""
+		WORK_DIR=/lscratch/$SLURM_JOB_ID
+		if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
+		if [[ $(module list 2>&1 | grep "crossmap" | wc -l) < 1 ]]; then module load {config[crossmap_version]}; fi
+		hg19refM=/data/OGL/resources/1000G_phase2_GRCh37/human_g1k_v37_decoyM.fasta
+		hg19ref=/data/OGL/resources/1000G_phase2_GRCh37/human_g1k_v37_decoy.fasta
+		crossmap vcf /data/OGL/resources/ucsc/hg38ToHg19.over.chain.gz \
+			{input.vcf} \
+			$hg19refM \
+			$WORK_DIR/$(basename {output.tsv}).vcf
+		sed -e 's/^chrM/MT/' -e 's/<ID=M,/<ID=MT,/' $WORK_DIR/$(basename {output.tsv}).vcf \
+				| sed -e 's/^chr//' -e 's/<ID=chr/<ID=/' - \
+			 	| bcftools norm --check-ref s --fasta-ref $hg19ref --output-type u - \
+				| bcftools sort -m 60G -T $WORK_DIR/ -Ou - \
+				| bcftools norm -d exact --output-type u - \
+				| bcftools view --no-header -Ov - \
+				| awk -F"\t" 'BEGIN{{OFS="\t"}} NR==1 {{print "CHROM\tPOS\tID\tREF\tALT"}} NR>1 {{print $1,$2,$3,$4,$5}}' - > {output.tsv}
+		"""
+
+rule squirls:
+	input:
+		vcf = 'temp/vt.{sample}__{region}.vcf.gz',
+		index = 'temp/vt.{sample}__{region}.vcf.gz.tbi'
+	output:
+		barevcf = temp('temp/{sample}__{region}.bare.csv'),
+		squirls_csv = temp('temp/squirls.{sample}__{region}.csv')
+	shell:
+		"""
+		if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
+		bcftools view --no-header -Ov {input.vcf} | awk -F"\t" 'BEGIN{{OFS=","}} NR==1 {{print "CHROM,POS,REF,ALT"}} NR>1 {{print $1,$2,$4,$5}}' - > {output.barevcf}
+		if [[ $(module list 2>&1 | grep "java" | wc -l) < 1 ]]; then module load java; fi
+		java -jar /data/OGL/resources/squirls-cli-1.0.0/squirls-cli-1.0.0.jar \
+			annotate-csv \
+			/data/OGL/resources/squirls/squirls-config_hg38.yml \
+			{output.barevcf} {output.squirls_csv}
+		"""
+
+if config['pangolin'].upper() == 'VCFANNO':
+	localrules: pangolin_depot
+	rule pangolin_depot:
+		input:
+			vcf = 'temp/vt.{sample}__{region}.vcf.gz',
+			index = 'temp/vt.{sample}__{region}.vcf.gz.tbi'
+		output:
+			vcf = temp('temp/pangolin.{sample}__{region}.vcf.gz'),
+			index = temp('temp/pangolin.{sample}__{region}.vcf.gz.tbi'),
+			pangolin_tsv = temp('temp/pangolin.{sample}__{region}.tsv')
+		threads: 4
+		shell:
+			"""
+			if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
+			if [[ $(module list 2>&1 | grep "vcfanno" | wc -l) < 1 ]]; then module load {config[vcfanno_version]}; fi
+			vcfanno -p {threads} ~/git/variant_prioritization/src_hg38/pangolin.depot.conf {input.vcf} \
+				| bgzip --threads {threads} -f > {output.vcf}
+			tabix -f -p vcf {output.vcf}
+			bcftools query -H -f '%CHROM\t%POS\t%REF\t%ALT\t%INFO/Pangolin\n' {output.vcf} \
+				| sed -e '1 s/^#//' -e '1 s/\[[0-9]*\]//g' \
+				> {output.pangolin_tsv}
+			"""
+else:
+	rule pangolin_isec:
+		input:
+			vcf = 'temp/vt.{sample}__{region}.vcf.gz',
+			index = 'temp/vt.{sample}__{region}.vcf.gz.tbi'
+		output:
+			barevcf = temp('temp/{sample}__{region}.pangolin.bare.vcf.gz'),
+			barevcfindex = temp('temp/{sample}__{region}.pangolin.bare.vcf.gz.tbi'),
+			pangolin_input = temp('temp/{sample}__{region}.pangolin_input.vcf.gz'),
+			pangolin_input_index = temp('temp/{sample}__{region}.pangolin_input.vcf.gz.tbi'),
+			variant_in_depot = temp('temp/{sample}__{region}.pangolin_depot.vcf.gz'),
+			variant_in_depot_index = temp('temp/{sample}__{region}.pangolin_depot.vcf.gz.tbi')
+		threads: 8
+		shell:
+			"""
+			if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
+			echo -e "##fileformat=VCFv4.2\n#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO" > /lscratch/$SLURM_JOB_ID/vcf.header && echo "vcf.header" || exit 1
+			( bcftools view --no-header -Ov {input.vcf} | awk -F"\t" 'BEGIN{{OFS="\t"}} {{print $1,$2,".",$4,$5,".",".","."}}' - | cat /lscratch/$SLURM_JOB_ID/vcf.header - | bgzip --threads $(({threads}-2)) -c > {output.barevcf} ) && echo "barevcf" || exit 1
+			tabix -f -p vcf {output.barevcf} && echo "index barevcf" || exit 1
+			bcftools isec --threads {threads} -Oz -p /lscratch/$SLURM_JOB_ID {output.barevcf} /data/OGL/resources/pangolin/pangolin.depot.GRCh38.vcf.gz && echo "isec" || exit 1
+			cp /lscratch/$SLURM_JOB_ID/0000.vcf.gz {output.pangolin_input}
+			cp /lscratch/$SLURM_JOB_ID/0003.vcf.gz {output.variant_in_depot}
+			tabix -f -p vcf {output.pangolin_input}
+			tabix -f -p vcf {output.variant_in_depot}
+			"""
+	rule pangolin:
+		input:
+			pangolin_input = 'temp/{sample}__{region}.pangolin_input.vcf.gz',
+			pangolin_input_index = 'temp/{sample}__{region}.pangolin_input.vcf.gz.tbi',
+			variant_in_depot = 'temp/{sample}__{region}.pangolin_depot.vcf.gz',
+			variant_in_depot_index = 'temp/{sample}__{region}.pangolin_depot.vcf.gz.tbi'
+		output:
+			new_anno_pangolin = temp('temp/{sample}__{region}.new.pangolin.vcf.gz'),
+			new_anno_pangolin_index = temp('temp/{sample}__{region}.new.pangolin.vcf.gz.tbi'),
+			vcf = temp('temp/pangolin.{sample}__{region}.vcf.gz'),
+			index = temp('temp/pangolin.{sample}__{region}.vcf.gz.tbi'),
+			tsv = temp('temp/pangolin.{sample}__{region}.tsv')
+		threads: 14
+		shell:
+			"""
+			module load {config[pangolin-splice_version]} {config[samtools_version]}
+			zcat {input.pangolin_input} > {input.pangolin_input}.vcf
+			pangolin {input.pangolin_input}.vcf \
+				/data/OGL/resources/genomes/NCBI/GRCh38Decoy/genome.AGTCNonly.fa \
+				/data/OGL/resources/pangolin/gencode.v38.annotation.db \
+				{output.new_anno_pangolin}
+			bgzip --threads $(({threads}-2)) -c {output.new_anno_pangolin}.vcf > {output.new_anno_pangolin}
+			tabix -f -p vcf {output.new_anno_pangolin}
+			bcftools concat --threads {threads} -a {output.new_anno_pangolin} {input.variant_in_depot} -Oz -o {output.vcf}
+			tabix -f -p vcf {output.vcf}
+			bcftools query -H -f '%CHROM\t%POS\t%REF\t%ALT\t%INFO/Pangolin\n' {output.vcf} \
+				| sed -e '1 s/^#//' -e '1 s/\[[0-9]*\]//g' \
+				> {output.tsv}
+			"""
+#
+rule merge_pangolin_vcf:
+	input:
+		vcf = expand('temp/{{sample}}__{region}.new.pangolin.vcf.gz', region=REGIONS),
+		index = expand('temp/{{sample}}__{region}.new.pangolin.vcf.gz.tbi', region=REGIONS)
+	output:
+		temp('temp/{sample}.pangolin.new.vcf.depot.merged')
+	threads: 16
+	shell:
+		"""
+		export REF_CACHE=/lscratch/$SLURM_JOB_ID/
+		if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
+		bcftools concat --threads {threads} -a --rm-dups none {input.vcf} -Oz -o /lscratch/$SLURM_JOB_ID/new.pangolin.vcf.gz
+		tabix -f -p vcf /lscratch/$SLURM_JOB_ID/new.pangolin.vcf.gz
+		( bcftools concat --threads {threads} -a --rm-dups none --no-version \
+			/data/OGL/resources/pangolin/pangolin.depot.GRCh38.vcf.gz /lscratch/$SLURM_JOB_ID/new.pangolin.vcf.gz \
+			-Oz -o /lscratch/$SLURM_JOB_ID/pangolin.depot.GRCh38.vcf.gz ) || exit 1
+		tabix -f -p vcf /lscratch/$SLURM_JOB_ID/pangolin.depot.GRCh38.vcf.gz || exit 1
+		cp /lscratch/$SLURM_JOB_ID/pangolin.depot.GRCh38.vcf.gz* /data/OGL/resources/pangolin
+		touch {output}
+		"""
+
+# rule squirls_pangolin:
+# 	input:
+# 		vcf = 'temp/vt.{sample}__{region}.vcf.gz',
+# 		index = 'temp/vt.{sample}__{region}.vcf.gz.tbi'
+# 	output:
+# 		barevcf = temp('temp/{sample}__{region}.bare.csv'),
+# 		squirls_csv = temp('temp/squirls.{sample}__{region}.csv'),
+# 		pangolin = temp('temp/squirls.pangolin.{sample}__{region}.csv')
+# 	shell:
+# 		"""
+# 		if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
+# 		bcftools view --no-header -Ov {input.vcf} | awk -F"\t" 'BEGIN{{OFS=","}} NR==1 {{print "CHROM,POS,REF,ALT"}} NR>1 {{print $1,$2,$4,$5}}' - > {output.barevcf}
+# 		if [[ $(module list 2>&1 | grep "java" | wc -l) < 1 ]]; then module load java; fi
+# 		java -jar /data/OGL/resources/squirls-cli-1.0.0/squirls-cli-1.0.0.jar \
+# 			annotate-csv \
+# 			/data/OGL/resources/squirls/squirls-config_hg38.yml \
+# 			{output.barevcf} {output.squirls_csv}
+# 		if [[ $(module list 2>&1 | grep "pangolin-splice" | wc -l) < 1 ]]; then module load {config[pangolin-splice_version]}; fi
+# 		pangolin {output.squirls_csv} /data/OGL/resources/genomes/NCBI/GRCh38Decoy/genome.fa \
+# 			/data/OGL/resources/pangolin-splice/gencode.v38.annotation.db \
+# 			{output.pangolin}
+# 		mv {output.pangolin}.csv {output.pangolin}
+# 		"""
+#annotate-csv does not allow html output. Only annotate-vcf has html output.
+if config['spliceai'].upper() == 'WRAPPER':
+	rule spliceai_wrapper:
+		input:
+			vcf = 'temp/vt.{sample}__{region}.vcf.gz',
+			index = 'temp/vt.{sample}__{region}.vcf.gz.tbi'
+		output:
+			vcf = temp('temp/spliceai.{sample}__{region}.vcf.gz'),
+			index = temp('temp/spliceai.{sample}__{region}.vcf.gz.tbi')
+		shell:
+			"""
+			module load {config[spliceai-wrapper_version]}
+			module load {config[samtools_version]}
+			spliceai-wrapper annotate \
+				--input-vcf {input.vcf} \
+				--output-vcf {output.vcf} \
+				--precomputed-db-path /data/OGVFB/OGL_NGS/variant_prioritization/data/spliceai_wrapper/precomputed.sqlite3 \
+				--cache-db-path /data/OGVFB/OGL_NGS/variant_prioritization/data/spliceai_wrapper/cache.sqlite3 \
+				--release {config[genomeBuild]} \
+				--path-reference {config[ref_genome]} \
+				--genes-tsv /data/OGVFB/OGL_NGS/variant_prioritization/data/spliceai_wrapper/grch37.txt
+			tabix -f -p vcf {output.vcf}
+			"""
+elif config['spliceai'].upper() == 'VCFANNO':
+	localrules: spliceai_depot
+	rule spliceai_depot:
+		input:
+			vcf = 'temp/vt.{sample}__{region}.vcf.gz',
+			index = 'temp/vt.{sample}__{region}.vcf.gz.tbi'
+		output:
+			vcf = temp('temp/spliceai.{sample}__{region}.vcf.gz'),
+			index = temp('temp/spliceai.{sample}__{region}.vcf.gz.tbi')
+		threads: 4
+		shell:
+			"""
+			if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
+			if [[ $(module list 2>&1 | grep "vcfanno" | wc -l) < 1 ]]; then module load {config[vcfanno_version]}; fi
+			vcfanno -p {threads} ~/git/variant_prioritization/src_hg38/spliceai.depot.conf {input.vcf} \
+				| bgzip --threads {threads} -f > {output.vcf}
+			tabix -f -p vcf {output.vcf}
+			"""
+else:
+	rule spliceai_isec:
+		input:
+			vcf = 'temp/vt.{sample}__{region}.vcf.gz',
+			index = 'temp/vt.{sample}__{region}.vcf.gz.tbi'
+		output:
+			barevcf = temp('temp/{sample}__{region}.bare.vcf.gz'),
+			barevcfindex = temp('temp/{sample}__{region}.bare.vcf.gz.tbi'),
+			spliceai_input = temp('temp/{sample}__{region}.spliceai_input.vcf.gz'),
+			spliceai_input_index = temp('temp/{sample}__{region}.spliceai_input.vcf.gz.tbi'),
+			variant_in_depot = temp('temp/{sample}__{region}.spliceai_depot.vcf.gz'),
+			variant_in_depot_index = temp('temp/{sample}__{region}.spliceai_depot.vcf.gz.tbi')
+		threads: 8
+		shell:
+			"""
+			if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
+			echo -e "##fileformat=VCFv4.2\n#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO" > /lscratch/$SLURM_JOB_ID/vcf.header && echo "vcf.header" || exit 1
+			( bcftools view --no-header -Ov {input.vcf} | awk -F"\t" 'BEGIN{{OFS="\t"}} {{print $1,$2,".",$4,$5,".",".","."}}' - | cat /lscratch/$SLURM_JOB_ID/vcf.header - | bgzip --threads $(({threads}-2)) -c > {output.barevcf} ) && echo "barevcf" || exit 1
+			tabix -f -p vcf {output.barevcf} && echo "index barevcf" || exit 1
+			bcftools isec --threads {threads} -Oz -p /lscratch/$SLURM_JOB_ID {output.barevcf} /data/OGL/resources/spliceai/spliceai500.depot.GRCh38.vcf.gz && echo "isec" || exit 1
+			cp /lscratch/$SLURM_JOB_ID/0000.vcf.gz {output.spliceai_input}
+			cp /lscratch/$SLURM_JOB_ID/0003.vcf.gz {output.variant_in_depot}
+			tabix -f -p vcf {output.spliceai_input}
+			tabix -f -p vcf {output.variant_in_depot}
+			"""
+	rule spliceai:
+		input:
+			spliceai_input = 'temp/{sample}__{region}.spliceai_input.vcf.gz',
+			spliceai_input_index = 'temp/{sample}__{region}.spliceai_input.vcf.gz.tbi',
+			variant_in_depot = 'temp/{sample}__{region}.spliceai_depot.vcf.gz',
+			variant_in_depot_index = 'temp/{sample}__{region}.spliceai_depot.vcf.gz.tbi'
+		output:
+			new_anno_spliceai = temp('temp/{sample}__{region}.new.spliceai.vcf.gz'),
+			new_anno_spliceai_index = temp('temp/{sample}__{region}.new.spliceai.vcf.gz.tbi'),
+			vcf = temp('temp/spliceai.{sample}__{region}.vcf.gz'),
+			index = temp('temp/spliceai.{sample}__{region}.vcf.gz.tbi')
+		threads: 14
+		shell:
+			"""
+			module load {config[spliceai_version]} {config[samtools_version]}
+			if [[ {config[genomeBuild]} == "GRCh38" ]]; then
+				ver=grch38
+			else
+				ver=grch37
+			fi
+			spliceai -I {input.spliceai_input} -R {config[ref_genome]} -A $ver -D 500 -M 0 -O {output.new_anno_spliceai} && echo "spliceai" || exit 1
+			tabix -f -p vcf {output.new_anno_spliceai}
+			bcftools concat --threads {threads} -a {output.new_anno_spliceai} {input.variant_in_depot} -Oz -o {output.vcf}
+			tabix -f -p vcf {output.vcf}
+			"""
+# if [[ $(cat test.empty.vcf |  grep -v "^#" | wc -l) = 0 ]]; then echo "empty"; else echo "spliceai"; fi
+#| head -n 500 | grep "^#" | awk -F"\t" 'BEGIN{{OFS="\t"}} /^##/ {{print $0; next;}} !/^##/ {{print $1,$2,$3,$4,$5,$6,$7,$8}}' - > /lscratch/$SLURM_JOB_ID/ this line was fine in sinteractive but threw error code in snakemake run
+##spliceAI: -M 1: Mask scores representing annotated acceptor/donor gain and unannotated acceptor/donor loss (default: 0). SpliceAI authors recommend using raw files for alternative splicing analysis and masked files for variant interpretation.
+## changed to -M 0 on 8/7/2020 because of pax6 variant.
+localrules: spliceai_edit
+rule spliceai_edit:
+	input:
+		vcf = 'temp/spliceai.{sample}__{region}.vcf.gz',
+		index = 'temp/spliceai.{sample}__{region}.vcf.gz.tbi'
+	output:
+	#	tsv = temp('temp/spliceai.{sample}__{region}.tsv'),
+		tsv_cut = temp('temp/spliceai.{sample}__{region}.tsv.cut')
+	#	index = temp('temp/spliceai.vt.{sample}__{region}.tsv.gz.tbi')
+	shell:
+	# use spliceai_vcfanno_v3.sh file for non-split files
+		"""
+	 	if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
+		bcftools query -H -f '%CHROM\t%POS\t%ID\t%REF\t%ALT\t%INFO/SpliceAI\n' {input.vcf} \
+			| sed -e '1 s/^#//' -e '1 s/\[[0-9]*\]//g' \
+			| awk -F"\t" 'BEGIN{{OFS="\t"}} !/,/ {{split($6, splices, "|"); max = splices[3]; for(m = 3; m <=6; m++) {{if(max<splices[m]) max = splices[m]}} print $0,max; next; }} /,/ {{n = split($6,annotation,","); max = 0; anno = annotation[1]; for (i = 1; i <=n; i++) {{split(annotation[i],splices,"|"); for(m = 3; m <=6; m++) {{if(max<splices[m]) {{max = splices[m]; anno = annotation[i]}}}}; }}; print $1,$2,$3,$4,$5,anno,max }}' - \
+			| awk -F"\t" 'BEGIN{{OFS="\t"}} NR==1 {{$7="spliceai_maxscore"; print $0}} NR>1 {{if ($6==".") {{$7="."; print $0}} else {{print $0}} }}' - \
+			| awk -F"\t" 'BEGIN{{OFS="\t"}} NR==1 {{$8="spliceai_rank"; print $0}} NR>1 {{ if ($7==".") {{$8 = 0}} else {{ if ($7 >= 0.8) {{$8 = 8}} else {{if ($7 >= 0.5) {{$8 = 6}} else {{if ($7 >= 0.2) {{$8 = 3}} else {{if ($7 >= 0.15) {{$8 = 1}} else {{$8 = 0}}}}}} }}}}; print $0}}' -  > {output.tsv_cut}
+		"""
+#Snakemake use {} as special wildcard, need to replace with {{}}.
+#Also better use double quotation marks "" instead of ''.
+#in sed, it appearst that \t needs to be \\t (or double quotations?)
+
+# rule merge_spliceai:
+# 	input:
+# 		expand('temp/spliceai.{sample}__{region}.tsv.temp', sample=SAMPLE, region=REGIONS)
+# 	output:
+# 		'temp/spliceai.tsv.gz'
+# 	shell:
+# 		"""
+# 		module load {config[samtools_version]}
+# 		head -n 1 {input} | grep "^CHROM" | uniq > temp/spliceai_header
+# 		cat {input} | grep -v "^CHROM" | sort -k1,1 -k2,2n > {output}TEMP
+# 		cat temp/spliceai_header {output}TEMP | bgzip -f > {output}
+# 		tabix -b 2 -e 2 -S 1 {output}
+# 		"""
+
+rule spliceai_intervar_edit:
+	input:
+		spliceai = 'temp/spliceai.{sample}__{region}.tsv.cut',
+		annovar = 'temp/{sample}__{region}.avinput.hg38_multianno.txt',
+		intervar = 'temp/{sample}__{region}.avinput.hg38_multianno.txt.intervar'
+	output:
+		intermediate = temp('temp/{sample}__{region}.avinput.hg38_multianno.modified.txt'),
+		spliceai_intervar = temp('temp/{sample}__{region}.spliceai_annovar_intervar'),
+		header = temp('temp/{sample}__{region}.annovar_intervar_header'),
+		gz = temp('temp/{sample}__{region}.spliceai_annovar_intervar_annotation.txt.gz'),
+		tbi = temp('temp/{sample}__{region}.spliceai_annovar_intervar_annotation.txt.gz.tbi')
+	shell:
+		"""
+		if [[ $(module list 2>&1 | grep "R/" | wc -l) < 1 ]]; then module load {config[R_version]}; fi
+		sed -e "1 s/avsnp147/avsnp150/" -e "s/^chr//" {input.annovar} \
+			> {output.intermediate}
+		Rscript {config[intervar_Rscript_path]} \
+			{input.intervar} \
+			{output.intermediate} \
+			{input.spliceai} \
+			{config[HGMDtranscript]} \
+			{output.spliceai_intervar}
+		if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
+		head -n 1 {output.spliceai_intervar} > {output.header}
+		tail -n +2 {output.spliceai_intervar} | sort -k1,1 -k2,2n | cat {output.header} - | bgzip -f > {output.gz}
+		tabix -b 2 -e 2 -S 1 {output.gz}
+		"""
+
+#133 to 132 3/30/21
+# rule merge_annovar_intervar:
+# 	input:
+# 		expand('temp/{sample}__{region}.spliceai_annovar_intervar', sample=SAMPLE, region=REGIONS)
+# 	output:
+# 		'temp/spliceai_annovar_intervar_annotation.txt.gz'
+# 	shell:
+# 		"""
+# 		module load {config[samtools_version]}
+# 		head -n 1 {input} | grep "^CHROM" | uniq > temp/annovar_intervar_header
+# 		cat {input} | grep -v "^CHROM" | sort -k1,1 -k2,2n > {output}TEMP
+# 		cat temp/annovar_intervar_header {output}TEMP | bgzip -f > {output}
+# 		tabix -b 2 -e 2 -S 1 {output}
+# 		"""
+
+# in above sort, will it work with alternative alleles?
+
+# annotate with VEP
+# two paths here, set by config['pick'] in config.yaml and the pick() function:
+# 1. 'canonical' only returns one consequence per variant.
+# 		Use this for clinical returns, as no risk of using odd tx with
+# 		high consequence as choice in gemini
+# 2. 'all' will do multiple annotations with VEP and gemini will use
+# 	the most serious consequence.
+# 		Use for more research returns, to increase chances of finding
+# 		interesting variants at cost of lower specificity.
+
+#VEP 372 BP exome with 4 forks: up to 4.5 h
+if config['datatype'].upper() in ["PANEL"]:
+	localrules: VEP_annotate
+rule VEP_annotate:
+	input:
+		vcf = 'temp/vt.{sample}__{region}.vcf.gz',
+		index = 'temp/vt.{sample}__{region}.vcf.gz.tbi'
+	output:
+		vcf = temp('temp/{sample}__{region}.SORTED.VT.VEP.vcf.gz'),
+		index = temp('temp/{sample}__{region}.SORTED.VT.VEP.vcf.gz.tbi'),
+		html = temp('temp/{sample}__{region}.SORTED.VT.VEP.vcf.gz_summary.html')
+	threads: 8
+	params:
+		pick = pick()
+	shell:
+		"""
+		if [[ $(module list 2>&1 | grep "VEP" | wc -l) < 1 ]]; then module load {config[VEP_version]}; fi
+		if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
+		if [[ {config[genomeBuild]} == "GRCh38" ]]; then
+			CADD_PLUGIN="--plugin CADD,$VEPCACHEDIR/CADD_1.6_GRCh38_whole_genome_SNVs.tsv.gz,$VEPCACHEDIR/CADD_1.6_GRCh38_gnomad.genomes.r3.0.indel.tsv.gz"
+			SPLICEAI_PLUGIN="--plugin SpliceAI,snv=$VEPCACHEDIR/spliceai_scores.masked.snv.hg38.vcf.gz,indel=$VEPCACHEDIR/spliceai_scores.masked.indel.hg38.vcf.gz"
+		else
+			CADD_PLUGIN="--plugin CADD,$VEPCACHEDIR/CADD_1.6_GRCh37_whole_genome_SNVs.tsv.gz,$VEPCACHEDIR/CADD_1.6_GRCh37_InDels.tsv.gz "
+			SPLICEAI_PLUGIN="--plugin SpliceAI,snv=$VEPCACHEDIR/spliceai_scores.masked.snv.hg19.vcf.gz,indel=$VEPCACHEDIR/spliceai_scores.masked.indel.hg19.vcf.gz"
+		fi
+		vep -i {input.vcf} --offline --fork $(({threads}-2)) \
+			--cache --dir_cache $VEPCACHEDIR \
+			--fasta $VEPCACHEDIR/{config[genomeBuild]}.fa --species homo_sapiens --assembly {config[genomeBuild]}  \
+			--format vcf \
+			--output_file {output.vcf} \
+			--merged \
+			--plugin GeneSplicer,$GS/bin/genesplicer,$GS/human,context=200 \
+            --plugin SpliceRegion \
+			--plugin MaxEntScan,/data/OGL/resources/variant_annotation/data/MaxEntScan \
+			$CADD_PLUGIN \
+			--plugin UTRannotator,$VEPCACHEDIR/uORF_5UTR_{config[genomeBuild]}_PUBLIC.txt \
+			--plugin AlphaMissense,file=$VEPCACHEDIR/AlphaMissense_hg38.tsv.gz \
+			--sift b --polyphen b \
+			--regulatory \
+			--canonical \
+			--mane \
+			--total_length \
+			--hgvs \
+			--shift_hgvs 1 \
+			--symbol \
+			--check_existing \
+			--numbers \
+			--biotype \
+			--total_length \
+			--pubmed \
+			--domains \
+			--gene_phenotype \
+			--max_af \
+			{params.pick} \
+			--vcf --compress_output bgzip --force_overwrite \
+            --fields Allele,Consequence,Codons,Amino_acids,Gene,SYMBOL,MANE,MANE_SELECT,MANE_PLUS_CLINICAL,Feature,EXON,INTRON,HGVSc,HGVSp,MAX_AF,MAX_AF_POPS,Protein_position,BIOTYPE,CANONICAL,DOMAINS,Existing_variation,CLIN_SIG,PICK,PUBMED,Phenotypes,SIFT,PolyPhen,CADD_RAW,CADD_PHRED,GeneSplicer,SpliceRegion,MaxEntScan_alt,MaxEntScan_diff,MaxEntScan_ref,existing_InFrame_oORFs,existing_OutOfFrame_oORFs,existing_uORFs,five_prime_UTR_variant_annotation,five_prime_UTR_variant_consequence,MOTIF_NAME,MOTIF_POS,HIGH_INF_POS,MOTIF_SCORE_CHANGE,am_class,am_pathogenicity,REFSEQ_MATCH,BAM_EDIT,SOURCE
+		tabix -f -p vcf {output.vcf}
+		"""
+#			--plugin Mastermind,{config[mastermind_vcf]} \
+#Mastermind_counts,Mastermind_MMID3,
+#after updating the --fields, edit priority_score.R
+#--mane --> --mane_slect; --fields: MANE_SELECT, MANE_PLUS_CLINICAL --> MANE_SELECT
+#--ccds \ removed 6/10/22, --fields: CCDS (not included)
+#If fields name unknown, run VEP and look for the ## explanation after CSQ
+#--plugin RefSeqHGVS \HGVSc-RefSeq,HGVSp-RefSeq, error/#warning
+#--plugin LoF,loftee_path:$VEPCACHEDIR/Plugins/loftee_GRCh38 --dir_plugins $VEPCACHEDIR/Plugins/loftee_GRCh38 \ compilation error/warning, but did not quit run
+#--nearest symbol : had problem
+#			--plugin G2P,file=$VEPCACHEDIR/EyeG2P.csv \ produce html output.
+#remove Grantham. 5/21/2020
+#remove --plugin dbscSNV,$VEPCACHEDIR/dbscSNV1.1.txt.gz & ada_score,rf_score, from fields \ because included in annovar and didn't try to find the GRCh38 files
+#SpliceAI plugin was not added because vcf output had fields separated. Used vcfanno instead.
+
+# annotate with vcfanno
+if config['datatype'].upper() in ["PANEL"]:
+	localrules: vcfanno_annotate
+rule vcfanno_annotate:
+	input:
+		annovar_intervar = 'temp/{sample}__{region}.spliceai_annovar_intervar_annotation.txt.gz',
+		annovar_intervar_index = 'temp/{sample}__{region}.spliceai_annovar_intervar_annotation.txt.gz.tbi',
+		vcf = 'temp/{sample}__{region}.SORTED.VT.VEP.vcf.gz',
+		index = 'temp/{sample}__{region}.SORTED.VT.VEP.vcf.gz.tbi'
+	output:
+		new_conf = temp('temp/{sample}__{region}_vcfanno.conf'),
+		vcf = temp('temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.vcf.gz'),
+		index = temp('temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.vcf.gz.tbi')
+	threads: 4
+	shell:
+		"""
+		if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
+		if [[ $(module list 2>&1 | grep "vcfanno" | wc -l) < 1 ]]; then module load {config[vcfanno_version]}; fi
+		# copy conf to local dir, then edit to put in the path
+		# to the annovar_intervar this Snakemake creates
+		cp {config[vcfanno_conf]} {output.new_conf}
+		annovar_intervar_path=`echo {input.annovar_intervar} | sed 's:/:\\\\\/:g'`
+		sed -i -e "s/ANNOVAR_INTERVAR_FILE/$annovar_intervar_path/g" \
+			-e "s/HGMDVERSION/{config[hgmd_version]}/g" \
+			-e "s#OGLexome_version#{config[OGLexome_version]}#" \
+			-e "s#OGLgenome_version#{config[OGLgenome_version]}#" \
+			{output.new_conf}
+		vcfanno -p {threads} -lua /home/$USER/git/variant_prioritization/src_hg38/vcfanno_custom.lua \
+			{output.new_conf} {input.vcf} | sed 's/Number=A/Number=1/g' | bgzip -f > {output.vcf}
+		tabix -f -p vcf {output.vcf}
+		"""
+#-lua {config[vcfanno_lua]}
+#single job running "resources: res=1". Cannot have if condition inside the rule.
+if config['datatype'].upper() in ["PANEL", "EXOME", "WES"]:
+	rule priority_scores:
+		input:
+			vcf = 'temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.vcf.gz',
+			index = 'temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.vcf.gz.tbi',
+			csv = 'temp/squirls.{sample}__{region}.csv',
+			pangolin = 'temp/pangolin.{sample}__{region}.tsv',
+			hg19 = 'temp/crossmap.hg19.{sample}__{region}.tsv'
+		output:
+			tsv = temp('temp/{sample}__{region}.for.ps.tsv'),
+			ps_tsv = temp('temp/{sample}__{region}.ps.tsv'),
+			bgzip = temp('temp/{sample}__{region}.ps.tsv.gz'),
+			index = temp('temp/{sample}__{region}.ps.tsv.gz.tbi')
+		resources: res=1
+		shell:
+			"""
+			if [[ $(module list 2>&1 | grep "R/" | wc -l) < 1 ]]; then module load {config[R_version]}; fi
+			if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
+			bcftools query -H -f '%CHROM\t%POS\t%ID\t%REF\t%ALT\t%INFO/CSQ\t%INFO/Ref_Gene\t%INFO/Func_refGeneWithVer\t%INFO/ExonicFunc_refGeneWithVer\t%INFO/gno2x_af_all\t%INFO/gno2g_af_all\t%INFO/gno2x_af_popmax\t%INFO/gno2g_af_popmax\t%INFO/gno2_xg_ratio\t%INFO/gno2x_an_all\t%INFO/gno2g_an_all\t%INFO/gno2x_nonpar\t%INFO/gno2g_nonpar\t%INFO/gno2x_filter\t%INFO/gno2g_filter\t%INFO/gno3_af_all\t%INFO/gno3_an_all\t%INFO/gno3_nonpar\t%INFO/gno3_filter\t%INFO/gno3_maxaf\t%INFO/esp6500siv2_all\t%INFO/f1000g2015aug_all\t%INFO/CLNSIG\t%INFO/CLNSIGCONF\t%INFO/HGMD_Overlap4aa\t%INFO/hgmd_class\t%INFO/ClinPred_score\t%INFO/MetaSVM_pred\t%INFO/REVEL_score\t%INFO/MPC_score\t%INFO/MutationAssessor_pred\t%INFO/MutationTaster_pred\t%INFO/PROVEAN_pred\t%INFO/Eigen_PC_raw_coding\t%INFO/phyloP100way_vertebrate\t%INFO/GERPplus_RS\t%INFO/dpsi_max_tissue\t%INFO/dpsi_zscore\t%INFO/dbscSNV_ADA_SCORE\t%INFO/dbscSNV_RF_SCORE\t%INFO/spliceai_rank\t%INFO/branchpoint_prob\t%INFO/labranchor_score\t%INFO/PrScore_intervar\t%INFO/PVS1\t%INFO/SigmaAF_Missense_0001\t%INFO/PrimateAI_score\t%INFO/ccr_pct\t%INFO/remm\t%INFO/fathmm_XF_coding_score\t%INFO/fathmm_xf_noncoding\t%INFO/mutscore\t%INFO/atac_rpe_itemRgb\t%INFO/ft_ret_rpe_score\t%INFO/cherry_sum_score\t%INFO/eyeIntegration_gene\t%INFO/omim_Gene\t%INFO/regsnp_disease\t%INFO/hmc_score\t%INFO/gnomad_nc_constraint\t%INFO/promoterAI\n' {input.vcf} \
+				| sed -e '1 s/^#//' -e '1 s/\[[0-9]*\]//g' > {output.tsv}
+			Rscript /home/$USER/git/variant_prioritization/src_hg38/priority_score.R {output.tsv} {input.csv} {input.pangolin} {input.hg19} \
+				/data/OGL/resources/gnomad/release-2.1.1/gnomad.v2.1.1.lof_metrics.by_gene.txt {output.ps_tsv}
+			bgzip -c {output.ps_tsv} > {output.bgzip}
+			tabix -b 2 -e 2 -S 1 {output.bgzip}
+			"""
+else:
+	rule priority_scores:
+		input:
+			vcf = 'temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.vcf.gz',
+			index = 'temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.vcf.gz.tbi',
+			csv = 'temp/squirls.{sample}__{region}.csv',
+			pangolin = 'temp/pangolin.{sample}__{region}.tsv',
+			hg19 = 'temp/crossmap.hg19.{sample}__{region}.tsv'
+		output:
+			tsv = temp('temp/{sample}__{region}.for.ps.tsv'),
+			ps_tsv = temp('temp/{sample}__{region}.ps.tsv'),
+			bgzip = temp('temp/{sample}__{region}.ps.tsv.gz'),
+			index = temp('temp/{sample}__{region}.ps.tsv.gz.tbi')
+		shell:
+			"""
+			if [[ $(module list 2>&1 | grep "R/" | wc -l) < 1 ]]; then module load {config[R_version]}; fi
+			if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
+			bcftools query -H -f '%CHROM\t%POS\t%ID\t%REF\t%ALT\t%INFO/CSQ\t%INFO/Ref_Gene\t%INFO/Func_refGeneWithVer\t%INFO/ExonicFunc_refGeneWithVer\t%INFO/gno2x_af_all\t%INFO/gno2g_af_all\t%INFO/gno2x_af_popmax\t%INFO/gno2g_af_popmax\t%INFO/gno2_xg_ratio\t%INFO/gno2x_an_all\t%INFO/gno2g_an_all\t%INFO/gno2x_nonpar\t%INFO/gno2g_nonpar\t%INFO/gno2x_filter\t%INFO/gno2g_filter\t%INFO/gno3_af_all\t%INFO/gno3_an_all\t%INFO/gno3_nonpar\t%INFO/gno3_filter\t%INFO/gno3_maxaf\t%INFO/esp6500siv2_all\t%INFO/f1000g2015aug_all\t%INFO/CLNSIG\t%INFO/CLNSIGCONF\t%INFO/HGMD_Overlap4aa\t%INFO/hgmd_class\t%INFO/ClinPred_score\t%INFO/MetaSVM_pred\t%INFO/REVEL_score\t%INFO/MPC_score\t%INFO/MutationAssessor_pred\t%INFO/MutationTaster_pred\t%INFO/PROVEAN_pred\t%INFO/Eigen_PC_raw_coding\t%INFO/phyloP100way_vertebrate\t%INFO/GERPplus_RS\t%INFO/dpsi_max_tissue\t%INFO/dpsi_zscore\t%INFO/dbscSNV_ADA_SCORE\t%INFO/dbscSNV_RF_SCORE\t%INFO/spliceai_rank\t%INFO/branchpoint_prob\t%INFO/labranchor_score\t%INFO/PrScore_intervar\t%INFO/PVS1\t%INFO/SigmaAF_Missense_0001\t%INFO/PrimateAI_score\t%INFO/ccr_pct\t%INFO/remm\t%INFO/fathmm_XF_coding_score\t%INFO/fathmm_xf_noncoding\t%INFO/mutscore\t%INFO/atac_rpe_itemRgb\t%INFO/ft_ret_rpe_score\t%INFO/cherry_sum_score\t%INFO/eyeIntegration_gene\t%INFO/omim_Gene\t%INFO/regsnp_disease\t%INFO/hmc_score\t%INFO/gnomad_nc_constraint\t%INFO/promoterAI\n' {input.vcf} \
+				| sed -e '1 s/^#//' -e '1 s/\[[0-9]*\]//g' > {output.tsv}
+			Rscript /home/$USER/git/variant_prioritization/src_hg38/priority_score.R {output.tsv} {input.csv} {input.pangolin} {input.hg19} \
+				/data/OGL/resources/gnomad/release-2.1.1/gnomad.v2.1.1.lof_metrics.by_gene.txt {output.ps_tsv}
+			bgzip -c {output.ps_tsv} > {output.bgzip}
+			tabix -b 2 -e 2 -S 1 {output.bgzip}
+			"""
+
+#removed \t%INFO/gene_gnomad and \t%INFO/mis_z 9/8/23
+#if [[ $(module list 2>&1 | grep "vt/" | wc -l) < 1 ]]; then module load {config[vt_version]}; fi
+# vt info2tab -t CSQ,Ref_Gene,Func_refGeneWithVer,ExonicFunc_refGeneWithVer,gno2x_af_all,gno2g_af_all,maxaf_annovar,gno2x_af_popmax,gno2g_af_popmax,gno_xg_ratio,gno2x_an_all,gno2g_an_all,gno2x_nonpar,gno2g_nonpar,gno2x_filter,gno2g_filter,mis_z,CLNSIG,HGMD_Overexlap4aa,hgmd_class,SIFT_pred,Polyphen2_HVAR_pred,ClinPred_score,MetaSVM_pred,REVEL_score,MPC_score,MutationAssessor_pred,MutationTaster_pred,PROVEAN_pred,Eigen-PC-raw_coding,phyloP100way_vertebrate,GERPplus_RS,dpsi_max_tissue,dpsi_zscore,dbscSNV_ADA_SCORE,dbscSNV_RF_SCORE,spliceai_rank,PrScore_intervar,PVS1,SigmaAF_Missense_0001,PrimateAI_score,ccr_pct,remm,fathmm-XF_coding_score,fathmm_xf_noncoding,mutscore,atac_rpe_itemRgb,ft_ret_rpe_score,cherry_sum_score,gene_gnomad,eyeIntegration_gene,omim_Gene {input.vcf} \
+# 	| sed '1 s/^.*$/CHROM\tPOS\tREF\tALT\tN_ALLELE\tCSQ\tRef_Gene\tFunc_refGeneWithVer\tExonicFunc_refGeneWithVer\tgno2x_af_all\tgno2g_af_all\tmaxaf_annovar\tgno2x_af_popmax\tgno2g_af_popmax\tgno_xg_ratio\tgno2x_an_all\tgno2g_an_all\tgno2x_nonpar\tgno2g_nonpar\tgno2x_filter\tgno2g_filter\tmis_z\tCLNSIG\tHGMD_Overlap4aa\thgmd_class\tsift\tpolyphen\tClinPred_score\tMetaSVM_pred\tREVEL_score\tMPC_score\tMutationAssessor_pred\tMutationTaster_pred\tPROVEAN_pred\tEigen-PC-raw_coding\tphyloP100way_vertebrate\tGERPplus_RS\tdpsi_max_tissue\tdpsi_zscore\tdbscSNV_ADA_SCORE\tdbscSNV_RF_SCORE\tspliceai_rank\tPrScore_intervar\tPVS1\tSigmaAF_Missense_0001\tPrimateAI_score\tccr_pct\tremm\tfathmm-XF_coding_score\tfathmm_xf_noncoding\tmutscore\tatac_rpe_itemRgb\tft_ret_rpe_score\tcherry_sum_score\tgene_gnomad\teyeIntegration_gene\tomim_Gene/' - \
+# 	> {output.tsv}
+
+# annotate with vcfanno
+#if config['datatype'].upper() in ["PANEL"]:
+#	localrules: vcfanno2
+localrules: vcfanno2
+rule vcfanno2:
+	input:
+		priority_score = 'temp/{sample}__{region}.ps.tsv.gz',
+		ps_index = 'temp/{sample}__{region}.ps.tsv.gz.tbi',
+		vcf = 'temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.vcf.gz',
+	 	index = 'temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.vcf.gz.tbi'
+	output:
+		new_conf = temp('temp/{sample}__{region}_vcfanno2.conf'),
+		vcf = temp('temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz'),
+		index = temp('temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz.tbi')
+	threads: 4
+	shell:
+		"""
+		if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
+		if [[ $(module list 2>&1 | grep "vcfanno" | wc -l) < 1 ]]; then module load {config[vcfanno_version]}; fi
+		cp /home/$USER/git/variant_prioritization/src_hg38/vcfanno2.conf {output.new_conf}
+		priority_score_path=`echo {input.priority_score} | sed 's:/:\\\\\/:g'`
+		sed -i "s/priority_score_file/$priority_score_path/g" {output.new_conf}
+		vcfanno -p {threads} {output.new_conf} {input.vcf} | bgzip > {output.vcf}
+		tabix -f -p vcf {output.vcf}
+		"""
+
+
+# fix number=A issue
+# Since I decompose variants into multiple lines,
+# I can make number=1 so vcf2b will keep
+# localrules: tweak_header
+# rule tweak_header:
+# 	input:
+# 		'temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO2.vcf.gz'
+# 	output:
+# 		vcf = temp('temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz'),
+# 		index = temp('temp/{sample}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz.tbi')
+# 	shell:
+# 		"""
+# 		#module load {config[samtools_version]}
+# 		#zcat {input} | sed 's/Number=A/Number=1/g' | bgzip -c > {output.vcf}
+# 		cp {input} {output.vcf}
+# 		tabix -f -p vcf {output.vcf}
+# 		"""
+
+
+localrules: merge_sample_vcf
+rule merge_sample_vcf:
+	input:
+		vcf = expand('temp/{{sample}}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz', region=REGIONS),
+		index = expand('temp/{{sample}}__{region}.SORTED.VT.VEP.VCFANNO.NUMFIX.vcf.gz.tbi', region=REGIONS)
+	output:
+		temp('{sample}.vcf.annotation.done')
+	threads: 8
+	shell:
+		"""
+		export REF_CACHE=/lscratch/$SLURM_JOB_ID/
+		if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
+		bcftools concat --threads {threads} -a --rm-dups none {input.vcf} -Oz -o {wildcards.sample}.{config[anno_version]}.vcf.gz
+		tabix -f -p vcf {wildcards.sample}.{config[anno_version]}.vcf.gz
+		bcftools view --threads {threads} -i 'ID~"vg"' {wildcards.sample}.{config[anno_version]}.vcf.gz -Oz -o {wildcards.sample}.{config[anno_version]}.dvg.vcf.gz
+		tabix -@ {threads} -f -p vcf {wildcards.sample}.{config[anno_version]}.dvg.vcf.gz
+		touch {output}
+		"""
+rule merge_spliceai_vcf:
+	input:
+		vcf = expand('temp/{{sample}}__{region}.new.spliceai.vcf.gz', region=REGIONS),
+		index = expand('temp/{{sample}}__{region}.new.spliceai.vcf.gz.tbi', region=REGIONS)
+	output:
+		temp('temp/{sample}.spliceai.new.vcf.depot.merged')
+	threads: 16
+	shell:
+		"""
+		set -e
+		export REF_CACHE=/lscratch/$SLURM_JOB_ID/
+		if [[ $(module list 2>&1 | grep "samtools" | wc -l) < 1 ]]; then module load {config[samtools_version]}; fi
+		bcftools concat --threads {threads} -a --rm-dups none {input.vcf} -Oz -o /lscratch/$SLURM_JOB_ID/new.spliceai.vcf.gz
+		tabix -f -p vcf /lscratch/$SLURM_JOB_ID/new.spliceai.vcf.gz
+		TIMESTAMP=$(date "+%Y%m%d-%H%M%S")
+		Depot="/data/OGL/resources/spliceai/spliceai500.depot.GRCh38.vcf.gz"
+		backupDepot="/data/OGL/resources/spliceai/backup/$TIMESTAMP.spliceai500.depot.GRCh38.vcf.gz"
+		newAnno="/data/OGL/resources/spliceai/temp/$TIMESTAMP.spliceai500.newAnnotation.GRCh38.vcf.gz"
+		if [[ `bcftools index -n /lscratch/$SLURM_JOB_ID/new.spliceai.vcf.gz` -gt 0 ]]; then
+			cp /lscratch/$SLURM_JOB_ID/new.spliceai.vcf.gz $newAnno
+			cp /lscratch/$SLURM_JOB_ID/new.spliceai.vcf.gz.tbi $newAnno.tbi
+			cp $Depot $backupDepot
+			cp $Depot.tbi $backupDepot.tbi
+			bcftools concat --threads {threads} -a --rm-dups none --no-version \
+				$Depot /lscratch/$SLURM_JOB_ID/new.spliceai.vcf.gz \
+				-Oz -o /lscratch/$SLURM_JOB_ID/spliceai500.depot.GRCh38.vcf.gz
+			tabix -f -p vcf /lscratch/$SLURM_JOB_ID/spliceai500.depot.GRCh38.vcf.gz
+			cp /lscratch/$SLURM_JOB_ID/spliceai500.depot.GRCh38.vcf.gz* /data/OGL/resources/spliceai
+			if [[ `bcftools index -n $Depot` -gt `bcftools index -n $backupDepot` ]]; then
+				echo "####variant no. in original depot file: `bcftools index -n $backupDepot` ####"
+				echo "####variant no. in new depot file: `bcftools index -n $Depot`            ####"
+				rm $backupDepot $backupDepot.tbi $newAnno $newAnno.tbi
+				touch {output}
+			else
+				chgrp OGL /data/OGL/resources/spliceai/temp/$TIMESTAMP.spliceai500.newAnnotation.GRCh38.vcf.gz*
+				chgrp OGL /data/OGL/resources/spliceai/backup/$TIMESTAMP.spliceai500.depot.GRCh38.vcf.gz*
+				echo "## new SpliceAI depot file is not greater than backup, check what caused the problem by checking newAnno file etc, or rerun bcftools concat."
+			fi
+		else
+			echo "## SpliceAI did not annoate any variant, check whether spliceAI is needed. Shall you use vcfanno instead?"
+		fi
+		"""
+# 5/31/22: removed sort from merge_sample_vcf above. bcftools concat --threads {threads} {input.vcf} | bcftools sort -T /lscratch/$SLURM_JOB_ID/ -m 100G -O z -o {output.vcf}
+
+
+if config['input_type'].upper() in ["ANNOTATEDVCF"]:
+	rule peddy_QC:
+		input:
+			config['input_vcf']
+		output:
+			ped = '{sample}_PEDDY.ped_check.csv',
+			het = '{sample}_PEDDY.het_check.csv',
+			sex = '{sample}_PEDDY.sex_check.csv'
+		threads: 4
+		shell:
+			"""
+			module load {config[peddy_version]}
+			peddy -p {threads} {input} {config[ped]} --prefix {wildcards.sample}_PEDDY --sites hg38
+			"""
+	#v0.4.6 worked with genome but failed with bp exome; v0.3.1 worked with GRCh37 vcf files without hg38 support.
+	# create gemini database. 19gb wgs genome --> 104gb in 24 hours.
+	localrules: make_gemini_db
+	rule make_gemini_db:
+		input:
+			config['input_vcf']
+			#		vcf = '{sample}.{ver}.vcf.gz',
+		output:
+			'{sample}.gemini.db'
+		#	threads: 8
+		shell:
+			"""
+			module load {config[gemini_version]}
+			vcf2db.py {input} {config[ped]} {output}
+			"""
+elif config['input_type'].upper() in ["GEMINIDB"]:
+	localrules: mv_gemini_db
+	rule mv_gemini_db:
+		input:
+			config['input_geminiDB']
+		output:
+			'{sample}.gemini.db'
+		shell:
+			"""
+			cp -l {input} {output}
+			#touch -m {output}
+			"""
+else:
+	rule peddy_QC:
+		input:
+			'{sample}.vcf.annotation.done'
+		output:
+			ped = '{sample}_PEDDY.ped_check.csv',
+			het = '{sample}_PEDDY.het_check.csv',
+			sex = '{sample}_PEDDY.sex_check.csv'
+		threads: 4
+		shell:
+			"""
+			module load {config[peddy_version]}
+			peddy -p {threads} {wildcards.sample}.{config[anno_version]}.dvg.vcf.gz {config[ped]} --prefix {wildcards.sample}_PEDDY --sites hg38
+			"""
+	#v0.4.6 worked with genome but failed with bp exome; v0.3.1 worked with GRCh37 vcf files without hg38 support.
+	# create gemini database. 19gb wgs genome --> 104gb in 24 hours.
+	localrules: make_gemini_db
+	rule make_gemini_db:
+		input:
+			'{sample}.vcf.annotation.done'
+			#		vcf = '{sample}.{ver}.vcf.gz',
+		output:
+			'{sample}.gemini.db'
+		#	threads: 8
+		shell:
+			"""
+			module load {config[gemini_version]}
+			vcf2db.py {wildcards.sample}.{config[anno_version]}.vcf.gz {config[ped]} {output}
+			"""
+	# localrules: make_dvg_gemini_db
+	# rule make_dvg_gemini_db:
+	# 	input:
+	# 		'{sample}.vcf.annotation.done'
+	# 		#		vcf = '{sample}.{ver}.vcf.gz',
+	# 	output:
+	# 		'{sample}.PED_{ped}.dvg.gemini.db'
+	# 	#	threads: 8
+	# 	shell:
+	# 		"""
+	# 		module load {config[gemini_version]}
+	# 		vcf2db.py {wildcards.sample}.{config[anno_version]}.dvg.vcf.gz {PEDbase}{wildcards.ped}.ped {output}
+	# 		"""
+
+
+#
+#		-e sum_lof_af_gnomad -e max_lof_af_gnomad
+#		module load {config[gemini_version]}
+#		gemini load -v {input.vcf} -t VEP -p {config[ped]} --skip-gerp-bp --skip-cadd --cores {threads} {output}
+#		--skip-gene-tables --save-info-string needed? the size generated using load is 4x larger than vcf2db.py below, but the db file cannot be queried as before, probably only VEP fields are included.
+# 8/4/19:  --info-exclude MLEAF --info-exclude MLEAC because EU's exome data has 2 values in these two fields.
+#took 12 hours for a genome 4/12/21
+
+
+if config['datatype'].upper() in ["WGS", "GENOME"]:
+	rule query_gemini_family:
+		input:
+			db = '{sample}.gemini.db'
+		output:
+			denovo = 'gemini_tsv/{family_name}.{sample}.denovo.tsv',
+			ad = temp('temp/{family_name}.{sample}.ad.tsv'),
+			ar = temp('temp/{family_name}.{sample}.ar.tsv'),
+			comphets = 'gemini_tsv/{family_name}.{sample}.comphets.tsv',
+			xdenovo = 'gemini_tsv/{family_name}.{sample}.xdenovo.tsv',
+			xd = temp('temp/{family_name}.{sample}.xd.tsv'),
+			xr = temp('temp/{family_name}.{sample}.xr.tsv'),
+			mendel_errors = temp('temp/{family_name}.{sample}.mendel_errors.tsv')
+		shell:
+			"""
+			module load {config[gemini_version]} {config[R_version]}
+			cp {input} /lscratch/$SLURM_JOB_ID/.
+			mkdir -p /lscratch/$SLURM_JOB_ID/{wildcards.family_name}
+			WKDIR=/lscratch/$SLURM_JOB_ID/{wildcards.family_name}
+			LENIENT={config[gemini_lenient]}
+			case "${{LENIENT^^}}" in
+				"YES"|"TRUE")
+					time gemini de_novo -d 9 --min-gq 5 --lenient --filter "priority_score > 4" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.denovo}
+					time gemini autosomal_dominant -d 9 --min-gq 5 --filter "priority_score > 4" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.ad}
+					time gemini autosomal_recessive -d 9 --min-gq 5 --lenient --filter "priority_score > 4" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.ar}
+					time gemini comp_hets -d 9 --min-gq 5 --gene-where "priority_score >= 6" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.comphets}
+					time gemini x_linked_de_novo -d 9 --min-gq 5 --filter "priority_score > 4" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.xdenovo}
+					time gemini x_linked_dominant -d 9 --min-gq 5 --filter "priority_score > 4" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.xd}
+					time gemini x_linked_recessive -d 9 --min-gq 5 --filter "priority_score > 4" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.xr}
+					time gemini mendel_errors -d 9 --min-gq 5 --lenient --filter "priority_score > 4" --only-affected --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.mendel_errors}
+					;;
+				*)
+					time gemini de_novo -d 9 --min-gq 5 --filter "priority_score > 4" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.denovo}
+					time gemini autosomal_dominant -d 9 --min-gq 5 --filter "priority_score > 4" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.ad}
+					time gemini autosomal_recessive -d 9 --min-gq 5 --filter "priority_score > 4" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.ar}
+					time gemini comp_hets -d 9 --min-gq 5 --gene-where "priority_score >= 6" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.comphets}
+					time gemini x_linked_de_novo -d 9 --min-gq 5 --filter "priority_score > 4" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.xdenovo}
+					time gemini x_linked_dominant -d 9 --min-gq 5 --filter "priority_score > 4" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.xd}
+					time gemini x_linked_recessive -d 9 --min-gq 5 --filter "priority_score > 4" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.xr}
+					time gemini mendel_errors -d 9 --min-gq 5 --filter "priority_score > 4" --only-affected --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.mendel_errors}
+					;;
+			esac
+			"""
+elif config['datatype'].upper() in ["EXOME", "WES"]:
+		rule query_gemini_family:
+			input:
+				db = '{sample}.gemini.db'
+			output:
+				denovo = 'gemini_tsv/{family_name}.{sample}.denovo.tsv',
+				ad = temp('temp/{family_name}.{sample}.ad.tsv'),
+				ar = temp('temp/{family_name}.{sample}.ar.tsv'),
+				comphets = 'gemini_tsv/{family_name}.{sample}.comphets.tsv',
+				xdenovo = 'gemini_tsv/{family_name}.{sample}.xdenovo.tsv',
+				xd = temp('temp/{family_name}.{sample}.xd.tsv'),
+				xr = temp('temp/{family_name}.{sample}.xr.tsv'),
+				mendel_errors = temp('temp/{family_name}.{sample}.mendel_errors.tsv')
+			shell:
+				"""
+				module load {config[gemini_version]} {config[R_version]}
+				cp {input} /lscratch/$SLURM_JOB_ID/.
+				mkdir -p /lscratch/$SLURM_JOB_ID/{wildcards.family_name}
+				WKDIR=/lscratch/$SLURM_JOB_ID/{wildcards.family_name}
+				LENIENT={config[gemini_lenient]}
+				case "${{LENIENT^^}}" in
+					"YES"|"TRUE")
+						time gemini de_novo -d 9 --min-gq 5 --lenient --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.denovo}
+						time gemini autosomal_dominant -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.ad}
+						time gemini autosomal_recessive -d 9 --min-gq 5 --lenient --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.ar}
+						time gemini comp_hets -d 9 --min-gq 5 --gene-where "priority_score >= 4" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.comphets}
+						time gemini x_linked_de_novo -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.xdenovo}
+						time gemini x_linked_dominant -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.xd}
+						time gemini x_linked_recessive -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.xr}
+						time gemini mendel_errors -d 9 --min-gq 5 --lenient --filter "priority_score >= 3" --only-affected --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.mendel_errors}
+						;;
+					*)
+						time gemini de_novo -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.denovo}
+						time gemini autosomal_dominant -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.ad}
+						time gemini autosomal_recessive -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.ar}
+						time gemini comp_hets -d 9 --min-gq 5 --gene-where "priority_score >= 4" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.comphets}
+						time gemini x_linked_de_novo -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.xdenovo}
+						time gemini x_linked_dominant -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.xd}
+						time gemini x_linked_recessive -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.xr}
+						time gemini mendel_errors -d 9 --min-gq 5 --filter "priority_score >= 3" --only-affected --families {wildcards.family_name} /lscratch/$SLURM_JOB_ID/{input} > {output.mendel_errors}
+						;;
+				esac
+				"""
+else:
+	localrules: query_gemini_family
+	rule query_gemini_family:
+		input:
+			db = '{sample}.gemini.db'
+		output:
+			denovo = 'gemini_tsv/{family_name}.{sample}.denovo.tsv',
+			ad = temp('temp/{family_name}.{sample}.ad.tsv'),
+			ar = temp('temp/{family_name}.{sample}.ar.tsv'),
+			comphets = 'gemini_tsv/{family_name}.{sample}.comphets.tsv',
+			xdenovo = 'gemini_tsv/{family_name}.{sample}.xdenovo.tsv',
+			xd = temp('temp/{family_name}.{sample}.xd.tsv'),
+			xr = temp('temp/{family_name}.{sample}.xr.tsv'),
+			mendel_errors = temp('temp/{family_name}.{sample}.mendel_errors.tsv')
+		resources: res=1
+		shell:
+			"""
+			if [[ $(module list 2>&1 | grep "gemini" | wc -l) < 1 ]]; then module load {config[gemini_version]}; fi
+			mkdir -p /lscratch/$SLURM_JOB_ID/{wildcards.family_name}
+			WKDIR=/lscratch/$SLURM_JOB_ID/{wildcards.family_name}
+			LENIENT={config[gemini_lenient]}
+			case "${{LENIENT^^}}" in
+				"YES"|"TRUE")
+					time gemini de_novo -d 9 --min-gq 5 --lenient --filter "priority_score >= 3" --families {wildcards.family_name} {input} > {output.denovo}
+					time gemini autosomal_dominant -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} {input} > {output.ad}
+					time gemini autosomal_recessive -d 9 --min-gq 5 --lenient --filter "priority_score >= 3" --families {wildcards.family_name} {input} > {output.ar}
+					time gemini comp_hets -d 9 --min-gq 5 --gene-where "priority_score >= 4" --families {wildcards.family_name} {input} > {output.comphets}
+					time gemini x_linked_de_novo -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} {input} > {output.xdenovo}
+					time gemini x_linked_dominant -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} {input} > {output.xd}
+					time gemini x_linked_recessive -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} {input} > {output.xr}
+					time gemini mendel_errors -d 9 --min-gq 5 --lenient --filter "priority_score >= 3" --only-affected --families {wildcards.family_name} {input} > {output.mendel_errors}
+					;;
+				*)
+					time gemini de_novo -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} {input} > {output.denovo}
+					time gemini autosomal_dominant -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} {input} > {output.ad}
+					time gemini autosomal_recessive -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} {input} > {output.ar}
+					time gemini comp_hets -d 9 --min-gq 5 --gene-where "priority_score >= 4" --families {wildcards.family_name} {input} > {output.comphets}
+					time gemini x_linked_de_novo -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} {input} > {output.xdenovo}
+					time gemini x_linked_dominant -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} {input} > {output.xd}
+					time gemini x_linked_recessive -d 9 --min-gq 5 --filter "priority_score >= 3" --families {wildcards.family_name} {input} > {output.xr}
+					time gemini mendel_errors -d 9 --min-gq 5 --filter "priority_score >= 3" --only-affected --families {wildcards.family_name} {input} > {output.mendel_errors}
+					;;
+			esac
+			"""
+
+localrules: sortGeminiFamily
+rule sortGeminiFamily:
+	input:
+		denovo = 'gemini_tsv/{family_name}.{sample}.denovo.tsv',
+		ad = 'temp/{family_name}.{sample}.ad.tsv',
+		ar = 'temp/{family_name}.{sample}.ar.tsv',
+		comphets = 'gemini_tsv/{family_name}.{sample}.comphets.tsv',
+		xdenovo = 'gemini_tsv/{family_name}.{sample}.xdenovo.tsv',
+		xd = 'temp/{family_name}.{sample}.xd.tsv',
+		xr = 'temp/{family_name}.{sample}.xr.tsv',
+		mendel_errors = 'temp/{family_name}.{sample}.mendel_errors.tsv'
+	output:
+		xlsx = 'gemini_xlsx/{family_name}.{sample}.lenient{gemini_lenient}.xlsx'
+	shell:
+		"""
+		if [[ $(module list 2>&1 | grep "R/" | wc -l) < 1 ]]; then module load {config[R_version]}; fi
+		Rscript /home/$USER/git/variant_prioritization/src_hg38/sortGeminiFamily.R \
+			{config[OGL_Dx_research_genes]} {config[aaf_change]} {output.xlsx} {wildcards.family_name} \
+			{input} \
+			{config[configuration_file]}
+		"""
+
+# 1-2 hours for genome
+if config['datatype'].upper() in ["WGS", "GENOME", "EXOME", "WES"]:
+	rule query_gemini_individual:
+		input:
+			db = '{sample}.gemini.db'
+		output:
+			tsv = 'gemini_tsv/{sampleid}.{sample}.gemini.tsv.gz',
+			ref_tsv = 'gemini_tsv/{sampleid}.{sample}.gemini.ref.tsv.gz'
+		shell:
+			"""
+			module load {config[gemini_version]}
+			cp {input.db} /lscratch/$SLURM_JOB_ID/.
+ 			time gemini query -q \
+			 "SELECT *, gt_types.{wildcards.sampleid}, gts.{wildcards.sampleid}, gt_phases.{wildcards.sampleid}, gt_depths.{wildcards.sampleid}, gt_alt_freqs.{wildcards.sampleid}, gt_quals.{wildcards.sampleid} FROM variants WHERE priority_score > -2" \
+			 --header --gt-filter "gt_types.{wildcards.sampleid}  == HET OR gt_types.{wildcards.sampleid}  == HOM_ALT" /lscratch/$SLURM_JOB_ID/{input.db} \
+			 | gzip > {output.tsv}
+			time gemini query -q \
+			 "SELECT *, gt_types.{wildcards.sampleid}, gts.{wildcards.sampleid}, gt_phases.{wildcards.sampleid}, gt_depths.{wildcards.sampleid}, gt_alt_freqs.{wildcards.sampleid}, gt_quals.{wildcards.sampleid} FROM variants WHERE pmaxaf > 0.99 AND gno3_af_all > 0.98" \
+			 --header --gt-filter "(gt_types.{wildcards.sampleid}  == HET OR gt_types.{wildcards.sampleid}  == HOM_REF) AND gt_quals.{wildcards.sampleid} > 10 AND gt_depths.{wildcards.sampleid} > 5" /lscratch/$SLURM_JOB_ID/{input.db} \
+			 | gzip > {output.ref_tsv}
+			"""
+else:
+	localrules: query_gemini_individual
+	rule query_gemini_individual:
+		input:
+			db = '{sample}.gemini.db'
+		output:
+			tsv = 'gemini_tsv/{sampleid}.{sample}.gemini.tsv.gz',
+			ref_tsv = 'gemini_tsv/{sampleid}.{sample}.gemini.ref.tsv.gz'
+		resources: res=1
+		shell:
+			"""
+			if [[ $(module list 2>&1 | grep "gemini" | wc -l) < 1 ]]; then module load {config[gemini_version]}; fi
+ 			time gemini query -q \
+			 "SELECT *, gt_types.{wildcards.sampleid}, gts.{wildcards.sampleid}, gt_phases.{wildcards.sampleid}, gt_depths.{wildcards.sampleid}, gt_alt_freqs.{wildcards.sampleid}, gt_quals.{wildcards.sampleid} FROM variants" \
+			 --header --gt-filter "gt_types.{wildcards.sampleid}  == HET OR gt_types.{wildcards.sampleid}  == HOM_ALT" {input.db} \
+			 | gzip > {output.tsv}
+			time gemini query -q \
+			 "SELECT *, gt_types.{wildcards.sampleid}, gts.{wildcards.sampleid}, gt_phases.{wildcards.sampleid}, gt_depths.{wildcards.sampleid}, gt_alt_freqs.{wildcards.sampleid}, gt_quals.{wildcards.sampleid} FROM variants WHERE pmaxaf > 0.99 AND gno3_af_all > 0.98" \
+			 --header --gt-filter "(gt_types.{wildcards.sampleid}  == HET OR gt_types.{wildcards.sampleid}  == HOM_REF) AND gt_quals.{wildcards.sampleid} > 10 AND gt_depths.{wildcards.sampleid} > 5" {input.db} \
+			 | gzip > {output.ref_tsv}
+			"""
+
+#--gt-filter "gt_types.{wildcards.sampleid}  == HET OR gt_types.{wildcards.sampleid}  == HOM_ALT" equals to but faster than
+#"gt_types.{wildcards.sampleid} != HOM_REF AND gts.{wildcards.sampleid} != './.' " equals
+# Add BBS2 N70S query
+#####
+#####
+
+if config['datatype'].upper() == "PANEL":
+	rule sortGemini:
+		input:
+			tsv = 'gemini_tsv/{sampleid}.{sample}.gemini.tsv.gz',
+			ref_tsv = 'gemini_tsv/{sampleid}.{sample}.gemini.ref.tsv.gz'
+		output:
+			rearranged_tsv = 'gemini_tsv/{sampleid}.{sample}.gemini.rearranged.tsv.gz',
+			filtered_tsv = 'gemini_tsv_filtered/{sampleid}.{sample}.gemini.filtered.tsv.gz',
+			filtered_xlsx = 'gemini_xlsx/{sampleid}.{sample}.gemini.filtered.xlsx'
+		shell:
+			"""
+			if [[ $(module list 2>&1 | grep "R/" | wc -l) < 1 ]]; then module load {config[R_version]}; fi
+			if [ {config[NGS_genotype_calling]} == OGL ]
+			then
+				if [[ -e ../CoNVaDING/CNV_hiSens/{wildcards.sampleid}.markDup.aligned.only.best.score.shortlist.txt ]]; then
+				Rscript /home/$USER/git/variant_prioritization/src_hg38/sortGeminiTSV_v1.R \
+					{input.tsv} {input.ref_tsv} {config[OGL_Dx_research_genes]} {output.rearranged_tsv} {output.filtered_tsv} {wildcards.sampleid} {output.filtered_xlsx} {config[aaf_change]} ../manta/manta.{wildcards.sampleid}.annotated.tsv {config[manta_freq]} filePlaceholder {config[jaxcnv_freq]} filePlaceholder ../scramble_anno/{wildcards.sampleid}.scramble.xlsx ../scramble_anno/{wildcards.sampleid}.scramble.del.tsv {config[configuration_file]} filePlaceholder filePlaceholder ../CoNVaDING/CNV_hiSens/{wildcards.sampleid}.markDup.aligned.only.best.score.shortlist.txt gemini_xlsx/{wildcards.sampleid}.geneLAF.pdf
+				else
+				Rscript /home/$USER/git/variant_prioritization/src_hg38/sortGeminiTSV_v1.R \
+					{input.tsv} {input.ref_tsv} {config[OGL_Dx_research_genes]} {output.rearranged_tsv} {output.filtered_tsv} {wildcards.sampleid} {output.filtered_xlsx} {config[aaf_change]} ../manta/manta.{wildcards.sampleid}.annotated.tsv {config[manta_freq]} filePlaceholder {config[jaxcnv_freq]} filePlaceholder ../scramble_anno/{wildcards.sampleid}.scramble.xlsx ../scramble_anno/{wildcards.sampleid}.scramble.del.tsv {config[configuration_file]} filePlaceholder filePlaceholder../CoNVaDING/CNV_hiSens/{wildcards.sampleid}.markDup.best.score.shortlist.txt gemini_xlsx/{wildcards.sampleid}.geneLAF.pdf
+				fi
+			else
+				Rscript /home/$USER/git/variant_prioritization/src_hg38/sortGeminiTSV_v1.R \
+					{input.tsv} {input.ref_tsv} {config[OGL_Dx_research_genes]} {output.rearranged_tsv} {output.filtered_tsv} {wildcards.sampleid} {output.filtered_xlsx} {config[aaf_change]} filePlaceholder {config[manta_freq]} filePlaceholder {config[jaxcnv_freq]} filePlaceholder filePlaceholder filePlaceholder {config[configuration_file]} filePlaceholder filePlaceholder filePlaceholder filePlaceholder
+			fi
+			"""
+elif config['datatype'].upper() in ["EXOME", "WES"]:
+	rule sortGemini:
+		input:
+			tsv = 'gemini_tsv/{sampleid}.{sample}.gemini.tsv.gz',
+			ref_tsv = 'gemini_tsv/{sampleid}.{sample}.gemini.ref.tsv.gz'
+		output:
+			rearranged_tsv = 'gemini_tsv/{sampleid}.{sample}.gemini.rearranged.tsv.gz',
+			filtered_tsv = 'gemini_tsv_filtered/{sampleid}.{sample}.gemini.filtered.tsv.gz',
+			filtered_xlsx = 'gemini_xlsx/{sampleid}.{sample}.gemini.filtered.xlsx'
+		threads: 4
+		shell:
+			"""
+			if [[ $(module list 2>&1 | grep "R/" | wc -l) < 1 ]]; then module load {config[R_version]}; fi
+			if [ {config[NGS_genotype_calling]} == "OGL" ]
+			then
+				Rscript /home/$USER/git/variant_prioritization/src_hg38/sortGeminiTSV_v1.R \
+					{input.tsv} {input.ref_tsv} {config[OGL_Dx_research_genes]} {output.rearranged_tsv} {output.filtered_tsv} {wildcards.sampleid} {output.filtered_xlsx} {config[aaf_change]} ../manta/manta.{wildcards.sampleid}.annotated.tsv {config[manta_freq]} filePlaceholder {config[jaxcnv_freq]} ../AutoMap/{wildcards.sampleid}/{wildcards.sampleid}.HomRegions.annot.tsv ../scramble_anno/{wildcards.sampleid}.scramble.xlsx ../scramble_anno/{wildcards.sampleid}.scramble.del.tsv {config[configuration_file]} filePlaceholder
+			else
+				Rscript /home/$USER/git/variant_prioritization/src_hg38/sortGeminiTSV_v1.R \
+					{input.tsv} {input.ref_tsv} {config[OGL_Dx_research_genes]} {output.rearranged_tsv} {output.filtered_tsv} {wildcards.sampleid} {output.filtered_xlsx} {config[aaf_change]} filePlaceholder {config[manta_freq]} filePlaceholder {config[jaxcnv_freq]} filePlaceholder filePlaceholder filePlaceholder {config[configuration_file]} filePlaceholder
+			fi
+			#do not add more "filePlaceholder" at the Rscript command, as is.na(convading_file) is used for exome option in sortGeminiTSV_v1.R
+			"""
+else:
+	rule sortGemini:
+		input:
+			tsv = 'gemini_tsv/{sampleid}.{sample}.gemini.tsv.gz',
+			ref_tsv = 'gemini_tsv/{sampleid}.{sample}.gemini.ref.tsv.gz'
+		output:
+			rearranged_tsv = 'gemini_tsv/{sampleid}.{sample}.gemini.rearranged.tsv.gz',
+			filtered_tsv = 'gemini_tsv_filtered/{sampleid}.{sample}.gemini.filtered.tsv.gz',
+			filtered_xlsx = 'gemini_xlsx/{sampleid}.{sample}.gemini.filtered.xlsx'
+		threads: 4
+		shell:
+			"""
+			mkdir -p gemini_tsv_filtered gemini_xlsx
+			module load {config[R_version]}
+			if [ {config[NGS_genotype_calling]} == "OGL" ]
+			then
+				Rscript /home/$USER/git/variant_prioritization/src_hg38/sortGeminiTSV_v1.R \
+					{input.tsv} {input.ref_tsv} {config[OGL_Dx_research_genes]} {output.rearranged_tsv} {output.filtered_tsv} {wildcards.sampleid} {output.filtered_xlsx} {config[aaf_change]} ../manta/manta.{wildcards.sampleid}.annotated.tsv {config[manta_freq]} ../jax-cnv/{wildcards.sampleid}.jaxcnv.annotated.tsv {config[jaxcnv_freq]} ../AutoMap/{wildcards.sampleid}/{wildcards.sampleid}.HomRegions.annot.tsv ../scramble_anno/{wildcards.sampleid}.scramble.xlsx filePlaceholder {config[configuration_file]} ../clinSV/{wildcards.sampleid}/{wildcards.sampleid}.clinSV.RARE_PASS_GENE.eG.filtered.xlsx ../mutserve/{wildcards.sampleid}.AnnotatedVariants.txt
+			else
+				Rscript /home/$USER/git/variant_prioritization/src_hg38/sortGeminiTSV_v1.R \
+					{input.tsv} {input.ref_tsv} {config[OGL_Dx_research_genes]} {output.rearranged_tsv} {output.filtered_tsv} {wildcards.sampleid} {output.filtered_xlsx} {config[aaf_change]} filePlaceholder {config[manta_freq]} filePlaceholder {config[jaxcnv_freq]} filePlaceholder filePlaceholder filePlaceholder {config[configuration_file]} filePlaceholder filePlaceholder
+			fi
+			"""
+# [] or [[]] are both fine in biowulf2, the space is more important.
+
+localrules: LesserAlleleFreq
+rule LesserAlleleFreq:
+	input:
+		'gemini_tsv/{sampleid}.{sample}.gemini.rearranged.tsv.gz'
+	output:
+		LAFplot = 'LesserAlleleFreq/{sampleid}.{sample}.LAF.jpeg'
+	shell:
+		"""
+		if [[ $(module list 2>&1 | grep "R/" | wc -l) < 1 ]]; then module load {config[R_version]}; fi
+		Rscript /home/$USER/git/variant_prioritization/src_hg38/LesserAlleleFreq_singleSample.R \
+			{input} {wildcards.sampleid} {output.LAFplot}
+		"""
+
+#Make a shiny app
+##sbatch needs 32g for wgs or exome
