@@ -201,7 +201,7 @@ ps_df <-  left_join(ps_df_crossmap, squirls_pangolin_annotation, by="variantkey"
                                                                   abs(promoterAI) > 0.1 ~ 0.5,
                                                                   TRUE ~ 0))) %>% 
   replace_na(list(clinvar_hgmd_score=0, insilico_score=0, SigmaAF_Missense_0001=0,
-                  spliceai_rank=0, pangolin_max=0)) %>% 
+                  spliceai_rank=0, pangolin_max=0, spliceai2_score=0)) %>% 
   mutate(temp_mis_z = mis_z, temp_dpsi_max_tissue = dpsi_max_tissue, temp_dpsi_zscore = dpsi_zscore) %>% 
   mutate(temp_squirls_maxscore = squirls_maxscore) %>%
   mutate(temp_dbscsnv_ada_score = dbscSNV_ADA_SCORE) %>% 
@@ -218,8 +218,12 @@ ps_df <-  left_join(ps_df_crossmap, squirls_pangolin_annotation, by="variantkey"
                                        TRUE ~ 0)) %>%
   mutate(temp_pangolin_score = case_when( pangolin_max > 0.5 ~ 6,
                                           pangolin_max > 0.2 ~ 3,
-                                          TRUE ~ 0)) %>% 
-  mutate(splice_score = pmin(8, (spliceai_rank + temp_genesplicer + temp_maxentscan_diff + temp_dpsi_score + temp_dbscSNV_score + temp_squirl_score + 
+                                          TRUE ~ 0)) %>%
+  mutate(temp_spliceai2_score = case_when( spliceai2_score > 0.5 ~ 8,
+                                           spliceai2_score > 0.25 ~ 6,
+                                           spliceai2_score > 0.1 ~ 3,
+                                          TRUE ~ 0)) %>%
+  mutate(splice_score = pmin(8, (pmax(spliceai_rank, temp_spliceai2_score) + temp_genesplicer + temp_maxentscan_diff + temp_dpsi_score + temp_dbscSNV_score + temp_squirl_score + 
                                    temp_pangolin_score + ifelse(pmaxaf < 0.02 & !is.na(branchpoint_prob), 2, 0) + ifelse(pmaxaf < 0.02 & !is.na(labranchor_score), 2, 0) )) ) %>% 
   mutate(priority_score = ifelse(clinvar_hgmd_score == 6 & PrScore_intervar < 0, 6, PrScore_intervar + clinvar_hgmd_score) +  #makes sure common path has at least 6 pts, previously "PrScore_intervar + ifelse(pmaxaf < 0.03, clinvar_hgmd_score, 0) +"
            ifelse(PVS1 == 1 | pmaxaf >= 0.01 | PrScore_intervar > 6, 0, truncating_vep*6) + 

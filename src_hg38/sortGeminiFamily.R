@@ -25,8 +25,8 @@ sortFilterGemini <- function(fileName) {
     mutate( start_vcf = start + 1 ) %>% 
     unite("chr_variant_id", chrom, start_vcf, ref, alt, sep = "-", remove = FALSE ) %>% 
     #mutate(gene = toupper(gene)) %>% 
-    filter(pmaxaf < 0.2, aaf < aaf_freq, !ref_gene %in% blacklistGene, qual > 10)
-  # get max_priority_score for each gene
+    filter(aaf < aaf_freq, !ref_gene %in% blacklistGene, qual > 10)
+    # get max_priority_score for each gene
   if (nrow(InheritanceTest) == 0) {
     return(data.frame()) 
   }
@@ -38,6 +38,10 @@ sortFilterGemini <- function(fileName) {
     InheritanceTest_rearrangeCol <- left_join(InheritanceTest_max_priority_score1, panelGene, by = c("ref_gene")) %>% 
       mutate(note = "") %>% separate(vcf_id, c('caller', 'hg38_id'), sep = "_") %>% 
       mutate(hg38_pos = sub("[ACGT]*>[ACGT]*", "", hg38_id)) %>%
+      filter(priority_score >= 15 | (pmaxaf < 0.1 & (
+               (caller %in% c("fb", "dv") & af_oglg < 0.01 & af_oglx < 0.01) |
+                 (!caller %in% c("fb", "dv") & af_oglg < 0.05 & af_oglx < 0.05)
+             ))) %>%
       mutate(gno2e3g_hemi = ifelse(gno2x_nonpar + gno3_nonpar == 0, NA, ifelse(gno2x_nonpar == 0, 0, gno2x_ac_xy) + ifelse(gno3_nonpar == 0, 0, round(gno3_an_xy * gno3_af_xy, 0) ) )) %>% 
       mutate(gno2e3g_hom = ifelse(is.na(gno2x_hom) & is.na(gno3_nhomalt), NA, ifelse(is.na(gno2x_hom), 0, gno2x_hom) + ifelse(is.na(gno3_nhomalt), 0, gno3_nhomalt) ), 
              gno2e3g_ac = ifelse(is.na(gno2x_ac_all) & is.na(gno3_ac_all), NA, ifelse(is.na(gno2x_ac_all), 0, gno2x_ac_all) + ifelse(is.na(gno3_ac_all), 0, gno3_ac_all) ), 
@@ -81,7 +85,7 @@ sortFilterGemini <- function(fileName) {
              exonicfunc_refgenewithver, 'refgenewithver',mane_select,'gene','hgvsc','hgvsp','exon','aa_length','intron','omim_inheritance','omim_phen',hgmd,clnsig,clnsigconf,'note', 
              gno2x_af_all,gno3_af_all,'gno2e3g_acan', 'gno2e3g_hom',gno2e3g_hemi,'max_af', 'max_af_pops',af_oglx,af_oglg,'interpro_domain', 'pfam_domain', 
              'oe_lof_upper_bin','pli','loeuf','mis_z','pnull','prec', 'rmsk', 
-             promoterai, 'am_pathogenicity','am_class','spliceai','spliceai_maxscore','spliceaimasked50','spliceaimasked50max',
+             promoterai, 'am_pathogenicity','am_class','spliceai2_score', 'spliceai2', 'spliceai','spliceai_maxscore','spliceaimasked50','spliceaimasked50max',
              'grch37variant_id','qual',gt_depths,gt_quals,gno2x_filter,gno3_filter,func_refgenewithver,'omim_gene','hgmd_id','hgmd_class', 'hgmd_phen', hgmd_overlap4aa, 'existing_variation',clnid, clnalleleid,'clin_sig', clnrevstat, clndn, clndisdb, 
              intervar_and_evidence, 'pvs1', 'truncating_vep', 'gno2e3g_af','pmaxaf', ac_oglx, ac_hom_oglx, an_oglx, ac_oglg, ac_hom_oglg, an_oglg, 'existing_inframe_oorfs','existing_outofframe_oorfs','existing_uorfs','five_prime_utr_variant_annotation','five_prime_utr_variant_consequence',
              'squirls_interpretation', 'squirls_maxscore', 'squirls_score', 'dbscsnv_ada_score', 'dbscsnv_rf_score', 'regsnp_fpr','regsnp_disease','regsnp_splicing_site','dpsi_max_tissue', 'dpsi_zscore', 'genesplicer', 'maxentscan_diff', 'branchpoint_prob', 'labranchor_score', 'regsnp_fpr','regsnp_disease','regsnp_splicing_site',  
