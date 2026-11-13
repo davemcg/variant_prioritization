@@ -196,6 +196,7 @@ else:
 	#localrules: crossmap
 	localrules: bcftools_norm
 	# localrules: priority_scores
+	localrules: sortGemini
 
 #localrules: VEP_annotate panel above.
 localrules: intervar_evidence_omim

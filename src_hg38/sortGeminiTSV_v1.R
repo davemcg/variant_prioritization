@@ -308,10 +308,10 @@ gemini_filtered <- gemini_rearrangeCol %>% mutate(temp_group = ifelse(priority_s
   filter(priority_score >= 3)
 
 gemini_filtered0 <- gemini_filtered %>% select(-maxpriorityscore) #filtered0: temp_group >= -3 & pmaxaf < 0.2 & aaf < aafCutoff) | priority_score >= 10 
-
+print("###before writing filtered tsv file")
 #AnnotSV does not have GD_POPMAX_AF column as of 3/2/2021, if GD_POPMAX_AF in columnames, then use it in the next version.
 write_tsv(gemini_filtered0, file.path('.', filteredGemini_tsv_file), na="") #gemini_filtered tsv file main filter is priority_score >= 3
-
+print("###after writing filtered tsv file")
 #found out whether blank is 0 after importing, use 1197 for filtering
 #consider adding manta to the main gemini df for sorting/filtering after knowing the specificity of the manta calls. To better sort AR, AD, and ACMG 2nd.
 
@@ -628,6 +628,33 @@ ar <- gemini_filtered3 %>% filter(!chrom %in% c("X", "Y", "chrX", "chrY"), reces
                       ifelse(note == "", "Digenic?", paste0(note, "; Digenic?")), note) ) %>%
   select(-maxpriorityscore, -knownAR, -recessive_cnt, -temp_ref_gene) # digenic recessive
 
+#ar_path also includes chrX; it includes the clinvar/hgmd path + pLoF only
+ar_path <- gemini_filtered3 %>% select(-recessive_cnt) %>% #removed priority_score >= 5.5, as already filtered above
+  mutate(knownAR = ifelse(grepl("AR|XLR", omim_inheritance), 1, 0)) %>%
+  filter(caller == "fbDvg", clinvar_hgmd_score == 6 | grepl("pathogenic", clnsigconf, ignore.case = TRUE) | truncating_vep == 1 ) |> 
+  mutate(recessive_score = ifelse(gt_types == 1, 1, 2))
+ar_path_count <- select(ar_path, temp_ref_gene, recessive_score) |> group_by(temp_ref_gene) |> 
+  summarise(recessive_cnt = sum(recessive_score), .groups = "drop")
+
+ar_path <- left_join(ar_path, ar_path_count, by = "temp_ref_gene") |> 
+  filter(recessive_cnt >= 2) |> 
+  arrange(desc(eyeGene), desc(knownAR), desc(maxpriorityscore), ref_gene, desc(priority_score)) |> 
+  select(-maxpriorityscore, -knownAR, -recessive_cnt, -temp_ref_gene, -recessive_score) |> 
+  mutate(note = ifelse(ref_gene %in% c("PRPH2", "ROM1", "PCDH15", "CDH23", "CNGA1", "CNGB1", "CNGA3", "CNGB3"), 
+                       ifelse(note == "", "Digenic?", paste0(note, "; Digenic?")), note) )
+
+ad_path <- gemini_filtered3 %>% filter(recessive_cnt == 1 & !omim_inheritance %in% c("AR") | recessive_cnt >=2 & grepl("AD", omim_inheritance)) %>% 
+  arrange(desc(eyeGene), desc(maxpriorityscore), ref_gene, desc(priority_score)) %>% 
+  select(-maxpriorityscore, -recessive_cnt, -temp_ref_gene) |> 
+  filter(caller == "fbDvg", (clinvar_hgmd_score == 6 & (is.na(omim_inheritance) | grepl("AD|XLD", omim_inheritance))) 
+                             | ( grepl("pathogenic", clnsigconf, ignore.case = TRUE) ) & grepl("AD|XLD", omim_inheritance)
+                             | (pvs1 == 1 & (is.na(clnsig) | clinvar_hgmd_score >= 3) )
+         )
+ 
+path <- rbind(ar_path, ad_path) |> distinct()
+
+#openxlsx::write.xlsx(list("AR" = ar_path, "AD" = ad_path), file = "test.xlsx", firstRow = TRUE, firstCol = TRUE, keepNA = FALSE)
+
 ar_high <- gemini_filtered3 |> filter(caller == "fbDvg", is.na(gno2e3g_hom)|gno2e3g_hom < 3, af_oglx < 0.02, af_oglg < 0.02, max_af < 0.02, pmaxaf < 0.02,
                                       prscore_intervar > 5 | clinvar_hgmd_score > 3 | splice_score >= 6 | truncating_vep == 1 | insilico_score > 3 ) |> 
   mutate(recessive_score = ifelse(gt_types == 1, 1, 2)) |> 
@@ -690,14 +717,14 @@ summaryInfo <- data.frame("sample" = sampleName, "PatientDxPhenotype" = NA, "DxO
 #scramble_del_file == "filePlaceholder", genome as scramble_del is not run for genome.
 #is.na(convading_file): exome 
 if (scramble_del_file == "filePlaceholder") {
-  openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "MT" = mutserve, "ACMG" = acmg, "all" = gemini_filtered1, "highImpact" = high_impact, "rareRef" = gemini_ref_var_rearrangeCol, "clinSV" = clinsv, "manta" = manta_sort, "jaxCNV" = jaxcnv_sort, "scramble_mei" = scramble_mei, "roh" = roh, "config" = config, "summary" = summaryInfo), file = gemini_xlsx_file, firstRow = TRUE, firstCol = TRUE, keepNA = FALSE)
+  openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "MT" = mutserve, "ACMG" = acmg, "all" = gemini_filtered1, "path" = path, "highImpact" = high_impact, "rareRef" = gemini_ref_var_rearrangeCol, "clinSV" = clinsv, "manta" = manta_sort, "jaxCNV" = jaxcnv_sort, "scramble_mei" = scramble_mei, "roh" = roh, "config" = config, "summary" = summaryInfo), file = gemini_xlsx_file, firstRow = TRUE, firstCol = TRUE, keepNA = FALSE)
 } else if (is.na(convading_file)) {
-  openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG" = acmg, "all" = gemini_filtered1, "highImpact" = high_impact, "rareRef" = gemini_ref_var_rearrangeCol, "manta" = manta_sort, "scramble_mei" = scramble_mei, "scramble_del" = scramble_del_sort, "roh" = roh, "config" = config, "summary" = summaryInfo), file = gemini_xlsx_file, firstRow = TRUE, firstCol = TRUE, keepNA = FALSE)
+  openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG" = acmg, "all" = gemini_filtered1, "path" = path, "highImpact" = high_impact, "rareRef" = gemini_ref_var_rearrangeCol, "manta" = manta_sort, "scramble_mei" = scramble_mei, "scramble_del" = scramble_del_sort, "roh" = roh, "config" = config, "summary" = summaryInfo), file = gemini_xlsx_file, firstRow = TRUE, firstCol = TRUE, keepNA = FALSE)
 } else {
     cnv <- read_tsv(convading_file, col_names = TRUE, na = c("NA", "", "None", "NONE", "."), col_types = cols(.default = col_character())) %>%
       type_convert() 
     if (dim(cnv)[1] == 0) {
-      openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG" = acmg, "all" = gemini_filtered1,  "highImpact" = high_impact, "rareRef" = gemini_ref_var_rearrangeCol, "manta" = manta_sort, "scramble_mei" = scramble_mei, "scramble_del" = scramble_del_sort, "config" = config, "summary" = summaryInfo), file = gemini_xlsx_file, firstRow = TRUE, firstCol = TRUE, keepNA = FALSE)
+      openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG" = acmg, "all" = gemini_filtered1,  "path" = path, "highImpact" = high_impact, "rareRef" = gemini_ref_var_rearrangeCol, "manta" = manta_sort, "scramble_mei" = scramble_mei, "scramble_del" = scramble_del_sort, "config" = config, "summary" = summaryInfo), file = gemini_xlsx_file, firstRow = TRUE, firstCol = TRUE, keepNA = FALSE)
     } else {
       cnv_gene <- as.list(distinct(cnv, GENE)[[1]])
       #cnv_gene <- dplyr::pull(cnv, GENE) #pull column as a vector
@@ -708,7 +735,7 @@ if (scramble_del_file == "filePlaceholder") {
         select('chr_variant_id', 'chrom', 'start', 'qual', 'filter', starts_with('gts'), starts_with('gt_'), 'LAF', 'ref_gene', 'exon', 'ref_gene',  
               'refgenewithver', 'exonicfunc_refgenewithver', 'hgvsc', 'hgvsp', 'type') %>% 
         rename(gene = ref_gene)
-      openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG" = acmg, "all" = gemini_filtered1, "highImpact" = high_impact, "rareRef" = gemini_ref_var_rearrangeCol, "CoNVaDING" = cnv, "CNV-variant" = cnv_variant, "manta" = manta_sort, "scramble_mei" = scramble_mei, "scramble_del" = scramble_del_sort, "config" = config, "summary" = summaryInfo), file = gemini_xlsx_file, firstRow = TRUE, firstCol = TRUE, keepNA = FALSE)
+      openxlsx::write.xlsx(list("AR" = ar, "AD" = ad, "XR" = xR, "XD" = xD, "ACMG" = acmg, "all" = gemini_filtered1, "path" = path, "highImpact" = high_impact, "rareRef" = gemini_ref_var_rearrangeCol, "CoNVaDING" = cnv, "CNV-variant" = cnv_variant, "manta" = manta_sort, "scramble_mei" = scramble_mei, "scramble_del" = scramble_del_sort, "config" = config, "summary" = summaryInfo), file = gemini_xlsx_file, firstRow = TRUE, firstCol = TRUE, keepNA = FALSE)
       cnv_edit <- cnv %>% 
         mutate(START = START - 100, STOP = STOP + 100, type = "snp") %>% #padding of 100 nt
         gather(START:STOP, key = "datatype", value = "position") %>% 

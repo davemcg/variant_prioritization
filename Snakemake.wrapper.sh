@@ -65,7 +65,7 @@ snakemake -s $snakefile \
 -pr --local-cores 4 --jobs 1999 --max-jobs-per-second 1 \
 --cluster-config $json \
 --cluster "$sbcmd"  --latency-wait 120 --rerun-incomplete \
--k --restart-times 0 --resources res=4 \
+-k --restart-times 1 --resources res=4 \
 --configfile $@
 
 if (( $(echo $WORK_DIR | grep "/data/OGL" | wc -l) > 0 )); then
